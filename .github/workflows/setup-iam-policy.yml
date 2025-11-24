@@ -1,0 +1,88 @@
+name: Setup IAM Policy (One-time)
+
+on:
+  workflow_dispatch:
+    inputs:
+      github_actions_user:
+        description: 'IAM user name for GitHub Actions'
+        required: true
+        default: 'github-actions-dobby'
+      staging_bucket:
+        description: 'S3 bucket name for staging'
+        required: true
+        default: 'dobby-staging'
+      production_bucket:
+        description: 'S3 bucket name for production'
+        required: true
+        default: 'dobby-production'
+
+jobs:
+  setup-iam:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Get AWS Account ID
+        id: get-account-id
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "account_id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+          echo "AWS Account ID: $ACCOUNT_ID"
+
+      - name: Deploy IAM Policy CloudFormation Stack
+        id: deploy-stack
+        run: |
+          aws cloudformation deploy \
+            --template-file cloudformation/iam-policy.yaml \
+            --stack-name dobby-github-actions-iam-policy \
+            --region ${{ secrets.AWS_REGION }} \
+            --parameter-overrides \
+              AccountId=${{ steps.get-account-id.outputs.account_id }} \
+              GitHubActionsUser=${{ inputs.github_actions_user }} \
+              StagingBucketName=${{ inputs.staging_bucket }} \
+              ProductionBucketName=${{ inputs.production_bucket }} \
+            --capabilities CAPABILITY_NAMED_IAM || EXIT_CODE=$?
+          
+          if [ "${EXIT_CODE:-0}" != "0" ]; then
+            echo "❌ Stack deployment failed. Getting stack events..."
+            aws cloudformation describe-stack-events \
+              --stack-name dobby-github-actions-iam-policy \
+              --region ${{ secrets.AWS_REGION }} \
+              --max-items 10 \
+              --query "StackEvents[?ResourceStatus=='CREATE_FAILED' || ResourceStatus=='UPDATE_FAILED'].[Timestamp,ResourceType,ResourceStatus,ResourceStatusReason]" \
+              --output table || true
+            exit $EXIT_CODE
+          fi
+
+      - name: Verify Policy Created and Attached
+        run: |
+          POLICY_ARN=$(aws cloudformation describe-stacks \
+            --stack-name dobby-github-actions-iam-policy \
+            --region ${{ secrets.AWS_REGION }} \
+            --query "Stacks[0].Outputs[?OutputKey=='PolicyArn'].OutputValue" \
+            --output text)
+          
+          echo "✅ Policy created: $POLICY_ARN"
+          
+          # Verify policy is attached to user (AWS::IAM::Policy attaches automatically via Users property)
+          USER_POLICIES=$(aws iam list-user-policies \
+            --user-name ${{ inputs.github_actions_user }} \
+            --region ${{ secrets.AWS_REGION }} \
+            --query "PolicyNames" \
+            --output text 2>/dev/null || echo "")
+          
+          if echo "$USER_POLICIES" | grep -q "DobbyGitHubActionsDeployPolicy"; then
+            echo "✅ Policy successfully attached to user ${{ inputs.github_actions_user }}"
+          else
+            echo "⚠️ Policy may be attached via inline policy (check IAM console)"
+            echo "Policy ARN: $POLICY_ARN"
+          fi
+

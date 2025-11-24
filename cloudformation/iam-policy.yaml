@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'IAM Policy for Dobby GitHub Actions deployment'
+
+Parameters:
+  AccountId:
+    Type: String
+    Description: AWS Account ID
+    Default: '123456789012'  # Replace with your account ID
+  
+  GitHubActionsUser:
+    Type: String
+    Description: Name of the IAM user for GitHub Actions
+    Default: 'github-actions-dobby'
+  
+  StagingBucketName:
+    Type: String
+    Description: Name of the S3 bucket for staging
+    Default: 'dobby-staging'
+  
+  ProductionBucketName:
+    Type: String
+    Description: Name of the S3 bucket for production
+    Default: 'dobby-production'
+
+Resources:
+  # IAM Policy for GitHub Actions
+  # Using AWS::IAM::Policy instead of ManagedPolicy because it supports Users property
+  DobbyGitHubActionsDeployPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: DobbyGitHubActionsDeployPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Secrets Manager access
+          - Sid: SecretsManagerAccess
+            Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+              - secretsmanager:DescribeSecret
+            Resource:
+              - !Sub 'arn:aws:secretsmanager:us-east-1:${AccountId}:secret:dobby-staging-*'
+              - !Sub 'arn:aws:secretsmanager:us-east-1:${AccountId}:secret:dobby-production-*'
+          
+          # S3 Bucket access (for ListBucket)
+          - Sid: S3BucketAccess
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+            Resource:
+              - !Sub 'arn:aws:s3:::${StagingBucketName}'
+              - !Sub 'arn:aws:s3:::${ProductionBucketName}'
+          
+          # S3 Object access (for PutObject, GetObject)
+          - Sid: S3ObjectAccess
+            Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+            Resource:
+              - !Sub 'arn:aws:s3:::${StagingBucketName}/*'
+              - !Sub 'arn:aws:s3:::${ProductionBucketName}/*'
+          
+          # CloudFront invalidation
+          - Sid: CloudFrontInvalidation
+            Effect: Allow
+            Action:
+              - cloudfront:CreateInvalidation
+            Resource: '*'
+      Users:
+        - !Ref GitHubActionsUser
+
+Outputs:
+  PolicyArn:
+    Description: ARN of the created IAM policy
+    Value: !GetAtt DobbyGitHubActionsDeployPolicy.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-PolicyArn'
+  
+  PolicyAttachmentStatus:
+    Description: Status of policy attachment to user
+    Value: !Sub 'Policy attached to user ${GitHubActionsUser}'
+

@@ -1,0 +1,95 @@
+name: Staging deployment
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+  deployment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Read secrets from AWS Secrets Manager into environment variables
+        uses: abhilash1in/aws-secrets-manager-action@v2.0.0
+        with:
+          secrets: dobby-staging
+          parse-json: true
+
+      - name: Create .env file
+        env:
+          ENV_FILE: .env
+        run: |
+          touch "$ENV_FILE"
+          echo "PUBLIC_FIREBASE_API_KEY=${{ env.FIREBASE_API_KEY }}" >> "$ENV_FILE"
+          echo "PUBLIC_FIREBASE_AUTH_DOMAIN=${{ env.FIREBASE_AUTH_DOMAIN }}" >> "$ENV_FILE"
+          echo "PUBLIC_FIREBASE_PROJECT_ID=${{ env.FIREBASE_PROJECT_ID }}" >> "$ENV_FILE"
+          echo "PUBLIC_FIREBASE_STORAGE_BUCKET=${{ env.FIREBASE_STORAGE_BUCKET }}" >> "$ENV_FILE"
+          echo "PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ env.FIREBASE_MESSAGING_SENDER_ID }}" >> "$ENV_FILE"
+          echo "PUBLIC_FIREBASE_APP_ID=${{ env.FIREBASE_APP_ID }}" >> "$ENV_FILE"
+          echo "PUBLIC_AZKABAN_API_URL=${{ env.AZKABAN_API_URL }}" >> "$ENV_FILE"
+          echo "PUBLIC_CASSANDRA_API_URL=${{ env.CASSANDRA_API_URL }}" >> "$ENV_FILE"
+
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build static files
+        run: |
+          npm run build
+
+      - name: Check IAM Policy (Troubleshooting)
+        continue-on-error: true
+        run: |
+          echo "🔍 Checking if IAM policy exists..."
+          POLICY_EXISTS=$(aws iam get-policy --policy-arn "arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/DobbyGitHubActionsDeployPolicy" 2>/dev/null && echo "yes" || echo "no")
+          if [ "$POLICY_EXISTS" = "no" ]; then
+            echo ""
+            echo "⚠️  ERROR: IAM Policy not found!"
+            echo ""
+            echo "📋 SOLUTION: You need to create the IAM policy first."
+            echo ""
+            echo "Option 1: Run the 'Setup IAM Policy (One-time)' workflow:"
+            echo "  1. Go to: https://github.com/${{ github.repository }}/actions"
+            echo "  2. Find 'Setup IAM Policy (One-time)' workflow"
+            echo "  3. Click 'Run workflow' and execute it"
+            echo ""
+            echo "Option 2: Create manually (see POLITICA_IAM_GITHUB_ACTIONS.md)"
+            echo ""
+            exit 1
+          else
+            echo "✅ IAM Policy exists"
+          fi
+
+      - name: Upload static files to S3
+        run: |
+          # Sync files to S3 (without delete - requires only s3:PutObject and s3:ListBucket)
+          # Note: Old files will remain in the bucket. Manual cleanup may be needed periodically.
+          aws s3 sync dist s3://dobby-staging
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"

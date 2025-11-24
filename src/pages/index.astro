@@ -1,0 +1,18 @@
+---
+import DashboardLayout from "../layouts/DashboardLayout.astro";
+import AuthGuard from "../components/atoms/auth-guard.vue";
+
+const lang = "es";
+const title = "Dobby - Dashboard";
+---
+<DashboardLayout title={title} lang={lang} pageTitle="Dashboard">
+  <AuthGuard client:load>
+    <div class="p-8">
+      <h1 class="text-3xl font-bold mb-4">Bienvenido a Dobby</h1>
+      <p class="text-neutral-80">
+        Sistema de backoffice interno de Littio
+      </p>
+    </div>
+  </AuthGuard>
+</DashboardLayout>
+
