@@ -1,0 +1,160 @@
+---
+import DashboardLayout from "../layouts/DashboardLayout.astro";
+import AuthGuard from "../components/atoms/auth-guard.vue";
+
+const lang = "es";
+const title = "Dobby - Dashboard";
+---
+<DashboardLayout title={title} lang={lang} pageTitle="Dashboard">
+  <AuthGuard client:load>
+    <div class="p-8 flex flex-col items-center justify-center min-h-full">
+      <!-- Logo -->
+      <div class="mb-8">
+        <div class="w-24 h-24 bg-littio-primary-billionaire rounded-lg flex items-center justify-center mx-auto mb-6">
+          <svg
+            class="w-16 h-16 text-white"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Main Title -->
+      <h1 class="text-4xl font-bold text-neutral-80 mb-4 text-center">
+        Bienvenido al Sistema Financiero de Littio
+      </h1>
+
+      <!-- Subtitle -->
+      <p class="text-lg text-neutral-60 mb-12 text-center max-w-2xl">
+        Escoge entre Bitácora y Ledger Master en el menú de la izquierda
+      </p>
+
+      <!-- Content Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl w-full">
+        <!-- Bitácora Card -->
+        <div class="bg-white rounded-lg border border-neutral-20 p-6">
+          <h2 class="text-2xl font-bold text-neutral-80 mb-3">Bitácora</h2>
+          <p class="text-neutral-60 mb-4">
+            Gestiona cuentas, transferencias internas y métricas financieras
+          </p>
+          <ul class="space-y-2">
+            <li class="flex items-start gap-2">
+              <svg
+                class="w-5 h-5 text-littio-secondary-sky mt-0.5 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+              <span class="text-neutral-70">Ver todas las cuentas por moneda</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <svg
+                class="w-5 h-5 text-littio-secondary-sky mt-0.5 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+              <span class="text-neutral-70">Realizar transferencias internas</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <svg
+                class="w-5 h-5 text-littio-secondary-sky mt-0.5 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+              <span class="text-neutral-70">Registro de transacciones</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Ledger Master Card -->
+        <div class="bg-white rounded-lg border border-neutral-20 p-6">
+          <h2 class="text-2xl font-bold text-neutral-80 mb-3">Ledger Master</h2>
+          <p class="text-neutral-60 mb-4">
+            Sistema de contabilidad de doble entrada y reconciliación
+          </p>
+          <ul class="space-y-2">
+            <li class="flex items-start gap-2">
+              <svg
+                class="w-5 h-5 text-littio-secondary-sky mt-0.5 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+              <span class="text-neutral-70">Vista de reconciliación de proveedores</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <svg
+                class="w-5 h-5 text-littio-secondary-sky mt-0.5 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+              <span class="text-neutral-70">Seguimiento diario de reconciliación</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <svg
+                class="w-5 h-5 text-littio-secondary-sky mt-0.5 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+              <span class="text-neutral-70">Libro mayor de transacciones</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </AuthGuard>
+</DashboardLayout>

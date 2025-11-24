@@ -1,0 +1,12 @@
+---
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
+import AuthGuard from "../../components/atoms/auth-guard.vue";
+import UsersContainer from "../../components/organisms/users-container.vue";
+---
+
+<DashboardLayout title="Dobby - Gestión de Usuarios" lang="es" pageTitle="Gestión de Usuarios.">
+  <AuthGuard client:load>
+    <UsersContainer client:load />
+  </AuthGuard>
+</DashboardLayout>
+
