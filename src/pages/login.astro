@@ -1,0 +1,13 @@
+---
+import AuthLayout from "../layouts/AuthLayout.astro";
+import LoginContainer from "../components/organisms/login-container.vue";
+
+const lang = "es";
+const title = "Dobby - Login";
+---
+<AuthLayout title={title} lang={lang} securityLevel="NONE" transparentNavbar={true}>
+  <div class="col-span-1 h-min sm:border sm:border-neutral-20">
+    <LoginContainer lang={lang} client:load />
+  </div>
+</AuthLayout>
+

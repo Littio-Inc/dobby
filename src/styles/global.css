@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Font faces */
+@font-face {
+  font-family: 'Satoshi-Variable';
+  src:
+    url('../fonts/Satoshi-Variable.woff2') format('woff2'),
+    url('../fonts/Satoshi-Variable.woff') format('woff'),
+    url('../fonts/Satoshi-Variable.ttf') format('truetype');
+  font-weight: 300 900;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'klein-bold';
+  src: url('../fonts/Klein-ExtraBold.otf') format('opentype');
+  font-weight: 800;
+  font-display: swap;
+  font-style: normal;
+}
+
+@layer base {
+  html {
+    font-family: 'Satoshi-Variable', sans-serif;
+  }
+  h1 {
+    font-family: 'klein-bold', sans-serif;
+    letter-spacing: -0.026em;
+  }
+  h2 {
+    font-family: 'klein-bold', sans-serif;
+    letter-spacing: -0.026em;
+  }
+  h3 {
+    font-family: 'Satoshi-Variable', sans-serif;
+  }
+
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+}

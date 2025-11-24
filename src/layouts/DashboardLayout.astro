@@ -1,0 +1,32 @@
+---
+import NavigationSidebar from "../components/organisms/navigation-sidebar.vue";
+import DashboardHeader from "../components/organisms/dashboard-header.vue";
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  lang: string;
+  pageTitle?: string;
+}
+
+const { title, lang, pageTitle = "Dashboard" } = Astro.props;
+---
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="/assets/favicon.png" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+  </head>
+  <body class="flex h-screen bg-[#FAFCFD] overflow-hidden">
+    <NavigationSidebar client:only="vue" />
+    <main class="flex-1 flex flex-col overflow-hidden min-w-0 ml-64">
+      <DashboardHeader client:load pageTitle={pageTitle} />
+      <div class="flex-1 overflow-y-auto">
+        <slot />
+      </div>
+    </main>
+  </body>
+</html>
+

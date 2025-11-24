@@ -1,0 +1,55 @@
+# build output
+dist/
+.output/
+# generated types
+.astro/
+
+# Docker (production Dockerfile not needed, only Dockerfile.dev for local)
+Dockerfile
+
+# Deployment scripts (GitHub Actions handles deployment)
+deploy.sh
+
+# Nginx config (not needed, Astro has its own dev server)
+nginx.conf
+
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Visual Studio files
+.vscode/
+.vs/
+
+# environment variables
+.env
+.env.production
+.env.local
+.env.*.local
+# Keep .env.example in repo
+!.env.example
+
+# editor directories
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS-specific files
+.DS_Store
+
+# jetbrains setting folder
+.idea/
+
+# OS
+Thumbs.db
+
+coverage/
+/docs/
+
+
