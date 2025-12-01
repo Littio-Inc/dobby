@@ -4,7 +4,7 @@
     <div class="flex items-start justify-between gap-4 pb-4 border-b border-neutral-20">
       <div class="space-y-1">
         <h2 class="text-2xl font-bold text-neutral-80 mb-1">
-          Dashboard de Saldos Fireblocks
+          Dashboard de Saldos Diagon
         </h2>
         <p class="text-sm text-neutral-60">
           Resumen de saldos por token y desglose por wallet interna
@@ -56,8 +56,34 @@
       </div>
     </div>
 
+    <!-- Error Message -->
+    <div
+      v-if="error"
+      class="bg-red-50 border border-red-200 rounded-lg p-4"
+    >
+      <p class="text-red-800 text-sm">
+        {{ error }}
+      </p>
+    </div>
+
+    <!-- Loading State -->
+    <div
+      v-if="isLoading && wallets.length === 0"
+      class="flex items-center justify-center py-12"
+    >
+      <div class="text-center">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-littio-secondary-sky mb-4" />
+        <p class="text-neutral-60">
+          Cargando datos...
+        </p>
+      </div>
+    </div>
+
     <!-- Balance Cards Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div
+      v-else
+      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+    >
       <div
         v-for="token in tokens"
         :key="token.symbol"
@@ -73,22 +99,6 @@
           >
             {{ token.symbol }}
           </span>
-          <div
-            :class="[
-              'flex items-center gap-1 text-sm font-semibold',
-              token.change >= 0 ? 'text-green-600' : 'text-red-600',
-            ]"
-          >
-            <ArrowUpIcon
-              v-if="token.change >= 0"
-              class="w-4 h-4"
-            />
-            <ArrowDownIcon
-              v-else
-              class="w-4 h-4"
-            />
-            {{ Math.abs(token.change).toFixed(2) }}%
-          </div>
         </div>
 
         <!-- Balance -->
@@ -112,9 +122,12 @@
     </div>
 
     <!-- Wallets List Section -->
-    <div class="space-y-4">
+    <div
+      v-if="!isLoading || wallets.length > 0"
+      class="space-y-4"
+    >
       <h3 class="text-xl font-bold text-neutral-80">
-        Wallets Fireblocks
+        Wallets Diagon
       </h3>
 
       <!-- Search and Filters -->
@@ -182,6 +195,17 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-neutral-20">
+              <tr
+                v-if="filteredWallets.length === 0"
+                class="hover:bg-neutral-10"
+              >
+                <td
+                  colspan="6"
+                  class="px-6 py-8 text-center text-neutral-60"
+                >
+                  No se encontraron wallets
+                </td>
+              </tr>
               <tr
                 v-for="wallet in filteredWallets"
                 :key="wallet.id"
@@ -263,6 +287,7 @@ import {
   DocumentDuplicateIcon,
   EllipsisVerticalIcon,
 } from '@heroicons/vue/24/outline';
+import { DiagonService, type DiagonWallet } from '../../services/api';
 
 interface Token {
   symbol: string;
@@ -272,117 +297,43 @@ interface Token {
   badgeColor: string;
 }
 
-interface Wallet {
-  id: string;
-  name: string;
-  type: 'Vault' | 'OTC' | 'Proveedor' | 'Operativa';
-  blockchain: string;
-  provider: string | null;
-  balanceEth: number;
-}
-
-// Datos quemados de Fireblocks (actualizados según la imagen)
-const tokens = ref<Token[]>([
-  {
-    symbol: 'USDT',
-    balance: 330000.0,
-    change: 1.99,
-    walletsCount: 7,
-    badgeColor: 'bg-green-100 text-green-700',
-  },
-  {
-    symbol: 'USDC',
-    balance: 435000.0,
-    change: -3.88,
-    walletsCount: 7,
-    badgeColor: 'bg-blue-100 text-blue-700',
-  },
-  {
-    symbol: 'ETH',
-    balance: 86.1,
-    change: 4.87,
-    walletsCount: 7,
-    badgeColor: 'bg-purple-100 text-purple-700',
-  },
-  {
-    symbol: 'DAI',
-    balance: 185000.0,
-    change: 2.19,
-    walletsCount: 7,
-    badgeColor: 'bg-orange-100 text-orange-700',
-  },
-]);
-
-const lastUpdateTime = ref('14:50:57');
+const wallets = ref<DiagonWallet[]>([]);
+const tokens = ref<Token[]>([]);
+const isLoading = ref(false);
+const error = ref<string | null>(null);
+const lastUpdateTime = ref('');
 const isAutoRefreshActive = ref(true);
 let updateInterval: ReturnType<typeof setInterval> | null = null;
+let dataRefreshInterval: ReturnType<typeof setInterval> | null = null;
 
-// Wallets data
-const wallets = ref<Wallet[]>([
-  {
-    id: 'fb-vault-01',
-    name: 'Vault Principal',
-    type: 'Vault',
-    blockchain: 'Ethereum',
-    provider: null,
-    balanceEth: 45.5,
-  },
-  {
-    id: 'fb-otc-01',
-    name: 'OTC Trading',
-    type: 'OTC',
-    blockchain: 'Ethereum',
-    provider: null,
-    balanceEth: 12.3,
-  },
-  {
-    id: 'supra-wallet',
-    name: 'Supra Wallet',
-    type: 'Proveedor',
-    blockchain: 'Polygon',
-    provider: 'Supra',
-    balanceEth: 5.2,
-  },
-  {
-    id: 'cobre-wallet',
-    name: 'Cobre Wallet',
-    type: 'Proveedor',
-    blockchain: 'Ethereum',
-    provider: 'Cobre',
-    balanceEth: 8.7,
-  },
-  {
-    id: 'kira-wallet',
-    name: 'Kira Wallet',
-    type: 'Proveedor',
-    blockchain: 'BSC',
-    provider: 'Kira',
-    balanceEth: 3.1,
-  },
-  {
-    id: 'bridge-b2c',
-    name: 'Bridge B2C',
-    type: 'Operativa',
-    blockchain: 'Arbitrum',
-    provider: 'Bridge',
-    balanceEth: 6.5,
-  },
-  {
-    id: 'koywe-b2c',
-    name: 'Koywe B2C',
-    type: 'Operativa',
-    blockchain: 'Polygon',
-    provider: 'Koywe',
-    balanceEth: 4.8,
-  },
-]);
+const loadData = async () => {
+  isLoading.value = true;
+  error.value = null;
+  
+  try {
+    const { wallets: walletsData, tokenBalances: tokenBalancesData } = await DiagonService.refreshAllData();
+    
+    wallets.value = walletsData;
+    tokens.value = tokenBalancesData;
+    
+    const now = new Date();
+    lastUpdateTime.value = now.toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  } catch (err: any) {
+    console.error('[FireblocksDashboard] Error loading data:', err);
+    error.value = err.message || 'Error al cargar los datos';
+  } finally {
+    isLoading.value = false;
+  }
+};
 
-// Search and filters
 const searchQuery = ref('');
 const selectedType = ref('all');
 const selectedProvider = ref('all');
 
-// Filtered wallets
 const filteredWallets = computed(() => {
   return wallets.value.filter((wallet) => {
     const matchesSearch =
@@ -419,24 +370,9 @@ const formatBalance = (balance: number): string => {
   });
 };
 
-const toggleAutoRefresh = () => {
-  isAutoRefreshActive.value = !isAutoRefreshActive.value;
-  if (isAutoRefreshActive.value && !updateInterval) {
-    startUpdateInterval();
-  } else if (!isAutoRefreshActive.value && updateInterval) {
-    clearInterval(updateInterval);
-    updateInterval = null;
-  }
-};
 
-const handleRefresh = () => {
-  const now = new Date();
-  lastUpdateTime.value = now.toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-  // TODO: Implementar lógica de refresh de datos
+const handleRefresh = async () => {
+  await loadData();
 };
 
 const handleViewWallets = (symbol: string) => {
@@ -480,6 +416,7 @@ const startUpdateInterval = () => {
   if (updateInterval) {
     clearInterval(updateInterval);
   }
+  // Actualizar el reloj cada segundo
   updateInterval = setInterval(() => {
     if (isAutoRefreshActive.value) {
       const now = new Date();
@@ -492,13 +429,49 @@ const startUpdateInterval = () => {
   }, 1000);
 };
 
-onMounted(() => {
+const startDataRefreshInterval = () => {
+  if (dataRefreshInterval) {
+    clearInterval(dataRefreshInterval);
+  }
+  // Refrescar datos cada 30 segundos si está activo
+  dataRefreshInterval = setInterval(() => {
+    if (isAutoRefreshActive.value) {
+      loadData();
+    }
+  }, 30000);
+};
+
+const toggleAutoRefresh = () => {
+  isAutoRefreshActive.value = !isAutoRefreshActive.value;
+  if (isAutoRefreshActive.value) {
+    startUpdateInterval();
+    startDataRefreshInterval();
+  } else {
+    if (updateInterval) {
+      clearInterval(updateInterval);
+      updateInterval = null;
+    }
+    if (dataRefreshInterval) {
+      clearInterval(dataRefreshInterval);
+      dataRefreshInterval = null;
+    }
+  }
+};
+
+onMounted(async () => {
   startUpdateInterval();
+  await loadData();
+  if (isAutoRefreshActive.value) {
+    startDataRefreshInterval();
+  }
 });
 
 onUnmounted(() => {
   if (updateInterval) {
     clearInterval(updateInterval);
+  }
+  if (dataRefreshInterval) {
+    clearInterval(dataRefreshInterval);
   }
 });
 </script>

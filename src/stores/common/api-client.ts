@@ -1,7 +1,6 @@
 import axios, { type AxiosError } from 'axios';
 import { getIdToken } from '../auth-store';
 
-// API client for Azkaban (authentication service)
 export const azkabanApi = axios.create({
   baseURL: import.meta.env.PUBLIC_AZKABAN_API_URL || 'http://localhost:8001',
   timeout: 30000,
@@ -10,9 +9,6 @@ export const azkabanApi = axios.create({
   },
 });
 
-// API client for Cassandra (payouts service)
-// In production, Cassandra uses AWS IAM authentication
-// In local development, we can call directly without IAM
 export const cassandraApi = axios.create({
   baseURL: import.meta.env.PUBLIC_CASSANDRA_API_URL || 'https://jxxg0opg96.execute-api.us-east-1.amazonaws.com',
   timeout: 30000,
@@ -21,7 +17,21 @@ export const cassandraApi = axios.create({
   },
 });
 
-// Request interceptor for Azkaban: Add Firebase ID Token
+const getDiagonBaseURL = () => {
+  if (import.meta.env.DEV) {
+    return '/api/diagon';
+  }
+  return import.meta.env.PUBLIC_DIAGON_API_URL || 'https://a3a9mlmbsk.execute-api.us-east-1.amazonaws.com/staging';
+};
+
+export const diagonApi = axios.create({
+  baseURL: getDiagonBaseURL(),
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
 azkabanApi.interceptors.request.use(
   async (config) => {
     try {
@@ -31,7 +41,6 @@ azkabanApi.interceptors.request.use(
         console.log('[API-Client] Token added to request:', config.url);
       } else {
         console.error('[API-Client] No token available for request:', config.url);
-        // Don't make the request if there's no token
         throw new Error('No authentication token available');
       }
     } catch (error) {
@@ -45,12 +54,8 @@ azkabanApi.interceptors.request.use(
   },
 );
 
-// Request interceptor for Cassandra: Add Firebase ID Token (for local dev)
-// In production, AWS IAM handles authentication
 cassandraApi.interceptors.request.use(
   async (config) => {
-    // In local development, we can add token if needed
-    // In production, AWS IAM handles this automatically
     if (import.meta.env.DEV) {
       const token = await getIdToken();
       if (token) {
@@ -64,19 +69,34 @@ cassandraApi.interceptors.request.use(
   },
 );
 
-// Response interceptor: Handle errors and refresh token
-const handleAuthError = async (error: AxiosError, apiInstance: typeof azkabanApi | typeof cassandraApi) => {
+diagonApi.interceptors.request.use(
+  async (config) => {
+    try {
+      const apiKey = import.meta.env.PUBLIC_X_API_KEY_DIAGON || import.meta.env.X_API_KEY_DIAGON;
+      
+      if (apiKey) {
+        config.headers['X-API-KEY'] = apiKey;
+      } else {
+        throw new Error('X_API_KEY_DIAGON environment variable is required. Use PUBLIC_X_API_KEY_DIAGON in .env file');
+      }
+    } catch (error) {
+      throw error;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  },
+);
+
+const handleAuthError = async (error: AxiosError, apiInstance: typeof azkabanApi | typeof cassandraApi | typeof diagonApi) => {
   if (error.response?.status === 401) {
-    // Token expired - Firebase handles refresh automatically
     const { login } = await import('../auth-store');
-    // Try to get new token
     const newToken = await getIdToken();
     if (newToken && error.config) {
-      // Retry request with new token
       error.config.headers.Authorization = `Bearer ${newToken}`;
       return apiInstance.request(error.config);
     } else {
-      // If no token, redirect to login
       await login();
     }
   }
@@ -93,5 +113,9 @@ cassandraApi.interceptors.response.use(
   async (error: AxiosError) => handleAuthError(error, cassandraApi),
 );
 
-// Default export for backward compatibility (points to Azkaban)
+diagonApi.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => handleAuthError(error, diagonApi),
+);
+
 export default azkabanApi;
