@@ -65,7 +65,6 @@ jobs:
         run: |
           aws s3 sync dist s3://dobby2-staging --delete
 
-
       - name: Invalidate CloudFront cache
         run: |
           aws cloudfront create-invalidation --distribution-id ${{ env.DOBBY_STAGING_CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"

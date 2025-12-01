@@ -18,9 +18,8 @@ services:
       PUBLIC_AZKABAN_API_URL: ${PUBLIC_AZKABAN_API_URL:-http://localhost:8001}
       PUBLIC_CASSANDRA_API_URL: ${PUBLIC_CASSANDRA_API_URL:-https://jxxg0opg96.execute-api.us-east-1.amazonaws.com}
     ports:
-      - "4321:4321"
+      - '4321:4321'
     volumes:
       - .:/app
       - /app/node_modules
     command: npm run dev
-

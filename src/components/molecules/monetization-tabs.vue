@@ -26,4 +26,3 @@ defineEmits<{
   'update:activeTab': [value: string];
 }>();
 </script>
-
