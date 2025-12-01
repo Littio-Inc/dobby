@@ -113,17 +113,12 @@ const menuItems = computed(() => {
       path: '/monetization/index.html',
       icon: CurrencyDollarIcon,
     },
-    { id: 'finops', name: 'FinOps', path: '/finops', icon: CurrencyDollarIcon },
-    { id: 'cs', name: 'Customer Success', path: '/cs', icon: UserGroupIcon },
     {
-      id: 'accounting',
-      name: 'Contabilidad',
-      path: '/accounting/index.html',
+      id: 'back-office-movements',
+      name: 'Movimientos Back Office',
+      path: '/back-office-movements/index.html',
       icon: DocumentTextIcon,
-    },
-    { id: 'marketing', name: 'Marketing', path: '/marketing', icon: MegaphoneIcon },
-    { id: 'hr', name: 'Recursos Humanos', path: '/hr', icon: BriefcaseIcon },
-    { id: 'admin', name: 'Administración', path: '/admin', icon: Cog6ToothIcon },
+    }
   ];
 
   // Only show Users menu item if user is admin

@@ -2,12 +2,7 @@ export enum Route {
   LOGIN = '/login/index.html',
   DASHBOARD = '/index.html',
   MONETIZATION = '/monetization/index.html',
-  FINOPS = '/finops/index.html',
-  CS = '/cs/index.html',
-  ACCOUNTING = '/accounting/index.html',
-  MARKETING = '/marketing/index.html',
-  HR = '/hr/index.html',
-  ADMIN = '/admin/index.html',
+  BACK_OFFICE_MOVEMENTS = '/back-office-movements/index.html',
   USERS = '/admin/users/index.html',
 }
 
