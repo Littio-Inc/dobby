@@ -44,13 +44,13 @@ const parseAssetId = (assetId: string): { token: string; blockchain: string } =>
   const parts = assetId.split('_');
   const assetIdUpper = assetId.toUpperCase();
   
-  // Tokens conocidos que pueden aparecer en el ID
   const knownTokens = ['USDC', 'USDT', 'ETH', 'BTC', 'DAI', 'MATIC', 'POL', 'WBTC', 'WETH'];
   
-  // Detectar blockchain
   const blockchainMap: Record<string, string> = {
     'POLYGON': 'Polygon',
     'AMOY': 'Polygon',
+    'BITCOIN': 'Bitcoin',
+    'BTC': 'Bitcoin',
   };
   
   let blockchain = 'Unknown';
@@ -63,6 +63,13 @@ const parseAssetId = (assetId: string): { token: string; blockchain: string } =>
   
   // Detectar el token
   let token = parts[0].toUpperCase();
+  
+  // Si el token es BTC, la blockchain debe ser Bitcoin
+  if (token === 'BTC' || assetIdUpper.startsWith('BTC_')) {
+    token = 'BTC';
+    blockchain = 'Bitcoin';
+    return { token, blockchain };
+  }
   
   // Si el primer elemento es AMOY o POLYGON, buscar el token real
   if (token === 'AMOY' || token === 'POLYGON') {
@@ -85,6 +92,11 @@ const parseAssetId = (assetId: string): { token: string; blockchain: string } =>
   // Si el token es MATIC, normalizarlo a POL para consistencia
   if (token === 'MATIC') {
     token = 'POL';
+  }
+  
+  // Si no se detectó blockchain pero el token es conocido, usar Ethereum por defecto (excepto BTC)
+  if (blockchain === 'Unknown' && token !== 'BTC') {
+    blockchain = 'Ethereum';
   }
   
   return { token, blockchain };

@@ -113,22 +113,49 @@
 
         <!-- Action Button -->
         <button
-          class="w-full px-4 py-2 border border-neutral-20 rounded hover:bg-neutral-20/20 transition-colors text-sm font-medium"
+          :class="[
+            'w-full px-4 py-2 border rounded transition-colors text-sm font-medium',
+            selectedToken === token.symbol
+              ? 'border-littio-secondary-sky bg-littio-secondary-sky/10 text-littio-secondary-sky'
+              : 'border-neutral-20 hover:bg-neutral-20/20',
+          ]"
           @click="handleViewWallets(token.symbol)"
         >
-          Ver wallets
+          {{ selectedToken === token.symbol ? 'Ocultar wallets' : 'Ver wallets' }}
         </button>
       </div>
     </div>
 
     <!-- Wallets List Section -->
     <div
-      v-if="!isLoading || wallets.length > 0"
+      v-if="!isLoading && wallets.length > 0"
       class="space-y-4"
     >
-      <h3 class="text-xl font-bold text-neutral-80">
-        Wallets Diagon
-      </h3>
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-bold text-neutral-80">
+          Wallets Diagon
+        </h3>
+        <div
+          v-if="selectedToken"
+          class="flex items-center gap-2"
+        >
+          <span class="text-sm text-neutral-60">Mostrando wallets de:</span>
+          <span
+            :class="[
+              'px-3 py-1 rounded-full text-xs font-semibold',
+              tokens.find(t => t.symbol === selectedToken)?.badgeColor || 'bg-neutral-100 text-neutral-700',
+            ]"
+          >
+            {{ selectedToken }}
+          </span>
+          <button
+            class="text-sm text-neutral-60 hover:text-neutral-80 underline"
+            @click="selectedToken = null"
+          >
+            Limpiar filtro
+          </button>
+        </div>
+      </div>
 
       <!-- Search and Filters -->
       <div class="flex flex-col sm:flex-row gap-4">
@@ -187,7 +214,7 @@
                   Proveedor
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
-                  Balance ETH
+                  Balance{{ selectedToken ? ` ${selectedToken}` : '' }}
                 </th>
                 <th class="px-6 py-3 text-right text-xs font-semibold text-neutral-60 uppercase tracking-wider">
                   Acciones
@@ -254,7 +281,17 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                   <span class="text-sm font-medium text-neutral-80">
-                    {{ formatEthBalance(wallet.balanceEth) }} ETH
+                    <template v-if="selectedToken">
+                      {{ formatTokenBalance(getWalletTokenBalance(wallet.id, selectedToken)) }} {{ selectedToken }}
+                    </template>
+                    <template v-else>
+                      <template v-if="walletMainTokens[wallet.id]">
+                        {{ formatTokenBalance(walletMainTokens[wallet.id].balance) }} {{ walletMainTokens[wallet.id].token }}
+                      </template>
+                      <template v-else>
+                        -
+                      </template>
+                    </template>
                   </span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right">
@@ -287,7 +324,7 @@ import {
   DocumentDuplicateIcon,
   EllipsisVerticalIcon,
 } from '@heroicons/vue/24/outline';
-import { DiagonService, type DiagonWallet } from '../../services/api';
+import { DiagonService, type DiagonWallet, type DiagonAccountResponse, type DiagonAsset } from '../../services/api';
 
 interface Token {
   symbol: string;
@@ -298,7 +335,9 @@ interface Token {
 }
 
 const wallets = ref<DiagonWallet[]>([]);
+const accounts = ref<DiagonAccountResponse[]>([]);
 const tokens = ref<Token[]>([]);
+const selectedToken = ref<string | null>(null);
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 const lastUpdateTime = ref('');
@@ -311,10 +350,23 @@ const loadData = async () => {
   error.value = null;
   
   try {
-    const { wallets: walletsData, tokenBalances: tokenBalancesData } = await DiagonService.refreshAllData();
+    const accountsData = await DiagonService.getAccountsWithAssets();
+    accounts.value = accountsData;
+    
+    // Procesar los datos para obtener wallets y balances de tokens
+    const walletsData = accountsData.map((account) => ({
+      id: account.id,
+      name: account.name,
+      type: inferWalletType(account.name),
+      blockchain: getMainBlockchainFromAssets(account.assets),
+      provider: extractProviderFromName(account.name),
+      balanceEth: getEthBalanceFromAssets(account.assets),
+    }));
     
     wallets.value = walletsData;
-    tokens.value = tokenBalancesData;
+    
+    // Calcular balances de tokens
+    tokens.value = calculateTokenBalances(accountsData);
     
     const now = new Date();
     lastUpdateTime.value = now.toLocaleTimeString('es-ES', {
@@ -325,6 +377,10 @@ const loadData = async () => {
   } catch (err: any) {
     console.error('[FireblocksDashboard] Error loading data:', err);
     error.value = err.message || 'Error al cargar los datos';
+    // Asegurar que no haya datos residuales en caso de error
+    wallets.value = [];
+    accounts.value = [];
+    tokens.value = [];
   } finally {
     isLoading.value = false;
   }
@@ -334,8 +390,240 @@ const searchQuery = ref('');
 const selectedType = ref('all');
 const selectedProvider = ref('all');
 
+// Funciones helper para procesar los datos de accounts
+const inferWalletType = (name: string): 'Vault' | 'OTC' | 'Proveedor' | 'Operativa' => {
+  const nameLower = name.toLowerCase();
+  if (nameLower.includes('vault') || nameLower.includes('treasury')) return 'Vault';
+  if (nameLower.includes('otc') || nameLower.includes('trading')) return 'OTC';
+  if (nameLower.includes('supra') || nameLower.includes('cobre') || nameLower.includes('kira') || nameLower.includes('bridge') || nameLower.includes('koywe')) return 'Proveedor';
+  return 'Operativa';
+};
+
+const extractProviderFromName = (name: string): string | null => {
+  const providers = ['Supra', 'Cobre', 'Kira', 'Bridge', 'Koywe'];
+  for (const provider of providers) {
+    if (name.toLowerCase().includes(provider.toLowerCase())) {
+      return provider;
+    }
+  }
+  return null;
+};
+
+const getEthBalanceFromAssets = (assets: DiagonAsset[]): number => {
+  for (const asset of assets) {
+    const { token } = parseAssetId(asset.id);
+    if (token.toUpperCase() === 'ETH' || asset.id.includes('ETH')) {
+      return parseFloat(asset.balance) || 0;
+    }
+  }
+  return 0;
+};
+
+const getMainBlockchainFromAssets = (assets: DiagonAsset[]): string => {
+  if (assets.length === 0) return 'Ethereum';
+  
+  const blockchainCount: Record<string, number> = {};
+  for (const asset of assets) {
+    const { blockchain } = parseAssetId(asset.id);
+    blockchainCount[blockchain] = (blockchainCount[blockchain] || 0) + 1;
+  }
+  
+  return Object.entries(blockchainCount).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Ethereum';
+};
+
+const calculateTokenBalances = (accounts: DiagonAccountResponse[]): Token[] => {
+  const tokenBalances: Record<string, { total: number; wallets: Set<string> }> = {};
+  
+  // Procesar todos los assets de todas las accounts
+  for (const account of accounts) {
+    for (const asset of account.assets) {
+      const { token } = parseAssetId(asset.id);
+      const tokenSymbol = token.toUpperCase();
+      const balance = parseFloat(asset.balance) || 0;
+      
+      if (!tokenBalances[tokenSymbol]) {
+        tokenBalances[tokenSymbol] = {
+          total: 0,
+          wallets: new Set(),
+        };
+      }
+      
+      tokenBalances[tokenSymbol].total += balance;
+      tokenBalances[tokenSymbol].wallets.add(account.id);
+    }
+  }
+  
+  // Mapear a Token
+  const badgeColors: Record<string, string> = {
+    USDT: 'bg-green-100 text-green-700',
+    USDC: 'bg-blue-100 text-blue-700',
+    ETH: 'bg-purple-100 text-purple-700',
+    DAI: 'bg-orange-100 text-orange-700',
+    BTC: 'bg-yellow-100 text-yellow-700',
+    POL: 'bg-indigo-100 text-indigo-700',
+    MATIC: 'bg-indigo-100 text-indigo-700',
+  };
+  
+  // Tokens importantes que siempre deben mostrarse aunque tengan balance 0
+  const importantTokens = ['ETH', 'BTC'];
+  
+  return Object.entries(tokenBalances)
+    .map(([symbol, data]) => ({
+      symbol,
+      balance: data.total,
+      change: 0, // TODO: Calcular cambio cuando tengamos datos históricos
+      walletsCount: data.wallets.size,
+      badgeColor: badgeColors[symbol] || 'bg-neutral-100 text-neutral-700',
+    }))
+    .filter((token) => {
+      // Mostrar tokens importantes (ETH, BTC) si tienen wallets, aunque balance sea 0
+      if (importantTokens.includes(token.symbol) && token.walletsCount > 0) {
+        return true;
+      }
+      // Para otros tokens, solo mostrar si tienen balance > 0
+      return token.balance > 0;
+    })
+    .sort((a, b) => {
+      // Ordenar: primero tokens importantes (ETH, BTC), luego por balance descendente
+      const aIsImportant = importantTokens.includes(a.symbol);
+      const bIsImportant = importantTokens.includes(b.symbol);
+      
+      if (aIsImportant && !bIsImportant) return -1;
+      if (!aIsImportant && bIsImportant) return 1;
+      
+      return b.balance - a.balance;
+    });
+};
+
+const getWalletTokenBalance = (walletId: string, tokenSymbol: string): number => {
+  const account = accounts.value.find(acc => acc.id === walletId);
+  if (!account) return 0;
+  
+  const tokenUpper = tokenSymbol.toUpperCase();
+  for (const asset of account.assets) {
+    const { token } = parseAssetId(asset.id);
+    if (token.toUpperCase() === tokenUpper) {
+      return parseFloat(asset.balance) || 0;
+    }
+  }
+  return 0;
+};
+
+// Obtener el token principal de una wallet (el que tiene mayor balance)
+const getWalletMainToken = (walletId: string): { token: string; balance: number } | null => {
+  const account = accounts.value.find(acc => acc.id === walletId);
+  if (!account || account.assets.length === 0) return null;
+  
+  let mainToken: { token: string; balance: number } | null = null;
+  
+  for (const asset of account.assets) {
+    const { token } = parseAssetId(asset.id);
+    const balance = parseFloat(asset.balance) || 0;
+    
+    if (balance > 0) {
+      if (!mainToken || balance > mainToken.balance) {
+        mainToken = { token: token.toUpperCase(), balance };
+      }
+    }
+  }
+  
+  return mainToken;
+};
+
+const parseAssetId = (assetId: string): { token: string; blockchain: string } => {
+  const parts = assetId.split('_');
+  const assetIdUpper = assetId.toUpperCase();
+  
+  const knownTokens = ['USDC', 'USDT', 'ETH', 'BTC', 'DAI', 'MATIC', 'POL', 'WBTC', 'WETH'];
+  
+  const blockchainMap: Record<string, string> = {
+    'POLYGON': 'Polygon',
+    'AMOY': 'Polygon',
+    'BITCOIN': 'Bitcoin',
+    'BTC': 'Bitcoin',
+  };
+  
+  let blockchain = 'Unknown';
+  for (const [key, value] of Object.entries(blockchainMap)) {
+    if (assetIdUpper.includes(key)) {
+      blockchain = value;
+      break;
+    }
+  }
+  
+  let token = parts[0].toUpperCase();
+  
+  // Si el token es BTC, la blockchain debe ser Bitcoin
+  if (token === 'BTC' || assetIdUpper.startsWith('BTC_')) {
+    token = 'BTC';
+    blockchain = 'Bitcoin';
+    return { token, blockchain };
+  }
+  
+  if (token === 'AMOY' || token === 'POLYGON') {
+    let foundToken = false;
+    for (const knownToken of knownTokens) {
+      if (assetIdUpper.includes(`_${knownToken}_`) || assetIdUpper.startsWith(`${knownToken}_`)) {
+        token = knownToken;
+        foundToken = true;
+        break;
+      }
+    }
+    
+    if (!foundToken && blockchain === 'Polygon') {
+      token = 'POL';
+    }
+  }
+  
+  if (token === 'MATIC') {
+    token = 'POL';
+  }
+  
+  if (blockchain === 'Unknown' && token !== 'BTC') {
+    blockchain = 'Ethereum';
+  }
+  
+  return { token, blockchain };
+};
+
+// Mapeo de wallet ID a su token principal
+const walletMainTokens = computed(() => {
+  const tokensMap: Record<string, { token: string; balance: number }> = {};
+  for (const wallet of wallets.value) {
+    const mainToken = getWalletMainToken(wallet.id);
+    if (mainToken) {
+      tokensMap[wallet.id] = mainToken;
+    }
+  }
+  return tokensMap;
+});
+
 const filteredWallets = computed(() => {
+  // Mantener el orden original del endpoint (sin ordenamiento personalizado)
   return wallets.value.filter((wallet) => {
+    // Filtrar por token seleccionado
+    if (selectedToken.value) {
+      const account = accounts.value.find(acc => acc.id === wallet.id);
+      if (!account) return false;
+      
+      // Para ETH y BTC, mostrar wallets que tienen el token aunque balance sea 0
+      const importantTokens = ['ETH', 'BTC'];
+      if (importantTokens.includes(selectedToken.value)) {
+        // Verificar si la wallet tiene el token (aunque balance sea 0)
+        const hasToken = account.assets.some(asset => {
+          const { token } = parseAssetId(asset.id);
+          return token.toUpperCase() === selectedToken.value.toUpperCase();
+        });
+        if (!hasToken) return false;
+      } else {
+        // Para otros tokens, solo mostrar si tienen balance > 0
+        const tokenBalance = getWalletTokenBalance(wallet.id, selectedToken.value);
+        if (tokenBalance <= 0) {
+          return false;
+        }
+      }
+    }
+
     const matchesSearch =
       searchQuery.value === '' ||
       wallet.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
@@ -376,8 +664,16 @@ const handleRefresh = async () => {
 };
 
 const handleViewWallets = (symbol: string) => {
-  // TODO: Implementar navegación a vista de wallets
-  console.log('Ver wallets de', symbol);
+  // Si ya está seleccionado el mismo token, deseleccionarlo para mostrar todas
+  if (selectedToken.value === symbol) {
+    selectedToken.value = null;
+  } else {
+    selectedToken.value = symbol;
+  }
+  // Limpiar búsqueda y filtros al cambiar de token
+  searchQuery.value = '';
+  selectedType.value = 'all';
+  selectedProvider.value = 'all';
 };
 
 const getTypeBadgeColor = (type: string): string => {
@@ -391,6 +687,19 @@ const getTypeBadgeColor = (type: string): string => {
 };
 
 const formatEthBalance = (balance: number): string => {
+  return balance.toLocaleString('es-ES', {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  });
+};
+
+const formatTokenBalance = (balance: number): string => {
+  if (balance >= 1000) {
+    return balance.toLocaleString('es-ES', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
   return balance.toLocaleString('es-ES', {
     minimumFractionDigits: 4,
     maximumFractionDigits: 4,
