@@ -22,7 +22,9 @@
             <tr>
               <th class="px-6 py-3 text-left text-xs font-medium text-neutral-80 uppercase tracking-wider">Usuario</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-neutral-80 uppercase tracking-wider">Email</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-neutral-80 uppercase tracking-wider">Tipo de Usuario</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-neutral-80 uppercase tracking-wider">
+                Tipo de Usuario
+              </th>
               <th class="px-6 py-3 text-left text-xs font-medium text-neutral-80 uppercase tracking-wider">Estado</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-neutral-80 uppercase tracking-wider">
                 Último Acceso.
@@ -117,7 +119,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useStore } from '@nanostores/vue';
 import { azkabanApi } from '../../stores/common/api-client';
 import LoadingSpinner from '../atoms/loading-spinner.vue';
@@ -148,35 +150,32 @@ const currentUser = useStore($user);
 
 // Define loadUsers function
 async function loadUsers() {
+  isLoading.value = true;
+  error.value = '';
+
+  // Verify user is authenticated before making request
+  const user = currentUser.value;
+  if (!user) {
+    const authError = new Error('Usuario no autenticado');
+    error.value = authError.message;
+    isLoading.value = false;
+    throw authError; // Re-throw to allow watcher to handle retry logic
+  }
+
   try {
-    isLoading.value = true;
-    error.value = '';
-
-    // Verify user is authenticated before making request
-    const user = currentUser.value;
-    if (!user) {
-      throw new Error('Usuario no autenticado');
-    }
-
-    console.log('[UsersContainer] Loading users for user:', user.email);
     const response = await azkabanApi.get('/v1/users');
-    console.log('[UsersContainer] Users loaded:', response.data);
-    console.log('[UsersContainer] First user role:', response.data.users?.[0]?.role);
     // Ensure all users have a role field, default to 'user' if missing
     users.value = (response.data.users || []).map((u: User) => ({
       ...u,
       role: u.role || 'user',
     }));
-    console.log('[UsersContainer] Users after assignment:', users.value.map(u => ({ id: u.id, email: u.email, role: u.role })));
+    // Clear any previous errors on success
+    error.value = '';
   } catch (err: any) {
-    console.error('[UsersContainer] Error loading users:', err);
     const errorMessage = err.response?.data?.detail || err.message || 'Error al cargar usuarios';
     error.value = errorMessage;
-    console.error('[UsersContainer] Error details:', {
-      status: err.response?.status,
-      statusText: err.response?.statusText,
-      data: err.response?.data,
-    });
+    // Re-throw to allow watcher to handle retry logic
+    throw err;
   } finally {
     isLoading.value = false;
   }
@@ -254,39 +253,48 @@ const formatDate = (dateString: string | null): string => {
   }
 };
 
+// Track if users have been loaded to stop the watcher
+const usersLoaded = ref(false);
+
+// Watch for auth state changes and load users when ready
+// Note: immediate: false ensures watcher only runs after stores are updated
+const stopWatcher = watch(
+  [isAuthenticated, currentUser, authLoading],
+  async ([authenticated, user, loading]) => {
+    // Wait for auth initialization to complete
+    if (loading) {
+      return; // Still loading, wait
+    }
+
+    // If authenticated and user exists, try to load users
+    if (authenticated && user && !usersLoaded.value) {
+      try {
+        await loadUsers();
+        // Only mark as loaded and stop watcher after successful load
+        usersLoaded.value = true;
+        stopWatcher(); // Stop the watcher after successful load
+      } catch (err) {
+        // If loadUsers fails, keep watcher active so it can retry
+        // The error is already set in loadUsers()
+        console.error('Failed to load users, watcher will retry on next auth state change:', err);
+        // Don't set usersLoaded = true, don't stop watcher
+        // This allows the watcher to retry if auth state changes again
+      }
+    } else if (!authenticated && !usersLoaded.value) {
+      // Only show error if auth is confirmed not loading and user is not authenticated
+      error.value = 'No estás autenticado. Por favor, inicia sesión.';
+      isLoading.value = false;
+      // Don't stop watcher, allow retry if auth state changes
+    }
+  },
+  { immediate: false }, // Changed: only run after stores are updated
+);
+
 // Initialize component
 onMounted(async () => {
-  console.log('[UsersContainer] Mounted, checking auth state...');
   try {
     await initializeAuth();
-    console.log('[UsersContainer] Auth initialized, user:', currentUser.value?.email);
-    
-    // Wait for stores to update
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    // Retry loading users if not loaded yet
-    let retries = 0;
-    const maxRetries = 5;
-    
-    const tryLoadUsers = async () => {
-      if (isAuthenticated.value && currentUser.value && !authLoading.value) {
-        console.log('[UsersContainer] User authenticated, loading users...');
-        await loadUsers();
-      } else if (retries < maxRetries) {
-        retries++;
-        console.log(`[UsersContainer] Waiting for auth, retry ${retries}/${maxRetries}...`);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        await tryLoadUsers();
-      } else {
-        console.warn('[UsersContainer] Max retries reached, user not authenticated');
-        error.value = 'No estás autenticado. Por favor, inicia sesión.';
-        isLoading.value = false;
-      }
-    };
-    
-    await tryLoadUsers();
-  } catch (err) {
-    console.error('[UsersContainer] Error initializing auth:', err);
+  } catch {
     error.value = 'Error inicializando autenticación';
     isLoading.value = false;
   }

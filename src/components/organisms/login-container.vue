@@ -109,7 +109,7 @@ const totpConfigured = ref(false);
 const qrCode = ref<string | null>(null);
 const manualEntryKey = ref<string | null>(null);
 const devTotpCode = ref<string | null>(null);
-const fixedOtpCode = ref<string | null>(import.meta.env.DEV ? "123456" : null);
+const fixedOtpCode = ref<string | null>(import.meta.env.DEV ? '123456' : null);
 let totpCodeInterval: ReturnType<typeof setInterval> | null = null;
 
 // Check TOTP status when user logs in

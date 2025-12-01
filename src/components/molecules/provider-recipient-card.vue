@@ -20,7 +20,7 @@
             </option>
           </select>
         </div>
-        
+
         <div>
           <p class="text-sm text-neutral-60 mb-2">Monto Total</p>
           <p class="text-3xl font-bold text-neutral-80">
@@ -48,7 +48,7 @@
                 {{ getRecipientDisplayName(recipient) }}
               </option>
             </select>
-            
+
             <!-- Avatar -->
             <div
               v-if="selectedRecipientData"
@@ -56,7 +56,7 @@
             >
               {{ getRecipientInitials(selectedRecipientData) }}
             </div>
-            
+
             <!-- Action Button -->
             <button
               :disabled="!canMonetize || isProcessing"
@@ -79,7 +79,7 @@
               Monetizar & Enviar
             </button>
           </div>
-          
+
           <!-- Recipient Details -->
           <div
             v-if="selectedRecipientData"
@@ -180,4 +180,3 @@ const getRecipientInitials = (recipient: Recipient) => {
     .slice(0, 2);
 };
 </script>
-
