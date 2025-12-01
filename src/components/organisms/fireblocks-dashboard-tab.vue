@@ -313,8 +313,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import {
-  ArrowUpIcon,
-  ArrowDownIcon,
   ArrowPathIcon,
   PauseIcon,
   PlayIcon,
@@ -687,13 +685,6 @@ const getTypeBadgeColor = (type: string): string => {
     Operativa: 'bg-orange-100 text-orange-700',
   };
   return colors[type] || 'bg-neutral-100 text-neutral-700';
-};
-
-const formatEthBalance = (balance: number): string => {
-  return balance.toLocaleString('es-ES', {
-    minimumFractionDigits: 4,
-    maximumFractionDigits: 4,
-  });
 };
 
 const formatTokenBalance = (balance: number): string => {

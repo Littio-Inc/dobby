@@ -49,8 +49,8 @@ export default defineConfig({
           changeOrigin: true,
           secure: true,
           rewrite: (path) => path.replace(/^\/api\/diagon/, ''),
-          configure: (proxy, _options) => {
-            proxy.on('proxyReq', (proxyReq, req, _res) => {
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq, req) => {
               const xApiKey = req.headers['x-api-key'] || req.headers['X-API-KEY'];
               if (xApiKey) {
                 proxyReq.setHeader('X-API-KEY', xApiKey);

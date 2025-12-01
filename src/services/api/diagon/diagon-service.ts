@@ -279,7 +279,7 @@ export class DiagonService {
   private static async retryWithBackoff<T>(
     fn: () => Promise<T>,
     maxRetries: number = 3,
-    initialDelay: number = 1000
+    initialDelay: number = 1000,
   ): Promise<T> {
     let lastError: any;
     
@@ -313,7 +313,7 @@ export class DiagonService {
     items: T[],
     batchSize: number,
     processor: (item: T) => Promise<void>,
-    delayBetweenBatches: number = 500
+    delayBetweenBatches: number = 500,
   ): Promise<void> {
     for (let i = 0; i < items.length; i += batchSize) {
       const batch = items.slice(i, i + batchSize);
@@ -322,8 +322,8 @@ export class DiagonService {
         batch.map(item => 
           processor(item).catch((error) => {
             console.warn(`[DiagonService] Error processing item:`, error);
-          })
-        )
+          }),
+        ),
       );
       
       if (i + batchSize < items.length) {
@@ -367,7 +367,7 @@ export class DiagonService {
           console.log(`[DiagonService] Refreshing balance for account ${item.accountId} (${item.accountName}), asset ${item.asset}`);
           await this.refreshAccountBalance(item.accountId, item.asset);
         },
-        500
+        500,
       );
       
       console.log(`[DiagonService] Completed refreshing all balances`);

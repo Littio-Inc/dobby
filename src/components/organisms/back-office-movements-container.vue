@@ -48,8 +48,6 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useStore } from '@nanostores/vue';
-import { $user } from '../../stores/auth-store';
 import BackOfficeTabs from '../molecules/back-office-tabs.vue';
 import FireblocksDashboardTab from './fireblocks-dashboard-tab.vue';
 import MoveFundsTab from './move-funds-tab.vue';
@@ -59,8 +57,6 @@ import NonAppliedMovementsTab from './non-applied-movements-tab.vue';
 defineProps<{
   lang: string;
 }>();
-
-const user = useStore($user);
 
 // Main tabs: Apificados / No Apificados
 const activeMainTab = ref<'applied' | 'non-applied'>('applied');

@@ -118,7 +118,7 @@ const menuItems = computed(() => {
       name: 'Movimientos Back Office',
       path: '/back-office-movements/index.html',
       icon: DocumentTextIcon,
-    }
+    },
   ];
 
   // Only show Users menu item if user is admin
