@@ -1,8 +1,14 @@
 <template>
   <aside class="w-64 bg-littio-primary-billionaire text-white h-screen flex flex-col fixed left-0 top-0 z-10">
     <div class="p-6 border-b border-neutral-80">
-      <h1 class="text-2xl font-bold">Dobby</h1>
-      <p class="text-sm text-neutral-60 mt-1">Sistema Interno Littio</p>
+      <div class="flex items-center gap-3">
+        <img
+          :src="logoUrl"
+          alt="Littio Logo"
+          class="h-10 w-auto"
+        />
+        <h1 class="text-2xl font-bold">Littio Ledger</h1>
+      </div>
     </div>
 
     <nav class="flex-1 p-4 overflow-y-auto">
@@ -58,15 +64,9 @@ import { computed, onMounted } from 'vue';
 import { useStore } from '@nanostores/vue';
 import { $user, $isAdmin, $userRole, logout } from '../../stores/auth-store';
 import { goTo, Route } from '../../routes/routes';
-import {
-  HomeIcon,
-  CurrencyDollarIcon,
-  UserGroupIcon,
-  DocumentTextIcon,
-  MegaphoneIcon,
-  BriefcaseIcon,
-  Cog6ToothIcon,
-} from '@heroicons/vue/24/outline';
+import { HomeIcon, CurrencyDollarIcon, UserGroupIcon } from '@heroicons/vue/24/outline';
+
+const logoUrl = new URL('../../assets/logo.png', import.meta.url).href;
 
 const currentPath = computed(() => {
   if (typeof window !== 'undefined') {
@@ -113,17 +113,6 @@ const menuItems = computed(() => {
       path: '/monetization/index.html',
       icon: CurrencyDollarIcon,
     },
-    { id: 'finops', name: 'FinOps', path: '/finops', icon: CurrencyDollarIcon },
-    { id: 'cs', name: 'Customer Success', path: '/cs', icon: UserGroupIcon },
-    {
-      id: 'accounting',
-      name: 'Contabilidad',
-      path: '/accounting/index.html',
-      icon: DocumentTextIcon,
-    },
-    { id: 'marketing', name: 'Marketing', path: '/marketing', icon: MegaphoneIcon },
-    { id: 'hr', name: 'Recursos Humanos', path: '/hr', icon: BriefcaseIcon },
-    { id: 'admin', name: 'Administración', path: '/admin', icon: Cog6ToothIcon },
   ];
 
   // Only show Users menu item if user is admin

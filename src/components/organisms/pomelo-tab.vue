@@ -4,7 +4,7 @@
       :quotes="quotes"
       @update:quote="handleQuoteUpdate"
     />
-    
+
     <ProviderRecipientCard
       :selected-provider="selectedProvider"
       :selected-recipient="selectedRecipient"
@@ -115,7 +115,7 @@ const handleMonetize = () => {
   if (!canMonetize.value) return;
   const selectedQuote = props.quotes.find((q) => q.provider.toLowerCase() === selectedProvider.value);
   if (!selectedQuote) return;
-  
+
   emit('monetize', {
     recipient_id: selectedRecipient.value,
     provider: selectedProvider.value,
@@ -126,4 +126,3 @@ const handleMonetize = () => {
   });
 };
 </script>
-

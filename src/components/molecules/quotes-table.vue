@@ -31,7 +31,7 @@
                   @input="handleAmountInput(index, ($event.target as HTMLInputElement).value)"
                 />
               </td>
-              
+
               <!-- De (From Currency) -->
               <td class="p-4">
                 <select
@@ -44,7 +44,7 @@
                   <option value="USDC">USDC</option>
                 </select>
               </td>
-              
+
               <!-- Arrow -->
               <td class="p-4 text-center">
                 <svg
@@ -61,7 +61,7 @@
                   />
                 </svg>
               </td>
-              
+
               <!-- Hacia (To Currency) -->
               <td class="p-4">
                 <select
@@ -76,21 +76,21 @@
                   <option value="USD">USD</option>
                 </select>
               </td>
-              
+
               <!-- Monto (Calculated Amount) -->
               <td class="p-4 text-right font-semibold">
                 <span class="text-sm text-neutral-80">
                   {{ quote.calculatedAmount || '-' }}
                 </span>
               </td>
-              
+
               <!-- Cotización Tasa (Rate) -->
               <td class="p-4 text-right">
                 <span class="text-sm font-mono text-neutral-80">
                   {{ quote.rate || '-' }}
                 </span>
               </td>
-              
+
               <!-- Spread (Badge) -->
               <td class="p-4 text-center">
                 <span
@@ -102,7 +102,7 @@
                   {{ quote.spread || '-' }}
                 </span>
               </td>
-              
+
               <!-- Proveedores (Provider Badge) -->
               <td class="p-4">
                 <span
@@ -150,4 +150,3 @@ const getSpreadBadgeClass = (spread: string) => {
   return 'bg-orange-100 text-orange-700';
 };
 </script>
-

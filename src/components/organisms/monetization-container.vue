@@ -2,12 +2,8 @@
   <div class="space-y-8">
     <!-- Title Section -->
     <div class="space-y-2">
-      <h1 class="text-3xl font-bold text-neutral-80">
-        Monetización
-      </h1>
-      <p class="text-base text-neutral-60">
-        Gestión de operaciones FX y movimientos de fondos
-      </p>
+      <h1 class="text-3xl font-bold text-neutral-80">Monetización</h1>
+      <p class="text-base text-neutral-60">Gestión de operaciones FX y movimientos de fondos</p>
     </div>
 
     <!-- Tabs: Pomelo, B2C, B2B -->
@@ -56,8 +52,6 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useStore } from '@nanostores/vue';
-import { $user } from '../../stores/auth-store';
 import { cassandraApi } from '../../stores/common/api-client';
 import MonetizationTabs from '../molecules/monetization-tabs.vue';
 import PomeloTab from './pomelo-tab.vue';
@@ -67,8 +61,6 @@ import B2BTab from './b2b-tab.vue';
 defineProps<{
   lang: string;
 }>();
-
-const user = useStore($user);
 const activeAccountType = ref<'pomelo' | 'b2c' | 'b2b'>('pomelo');
 const error = ref('');
 
@@ -241,8 +233,12 @@ const b2bProviders = computed(() => [
 const handleTabChange = (tab: string) => {
   activeAccountType.value = tab as 'pomelo' | 'b2c' | 'b2b';
   // Reset quotes when switching tabs
-  const quotes = activeAccountType.value === 'pomelo' ? pomeloQuotes.value :
-                 activeAccountType.value === 'b2c' ? b2cQuotes.value : b2bQuotes.value;
+  const quotes =
+    activeAccountType.value === 'pomelo'
+      ? pomeloQuotes.value
+      : activeAccountType.value === 'b2c'
+        ? b2cQuotes.value
+        : b2bQuotes.value;
   quotes.forEach((q) => {
     q.amount = '';
     q.calculatedAmount = '-';
@@ -254,10 +250,14 @@ const handleMonetize = async (payoutData: any) => {
 
   try {
     await cassandraApi.post('/v1/payouts/account/pay/payout', payoutData);
-    
+
     // Success - reset form
-    const quotes = activeAccountType.value === 'pomelo' ? pomeloQuotes.value :
-                   activeAccountType.value === 'b2c' ? b2cQuotes.value : b2bQuotes.value;
+    const quotes =
+      activeAccountType.value === 'pomelo'
+        ? pomeloQuotes.value
+        : activeAccountType.value === 'b2c'
+          ? b2cQuotes.value
+          : b2bQuotes.value;
     quotes.forEach((q) => {
       q.amount = '';
       q.calculatedAmount = '-';

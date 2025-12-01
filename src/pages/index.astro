@@ -1,6 +1,7 @@
 ---
 import DashboardLayout from "../layouts/DashboardLayout.astro";
 import AuthGuard from "../components/atoms/auth-guard.vue";
+import logo from "../assets/logo.png";
 
 const lang = "es";
 const title = "Dobby - Dashboard";
@@ -10,21 +11,13 @@ const title = "Dobby - Dashboard";
     <div class="p-8 flex flex-col items-center justify-center min-h-full">
       <!-- Logo -->
       <div class="mb-8">
-        <div class="w-24 h-24 bg-littio-primary-billionaire rounded-lg flex items-center justify-center mx-auto mb-6">
-          <svg
-            class="w-16 h-16 text-white"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M12 2L2 7l10 5 10-5-10-5z" />
-            <path d="M2 17l10 5 10-5" />
-            <path d="M2 12l10 5 10-5" />
-          </svg>
-        </div>
+        <img
+          src={logo.src}
+          alt="Littio Logo"
+          width={logo.width}
+          height={logo.height}
+          class="h-24 w-auto mx-auto mb-6"
+        />
       </div>
 
       <!-- Main Title -->
