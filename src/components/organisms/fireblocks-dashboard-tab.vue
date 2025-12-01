@@ -133,7 +133,7 @@
     >
       <div class="flex items-center justify-between">
         <h3 class="text-xl font-bold text-neutral-80">
-          Wallets Diagon
+          Wallets Fireblocks
         </h3>
         <div
           v-if="selectedToken"
@@ -180,17 +180,6 @@
             <option value="otc">OTC</option>
             <option value="proveedor">Proveedor</option>
             <option value="operativa">Operativa</option>
-          </select>
-          <select
-            v-model="selectedProvider"
-            class="px-4 py-2.5 border border-neutral-20 rounded-lg focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky focus:border-transparent bg-white"
-          >
-            <option value="all">Todas</option>
-            <option value="supra">Supra</option>
-            <option value="cobre">Cobre</option>
-            <option value="kira">Kira</option>
-            <option value="bridge">Bridge</option>
-            <option value="koywe">Koywe</option>
           </select>
         </div>
       </div>
