@@ -46,11 +46,20 @@
             {{ isAutoRefreshActive ? 'Pausar' : 'Reanudar' }}
           </button>
           <button
-            class="px-3 py-1.5 h-8 bg-littio-secondary-sky text-white rounded hover:bg-littio-secondary-sky/90 transition-colors flex items-center gap-1 text-sm"
+            :class="[
+              'px-3 py-1.5 h-8 bg-littio-secondary-sky text-white rounded hover:bg-littio-secondary-sky/90 transition-colors flex items-center gap-1 text-sm',
+              isRefreshing ? 'opacity-75 cursor-not-allowed' : ''
+            ]"
+            :disabled="isRefreshing"
             @click="handleRefresh"
           >
-            <ArrowPathIcon class="h-3 w-3" />
-            Refrescar
+            <ArrowPathIcon
+              :class="[
+                'h-3 w-3',
+                isRefreshing ? 'animate-spin' : ''
+              ]"
+            />
+            {{ isRefreshing ? 'Refrescando...' : 'Refrescar' }}
           </button>
         </div>
       </div>
@@ -128,7 +137,7 @@
 
     <!-- Wallets List Section -->
     <div
-      v-if="!isLoading && wallets.length > 0"
+      v-if="(!isLoading || wallets.length > 0) && wallets.length > 0"
       class="space-y-4"
     >
       <div class="flex items-center justify-between">
@@ -328,11 +337,16 @@ const accounts = ref<DiagonAccountResponse[]>([]);
 const tokens = ref<Token[]>([]);
 const selectedToken = ref<string | null>(null);
 const isLoading = ref(false);
+const isRefreshing = ref(false); // Estado separado para refresh manual
 const error = ref<string | null>(null);
 const lastUpdateTime = ref('');
 const isAutoRefreshActive = ref(true);
+
+const AUTO_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+
 let updateInterval: ReturnType<typeof setInterval> | null = null;
 let dataRefreshInterval: ReturnType<typeof setInterval> | null = null;
+let isRefreshingFlag = false; // Flag interno para evitar múltiples refreshes
 
 const loadData = async () => {
   isLoading.value = true;
@@ -342,7 +356,6 @@ const loadData = async () => {
     const accountsData = await DiagonService.getAccountsWithAssets();
     accounts.value = accountsData;
     
-    // Procesar los datos para obtener wallets y balances de tokens
     const walletsData = accountsData.map((account) => ({
       id: account.id,
       name: account.name,
@@ -354,7 +367,6 @@ const loadData = async () => {
     
     wallets.value = walletsData;
     
-    // Calcular balances de tokens
     tokens.value = calculateTokenBalances(accountsData);
     
     const now = new Date();
@@ -366,7 +378,6 @@ const loadData = async () => {
   } catch (err: any) {
     console.error('[FireblocksDashboard] Error loading data:', err);
     error.value = err.message || 'Error al cargar los datos';
-    // Asegurar que no haya datos residuales en caso de error
     wallets.value = [];
     accounts.value = [];
     tokens.value = [];
@@ -379,7 +390,6 @@ const searchQuery = ref('');
 const selectedType = ref('all');
 const selectedProvider = ref('all');
 
-// Funciones helper para procesar los datos de accounts
 const inferWalletType = (name: string): 'Vault' | 'OTC' | 'Proveedor' | 'Operativa' => {
   const nameLower = name.toLowerCase();
   if (nameLower.includes('vault') || nameLower.includes('treasury')) return 'Vault';
@@ -423,7 +433,6 @@ const getMainBlockchainFromAssets = (assets: DiagonAsset[]): string => {
 const calculateTokenBalances = (accounts: DiagonAccountResponse[]): Token[] => {
   const tokenBalances: Record<string, { total: number; wallets: Set<string> }> = {};
   
-  // Procesar todos los assets de todas las accounts
   for (const account of accounts) {
     for (const asset of account.assets) {
       const { token } = parseAssetId(asset.id);
@@ -442,7 +451,6 @@ const calculateTokenBalances = (accounts: DiagonAccountResponse[]): Token[] => {
     }
   }
   
-  // Mapear a Token
   const badgeColors: Record<string, string> = {
     USDT: 'bg-green-100 text-green-700',
     USDC: 'bg-blue-100 text-blue-700',
@@ -453,27 +461,23 @@ const calculateTokenBalances = (accounts: DiagonAccountResponse[]): Token[] => {
     MATIC: 'bg-indigo-100 text-indigo-700',
   };
   
-  // Tokens importantes que siempre deben mostrarse aunque tengan balance 0
   const importantTokens = ['ETH', 'BTC'];
   
   return Object.entries(tokenBalances)
     .map(([symbol, data]) => ({
       symbol,
       balance: data.total,
-      change: 0, // TODO: Calcular cambio cuando tengamos datos históricos
+      change: 0,
       walletsCount: data.wallets.size,
       badgeColor: badgeColors[symbol] || 'bg-neutral-100 text-neutral-700',
     }))
     .filter((token) => {
-      // Mostrar tokens importantes (ETH, BTC) si tienen wallets, aunque balance sea 0
       if (importantTokens.includes(token.symbol) && token.walletsCount > 0) {
         return true;
       }
-      // Para otros tokens, solo mostrar si tienen balance > 0
       return token.balance > 0;
     })
     .sort((a, b) => {
-      // Ordenar: primero tokens importantes (ETH, BTC), luego por balance descendente
       const aIsImportant = importantTokens.includes(a.symbol);
       const bIsImportant = importantTokens.includes(b.symbol);
       
@@ -498,7 +502,6 @@ const getWalletTokenBalance = (walletId: string, tokenSymbol: string): number =>
   return 0;
 };
 
-// Obtener el token principal de una wallet (el que tiene mayor balance)
 const getWalletMainToken = (walletId: string): { token: string; balance: number } | null => {
   const account = accounts.value.find(acc => acc.id === walletId);
   if (!account || account.assets.length === 0) return null;
@@ -542,7 +545,6 @@ const parseAssetId = (assetId: string): { token: string; blockchain: string } =>
   
   let token = parts[0].toUpperCase();
   
-  // Si el token es BTC, la blockchain debe ser Bitcoin
   if (token === 'BTC' || assetIdUpper.startsWith('BTC_')) {
     token = 'BTC';
     blockchain = 'Bitcoin';
@@ -575,7 +577,6 @@ const parseAssetId = (assetId: string): { token: string; blockchain: string } =>
   return { token, blockchain };
 };
 
-// Mapeo de wallet ID a su token principal
 const walletMainTokens = computed(() => {
   const tokensMap: Record<string, { token: string; balance: number }> = {};
   for (const wallet of wallets.value) {
@@ -588,24 +589,19 @@ const walletMainTokens = computed(() => {
 });
 
 const filteredWallets = computed(() => {
-  // Mantener el orden original del endpoint (sin ordenamiento personalizado)
   return wallets.value.filter((wallet) => {
-    // Filtrar por token seleccionado
     if (selectedToken.value) {
       const account = accounts.value.find(acc => acc.id === wallet.id);
       if (!account) return false;
       
-      // Para ETH y BTC, mostrar wallets que tienen el token aunque balance sea 0
       const importantTokens = ['ETH', 'BTC'];
       if (importantTokens.includes(selectedToken.value)) {
-        // Verificar si la wallet tiene el token (aunque balance sea 0)
         const hasToken = account.assets.some(asset => {
           const { token } = parseAssetId(asset.id);
           return token.toUpperCase() === selectedToken.value.toUpperCase();
         });
         if (!hasToken) return false;
       } else {
-        // Para otros tokens, solo mostrar si tienen balance > 0
         const tokenBalance = getWalletTokenBalance(wallet.id, selectedToken.value);
         if (tokenBalance <= 0) {
           return false;
@@ -649,17 +645,35 @@ const formatBalance = (balance: number): string => {
 
 
 const handleRefresh = async () => {
-  await loadData();
+  // Evitar múltiples refreshes simultáneos
+  if (isRefreshingFlag) {
+    return;
+  }
+  
+  isRefreshingFlag = true;
+  isRefreshing.value = true; // Mostrar indicador de refresh sin ocultar la tabla
+  error.value = null;
+  
+  try {
+    // Refrescar todos los balances (POST)
+    await DiagonService.refreshAllBalances();
+    // Recargar los datos actualizados
+    await loadData();
+  } catch (err: any) {
+    console.error('[FireblocksDashboard] Error refreshing data:', err);
+    error.value = err.message || 'Error al refrescar los datos';
+  } finally {
+    isRefreshing.value = false;
+    isRefreshingFlag = false;
+  }
 };
 
 const handleViewWallets = (symbol: string) => {
-  // Si ya está seleccionado el mismo token, deseleccionarlo para mostrar todas
   if (selectedToken.value === symbol) {
     selectedToken.value = null;
   } else {
     selectedToken.value = symbol;
   }
-  // Limpiar búsqueda y filtros al cambiar de token
   searchQuery.value = '';
   selectedType.value = 'all';
   selectedProvider.value = 'all';
@@ -698,7 +712,6 @@ const formatTokenBalance = (balance: number): string => {
 const copyToClipboard = async (text: string) => {
   try {
     await navigator.clipboard.writeText(text);
-    // TODO: Mostrar notificación de éxito
     console.log('Copiado al portapapeles:', text);
   } catch (err) {
     console.error('Error al copiar:', err);
@@ -706,7 +719,6 @@ const copyToClipboard = async (text: string) => {
 };
 
 const handleWalletActions = (walletId: string) => {
-  // TODO: Implementar menú de acciones
   console.log('Acciones para wallet:', walletId);
 };
 
@@ -714,7 +726,6 @@ const startUpdateInterval = () => {
   if (updateInterval) {
     clearInterval(updateInterval);
   }
-  // Actualizar el reloj cada segundo
   updateInterval = setInterval(() => {
     if (isAutoRefreshActive.value) {
       const now = new Date();
@@ -731,12 +742,21 @@ const startDataRefreshInterval = () => {
   if (dataRefreshInterval) {
     clearInterval(dataRefreshInterval);
   }
-  // Refrescar datos cada 30 segundos si está activo
-  dataRefreshInterval = setInterval(() => {
-    if (isAutoRefreshActive.value) {
-      loadData();
+  dataRefreshInterval = setInterval(async () => {
+    if (isAutoRefreshActive.value && !isRefreshingFlag) {
+      isRefreshingFlag = true;
+      try {
+        await DiagonService.refreshAllBalances();
+        await loadData();
+      } catch (err: any) {
+        if (!error.value) {
+          error.value = err.message || 'Error en la actualización automática';
+        }
+      } finally {
+        isRefreshingFlag = false;
+      }
     }
-  }, 30000);
+  }, AUTO_REFRESH_INTERVAL_MS);
 };
 
 const toggleAutoRefresh = () => {
