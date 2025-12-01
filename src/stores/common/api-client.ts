@@ -77,7 +77,7 @@ diagonApi.interceptors.request.use(
   async (config) => {
     try {
       const apiKey = import.meta.env.PUBLIC_X_API_KEY_DIAGON || import.meta.env.X_API_KEY_DIAGON;
-      
+
       if (apiKey) {
         config.headers['X-API-KEY'] = apiKey;
       } else {
@@ -93,7 +93,10 @@ diagonApi.interceptors.request.use(
   },
 );
 
-const handleAuthError = async (error: AxiosError, apiInstance: typeof azkabanApi | typeof cassandraApi | typeof diagonApi) => {
+const handleAuthError = async (
+  error: AxiosError,
+  apiInstance: typeof azkabanApi | typeof cassandraApi | typeof diagonApi,
+) => {
   if (error.response?.status === 401) {
     const { login } = await import('../auth-store');
     const newToken = await getIdToken();

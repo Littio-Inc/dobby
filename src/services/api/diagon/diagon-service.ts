@@ -41,16 +41,16 @@ export interface DiagonTokenBalance {
 const parseAssetId = (assetId: string): { token: string; blockchain: string } => {
   const parts = assetId.split('_');
   const assetIdUpper = assetId.toUpperCase();
-  
+
   const knownTokens = ['USDC', 'USDT', 'ETH', 'BTC', 'DAI', 'MATIC', 'POL', 'WBTC', 'WETH'];
-  
+
   const blockchainMap: Record<string, string> = {
-    'POLYGON': 'Polygon',
-    'AMOY': 'Polygon',
-    'BITCOIN': 'Bitcoin',
-    'BTC': 'Bitcoin',
+    POLYGON: 'Polygon',
+    AMOY: 'Polygon',
+    BITCOIN: 'Bitcoin',
+    BTC: 'Bitcoin',
   };
-  
+
   let blockchain = 'Unknown';
   for (const [key, value] of Object.entries(blockchainMap)) {
     if (assetIdUpper.includes(key)) {
@@ -58,15 +58,15 @@ const parseAssetId = (assetId: string): { token: string; blockchain: string } =>
       break;
     }
   }
-  
+
   let token = parts[0].toUpperCase();
-  
+
   if (token === 'BTC' || assetIdUpper.startsWith('BTC_')) {
     token = 'BTC';
     blockchain = 'Bitcoin';
     return { token, blockchain };
   }
-  
+
   if (token === 'AMOY' || token === 'POLYGON') {
     let foundToken = false;
     for (const knownToken of knownTokens) {
@@ -76,20 +76,20 @@ const parseAssetId = (assetId: string): { token: string; blockchain: string } =>
         break;
       }
     }
-    
+
     if (!foundToken && blockchain === 'Polygon') {
       token = 'POL';
     }
   }
-  
+
   if (token === 'MATIC') {
     token = 'POL';
   }
-  
+
   if (blockchain === 'Unknown' && token !== 'BTC') {
     blockchain = 'Ethereum';
   }
-  
+
   return { token, blockchain };
 };
 
@@ -97,7 +97,14 @@ const inferWalletType = (name: string): 'Vault' | 'OTC' | 'Proveedor' | 'Operati
   const nameLower = name.toLowerCase();
   if (nameLower.includes('vault') || nameLower.includes('treasury')) return 'Vault';
   if (nameLower.includes('otc') || nameLower.includes('trading')) return 'OTC';
-  if (nameLower.includes('supra') || nameLower.includes('cobre') || nameLower.includes('kira') || nameLower.includes('bridge') || nameLower.includes('koywe')) return 'Proveedor';
+  if (
+    nameLower.includes('supra') ||
+    nameLower.includes('cobre') ||
+    nameLower.includes('kira') ||
+    nameLower.includes('bridge') ||
+    nameLower.includes('koywe')
+  )
+    return 'Proveedor';
   return 'Operativa';
 };
 
@@ -123,13 +130,13 @@ const getEthBalance = (assets: DiagonAsset[]): number => {
 
 const getMainBlockchain = (assets: DiagonAsset[]): string => {
   if (assets.length === 0) return 'Ethereum';
-  
+
   const blockchainCount: Record<string, number> = {};
   for (const asset of assets) {
     const { blockchain } = parseAssetId(asset.id);
     blockchainCount[blockchain] = (blockchainCount[blockchain] || 0) + 1;
   }
-  
+
   return Object.entries(blockchainCount).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Ethereum';
 };
 
@@ -141,12 +148,12 @@ export class DiagonService {
   static async getWallets(): Promise<DiagonWallet[]> {
     try {
       const response = await diagonApi.get<DiagonAccountResponse[]>('/vault/accounts');
-      
+
       if (!Array.isArray(response.data)) {
         console.warn('[DiagonService] Unexpected response format:', response.data);
         return [];
       }
-      
+
       return response.data.map((account) => ({
         id: account.id,
         name: account.name,
@@ -183,9 +190,7 @@ export class DiagonService {
 
   static async getWalletTokenBalance(walletId: string, tokenSymbol: string): Promise<number> {
     try {
-      const response = await diagonApi.get<{ balance: number }>(
-        `/v1/wallets/${walletId}/balances/${tokenSymbol}`,
-      );
+      const response = await diagonApi.get<{ balance: number }>(`/v1/wallets/${walletId}/balances/${tokenSymbol}`);
       return response.data.balance;
     } catch (error) {
       console.error('[DiagonService] Error fetching wallet token balance:', error);
@@ -196,12 +201,12 @@ export class DiagonService {
   static async getAccountsWithAssets(): Promise<DiagonAccountResponse[]> {
     try {
       const response = await diagonApi.get<DiagonAccountResponse[]>('/vault/accounts');
-      
+
       if (!Array.isArray(response.data)) {
         console.warn('[DiagonService] Unexpected response format:', response.data);
         return [];
       }
-      
+
       return response.data;
     } catch (error) {
       console.error('[DiagonService] Error fetching accounts with assets:', error);
@@ -211,25 +216,25 @@ export class DiagonService {
 
   static calculateTokenBalancesFromAccounts(accounts: DiagonAccountResponse[]): DiagonTokenBalance[] {
     const tokenBalances: Record<string, { total: number; wallets: Set<string> }> = {};
-    
+
     for (const account of accounts) {
       for (const asset of account.assets) {
         const { token } = parseAssetId(asset.id);
         const tokenSymbol = token.toUpperCase();
         const balance = parseFloat(asset.balance) || 0;
-        
+
         if (!tokenBalances[tokenSymbol]) {
           tokenBalances[tokenSymbol] = {
             total: 0,
             wallets: new Set(),
           };
         }
-        
+
         tokenBalances[tokenSymbol].total += balance;
         tokenBalances[tokenSymbol].wallets.add(account.id);
       }
     }
-    
+
     const badgeColors: Record<string, string> = {
       USDT: 'bg-green-100 text-green-700',
       USDC: 'bg-blue-100 text-blue-700',
@@ -239,7 +244,7 @@ export class DiagonService {
       POL: 'bg-indigo-100 text-indigo-700',
       MATIC: 'bg-indigo-100 text-indigo-700',
     };
-    
+
     return Object.entries(tokenBalances)
       .map(([symbol, data]) => ({
         symbol,
@@ -266,9 +271,9 @@ export class DiagonService {
         provider: extractProvider(account.name),
         balanceEth: getEthBalance(account.assets),
       }));
-      
+
       const tokenBalances = this.calculateTokenBalancesFromAccounts(accounts);
-      
+
       return { wallets, tokenBalances };
     } catch (error) {
       console.error('[DiagonService] Error refreshing all data:', error);
@@ -282,24 +287,26 @@ export class DiagonService {
     initialDelay: number = 1000,
   ): Promise<T> {
     let lastError: any;
-    
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         return await fn();
       } catch (error: any) {
         lastError = error;
-        
+
         if (error.response?.status === 429 && attempt < maxRetries) {
           const delay = initialDelay * Math.pow(2, attempt);
-          console.warn(`[DiagonService] Rate limited (429), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
-          await new Promise(resolve => setTimeout(resolve, delay));
+          console.warn(
+            `[DiagonService] Rate limited (429), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
           continue;
         }
-        
+
         throw error;
       }
     }
-    
+
     throw lastError;
   }
 
@@ -317,17 +324,17 @@ export class DiagonService {
   ): Promise<void> {
     for (let i = 0; i < items.length; i += batchSize) {
       const batch = items.slice(i, i + batchSize);
-      
+
       await Promise.allSettled(
-        batch.map(item => 
+        batch.map((item) =>
           processor(item).catch((error) => {
             console.warn(`[DiagonService] Error processing item:`, error);
           }),
         ),
       );
-      
+
       if (i + batchSize < items.length) {
-        await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
+        await new Promise((resolve) => setTimeout(resolve, delayBetweenBatches));
       }
     }
   }
@@ -342,9 +349,9 @@ export class DiagonService {
         for (const asset of account.assets) {
           const { token } = parseAssetId(asset.id);
           const tokenSymbol = token.toUpperCase();
-          
+
           const combinationKey = `${account.id}:${tokenSymbol}`;
-          
+
           if (!processedCombinations.has(combinationKey)) {
             processedCombinations.add(combinationKey);
             refreshItems.push({
@@ -357,19 +364,23 @@ export class DiagonService {
         }
       }
 
-      console.log(`[DiagonService] Total: ${accounts.length} accounts, ${refreshItems.length} unique account/asset combinations to refresh`);
+      console.log(
+        `[DiagonService] Total: ${accounts.length} accounts, ${refreshItems.length} unique account/asset combinations to refresh`,
+      );
       console.log(`[DiagonService] Processing in batches of 5 with 500ms delay between batches`);
-      
+
       await this.processBatch(
         refreshItems,
         5,
         async (item) => {
-          console.log(`[DiagonService] Refreshing balance for account ${item.accountId} (${item.accountName}), asset ${item.asset}`);
+          console.log(
+            `[DiagonService] Refreshing balance for account ${item.accountId} (${item.accountName}), asset ${item.asset}`,
+          );
           await this.refreshAccountBalance(item.accountId, item.asset);
         },
         500,
       );
-      
+
       console.log(`[DiagonService] Completed refreshing all balances`);
     } catch (error) {
       console.error('[DiagonService] Error refreshing all balances:', error);
@@ -377,4 +388,3 @@ export class DiagonService {
     }
   }
 }
-

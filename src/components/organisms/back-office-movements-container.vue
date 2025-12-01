@@ -2,12 +2,8 @@
   <div class="space-y-8">
     <!-- Title Section -->
     <div class="space-y-2">
-      <h1 class="text-3xl font-bold text-neutral-80">
-        Movimientos Back Office
-      </h1>
-      <p class="text-base text-neutral-60">
-        Gestión de movimientos apificados y no apificados
-      </p>
+      <h1 class="text-3xl font-bold text-neutral-80">Movimientos Back Office</h1>
+      <p class="text-base text-neutral-60">Gestión de movimientos apificados y no apificados</p>
     </div>
 
     <!-- Main Tabs: Apificados / No Apificados -->
@@ -18,7 +14,10 @@
     />
 
     <!-- Content based on main tab -->
-    <div v-if="activeMainTab === 'applied'" class="space-y-6">
+    <div
+      v-if="activeMainTab === 'applied'"
+      class="space-y-6"
+    >
       <!-- Sub-tabs for Applied Movements -->
       <BackOfficeTabs
         :active-tab="activeSubTab"
@@ -27,22 +26,14 @@
       />
 
       <!-- Sub-tab Content -->
-      <FireblocksDashboardTab
-        v-if="activeSubTab === 'dashboard'"
-      />
+      <FireblocksDashboardTab v-if="activeSubTab === 'dashboard'" />
 
-      <MoveFundsTab
-        v-if="activeSubTab === 'move-funds'"
-      />
+      <MoveFundsTab v-if="activeSubTab === 'move-funds'" />
 
-      <MovementLogsTab
-        v-if="activeSubTab === 'logs'"
-      />
+      <MovementLogsTab v-if="activeSubTab === 'logs'" />
     </div>
 
-    <NonAppliedMovementsTab
-      v-if="activeMainTab === 'non-applied'"
-    />
+    <NonAppliedMovementsTab v-if="activeMainTab === 'non-applied'" />
   </div>
 </template>
 
@@ -87,4 +78,3 @@ const handleSubTabChange = (tab: string) => {
   activeSubTab.value = tab as 'dashboard' | 'move-funds' | 'logs';
 };
 </script>
-

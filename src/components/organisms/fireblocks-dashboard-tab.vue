@@ -3,22 +3,15 @@
     <!-- Dashboard Header -->
     <div class="flex items-start justify-between gap-4 pb-4 border-b border-neutral-20">
       <div class="space-y-1">
-        <h2 class="text-2xl font-bold text-neutral-80 mb-1">
-          Dashboard de Saldos Diagon
-        </h2>
-        <p class="text-sm text-neutral-60">
-          Resumen de saldos por token y desglose por wallet interna
-        </p>
+        <h2 class="text-2xl font-bold text-neutral-80 mb-1">Dashboard de Saldos Diagon</h2>
+        <p class="text-sm text-neutral-60">Resumen de saldos por token y desglose por wallet interna</p>
       </div>
-      
+
       <!-- Real-time Status Module -->
       <div class="flex items-center gap-3 bg-white border border-neutral-20 rounded-lg px-4 py-3 shadow-sm">
         <div class="flex items-center gap-2">
           <div
-            :class="[
-              'h-2 w-2 rounded-full',
-              isAutoRefreshActive ? 'bg-green-500 animate-pulse' : 'bg-neutral-40',
-            ]"
+            :class="['h-2 w-2 rounded-full', isAutoRefreshActive ? 'bg-green-500 animate-pulse' : 'bg-neutral-40']"
           />
           <div class="text-sm">
             <p class="text-neutral-60 text-xs">Última actualización:</p>
@@ -27,9 +20,9 @@
             </p>
           </div>
         </div>
-        
+
         <div class="h-8 w-px bg-neutral-20" />
-        
+
         <div class="flex items-center gap-2">
           <button
             class="px-3 py-1.5 h-8 border border-neutral-20 rounded hover:bg-neutral-20/20 transition-colors flex items-center gap-1 text-sm"
@@ -48,17 +41,12 @@
           <button
             :class="[
               'px-3 py-1.5 h-8 bg-littio-secondary-sky text-white rounded hover:bg-littio-secondary-sky/90 transition-colors flex items-center gap-1 text-sm',
-              isRefreshing ? 'opacity-75 cursor-not-allowed' : ''
+              isRefreshing ? 'opacity-75 cursor-not-allowed' : '',
             ]"
             :disabled="isRefreshing"
             @click="handleRefresh"
           >
-            <ArrowPathIcon
-              :class="[
-                'h-3 w-3',
-                isRefreshing ? 'animate-spin' : ''
-              ]"
-            />
+            <ArrowPathIcon :class="['h-3 w-3', isRefreshing ? 'animate-spin' : '']" />
             {{ isRefreshing ? 'Refrescando...' : 'Refrescar' }}
           </button>
         </div>
@@ -82,9 +70,7 @@
     >
       <div class="text-center">
         <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-littio-secondary-sky mb-4" />
-        <p class="text-neutral-60">
-          Cargando datos...
-        </p>
+        <p class="text-neutral-60">Cargando datos...</p>
       </div>
     </div>
 
@@ -100,12 +86,7 @@
       >
         <!-- Token Header -->
         <div class="flex items-center justify-between">
-          <span
-            :class="[
-              'px-3 py-1 rounded-full text-xs font-semibold',
-              token.badgeColor,
-            ]"
-          >
+          <span :class="['px-3 py-1 rounded-full text-xs font-semibold', token.badgeColor]">
             {{ token.symbol }}
           </span>
         </div>
@@ -115,9 +96,7 @@
           <p class="text-3xl font-bold text-neutral-80">
             {{ formatBalance(token.balance) }}
           </p>
-          <p class="text-sm text-neutral-60">
-            {{ token.walletsCount }} wallets
-          </p>
+          <p class="text-sm text-neutral-60">{{ token.walletsCount }} wallets</p>
         </div>
 
         <!-- Action Button -->
@@ -141,9 +120,7 @@
       class="space-y-4"
     >
       <div class="flex items-center justify-between">
-        <h3 class="text-xl font-bold text-neutral-80">
-          Wallets Fireblocks
-        </h3>
+        <h3 class="text-xl font-bold text-neutral-80">Wallets Fireblocks</h3>
         <div
           v-if="selectedToken"
           class="flex items-center gap-2"
@@ -152,7 +129,7 @@
           <span
             :class="[
               'px-3 py-1 rounded-full text-xs font-semibold',
-              tokens.find(t => t.symbol === selectedToken)?.badgeColor || 'bg-neutral-100 text-neutral-700',
+              tokens.find((t) => t.symbol === selectedToken)?.badgeColor || 'bg-neutral-100 text-neutral-700',
             ]"
           >
             {{ selectedToken }}
@@ -202,9 +179,7 @@
                 <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
                   Nombre
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
-                  Tipo
-                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">Tipo</th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
                   Blockchain
                 </th>
@@ -258,12 +233,7 @@
                   </div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <span
-                    :class="[
-                      'px-2.5 py-1 rounded-full text-xs font-semibold',
-                      getTypeBadgeColor(wallet.type),
-                    ]"
-                  >
+                  <span :class="['px-2.5 py-1 rounded-full text-xs font-semibold', getTypeBadgeColor(wallet.type)]">
                     {{ wallet.type }}
                   </span>
                 </td>
@@ -284,11 +254,10 @@
                     </template>
                     <template v-else>
                       <template v-if="walletMainTokens[wallet.id]">
-                        {{ formatTokenBalance(walletMainTokens[wallet.id].balance) }} {{ walletMainTokens[wallet.id].token }}
+                        {{ formatTokenBalance(walletMainTokens[wallet.id].balance) }}
+                        {{ walletMainTokens[wallet.id].token }}
                       </template>
-                      <template v-else>
-                        -
-                      </template>
+                      <template v-else> - </template>
                     </template>
                   </span>
                 </td>
@@ -349,11 +318,11 @@ let isRefreshingFlag = false; // Flag interno para evitar múltiples refreshes
 const loadData = async () => {
   isLoading.value = true;
   error.value = null;
-  
+
   try {
     const accountsData = await DiagonService.getAccountsWithAssets();
     accounts.value = accountsData;
-    
+
     const walletsData = accountsData.map((account) => ({
       id: account.id,
       name: account.name,
@@ -362,11 +331,11 @@ const loadData = async () => {
       provider: extractProviderFromName(account.name),
       balanceEth: getEthBalanceFromAssets(account.assets),
     }));
-    
+
     wallets.value = walletsData;
-    
+
     tokens.value = calculateTokenBalances(accountsData);
-    
+
     const now = new Date();
     lastUpdateTime.value = now.toLocaleTimeString('es-ES', {
       hour: '2-digit',
@@ -392,7 +361,14 @@ const inferWalletType = (name: string): 'Vault' | 'OTC' | 'Proveedor' | 'Operati
   const nameLower = name.toLowerCase();
   if (nameLower.includes('vault') || nameLower.includes('treasury')) return 'Vault';
   if (nameLower.includes('otc') || nameLower.includes('trading')) return 'OTC';
-  if (nameLower.includes('supra') || nameLower.includes('cobre') || nameLower.includes('kira') || nameLower.includes('bridge') || nameLower.includes('koywe')) return 'Proveedor';
+  if (
+    nameLower.includes('supra') ||
+    nameLower.includes('cobre') ||
+    nameLower.includes('kira') ||
+    nameLower.includes('bridge') ||
+    nameLower.includes('koywe')
+  )
+    return 'Proveedor';
   return 'Operativa';
 };
 
@@ -418,37 +394,37 @@ const getEthBalanceFromAssets = (assets: DiagonAsset[]): number => {
 
 const getMainBlockchainFromAssets = (assets: DiagonAsset[]): string => {
   if (assets.length === 0) return 'Ethereum';
-  
+
   const blockchainCount: Record<string, number> = {};
   for (const asset of assets) {
     const { blockchain } = parseAssetId(asset.id);
     blockchainCount[blockchain] = (blockchainCount[blockchain] || 0) + 1;
   }
-  
+
   return Object.entries(blockchainCount).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Ethereum';
 };
 
 const calculateTokenBalances = (accounts: DiagonAccountResponse[]): Token[] => {
   const tokenBalances: Record<string, { total: number; wallets: Set<string> }> = {};
-  
+
   for (const account of accounts) {
     for (const asset of account.assets) {
       const { token } = parseAssetId(asset.id);
       const tokenSymbol = token.toUpperCase();
       const balance = parseFloat(asset.balance) || 0;
-      
+
       if (!tokenBalances[tokenSymbol]) {
         tokenBalances[tokenSymbol] = {
           total: 0,
           wallets: new Set(),
         };
       }
-      
+
       tokenBalances[tokenSymbol].total += balance;
       tokenBalances[tokenSymbol].wallets.add(account.id);
     }
   }
-  
+
   const badgeColors: Record<string, string> = {
     USDT: 'bg-green-100 text-green-700',
     USDC: 'bg-blue-100 text-blue-700',
@@ -458,9 +434,9 @@ const calculateTokenBalances = (accounts: DiagonAccountResponse[]): Token[] => {
     POL: 'bg-indigo-100 text-indigo-700',
     MATIC: 'bg-indigo-100 text-indigo-700',
   };
-  
+
   const importantTokens = ['ETH', 'BTC'];
-  
+
   return Object.entries(tokenBalances)
     .map(([symbol, data]) => ({
       symbol,
@@ -478,18 +454,18 @@ const calculateTokenBalances = (accounts: DiagonAccountResponse[]): Token[] => {
     .sort((a, b) => {
       const aIsImportant = importantTokens.includes(a.symbol);
       const bIsImportant = importantTokens.includes(b.symbol);
-      
+
       if (aIsImportant && !bIsImportant) return -1;
       if (!aIsImportant && bIsImportant) return 1;
-      
+
       return b.balance - a.balance;
     });
 };
 
 const getWalletTokenBalance = (walletId: string, tokenSymbol: string): number => {
-  const account = accounts.value.find(acc => acc.id === walletId);
+  const account = accounts.value.find((acc) => acc.id === walletId);
   if (!account) return 0;
-  
+
   const tokenUpper = tokenSymbol.toUpperCase();
   for (const asset of account.assets) {
     const { token } = parseAssetId(asset.id);
@@ -501,38 +477,38 @@ const getWalletTokenBalance = (walletId: string, tokenSymbol: string): number =>
 };
 
 const getWalletMainToken = (walletId: string): { token: string; balance: number } | null => {
-  const account = accounts.value.find(acc => acc.id === walletId);
+  const account = accounts.value.find((acc) => acc.id === walletId);
   if (!account || account.assets.length === 0) return null;
-  
+
   let mainToken: { token: string; balance: number } | null = null;
-  
+
   for (const asset of account.assets) {
     const { token } = parseAssetId(asset.id);
     const balance = parseFloat(asset.balance) || 0;
-    
+
     if (balance > 0) {
       if (!mainToken || balance > mainToken.balance) {
         mainToken = { token: token.toUpperCase(), balance };
       }
     }
   }
-  
+
   return mainToken;
 };
 
 const parseAssetId = (assetId: string): { token: string; blockchain: string } => {
   const parts = assetId.split('_');
   const assetIdUpper = assetId.toUpperCase();
-  
+
   const knownTokens = ['USDC', 'USDT', 'ETH', 'BTC', 'DAI', 'MATIC', 'POL', 'WBTC', 'WETH'];
-  
+
   const blockchainMap: Record<string, string> = {
-    'POLYGON': 'Polygon',
-    'AMOY': 'Polygon',
-    'BITCOIN': 'Bitcoin',
-    'BTC': 'Bitcoin',
+    POLYGON: 'Polygon',
+    AMOY: 'Polygon',
+    BITCOIN: 'Bitcoin',
+    BTC: 'Bitcoin',
   };
-  
+
   let blockchain = 'Unknown';
   for (const [key, value] of Object.entries(blockchainMap)) {
     if (assetIdUpper.includes(key)) {
@@ -540,15 +516,15 @@ const parseAssetId = (assetId: string): { token: string; blockchain: string } =>
       break;
     }
   }
-  
+
   let token = parts[0].toUpperCase();
-  
+
   if (token === 'BTC' || assetIdUpper.startsWith('BTC_')) {
     token = 'BTC';
     blockchain = 'Bitcoin';
     return { token, blockchain };
   }
-  
+
   if (token === 'AMOY' || token === 'POLYGON') {
     let foundToken = false;
     for (const knownToken of knownTokens) {
@@ -558,20 +534,20 @@ const parseAssetId = (assetId: string): { token: string; blockchain: string } =>
         break;
       }
     }
-    
+
     if (!foundToken && blockchain === 'Polygon') {
       token = 'POL';
     }
   }
-  
+
   if (token === 'MATIC') {
     token = 'POL';
   }
-  
+
   if (blockchain === 'Unknown' && token !== 'BTC') {
     blockchain = 'Ethereum';
   }
-  
+
   return { token, blockchain };
 };
 
@@ -589,12 +565,12 @@ const walletMainTokens = computed(() => {
 const filteredWallets = computed(() => {
   return wallets.value.filter((wallet) => {
     if (selectedToken.value) {
-      const account = accounts.value.find(acc => acc.id === wallet.id);
+      const account = accounts.value.find((acc) => acc.id === wallet.id);
       if (!account) return false;
-      
+
       const importantTokens = ['ETH', 'BTC'];
       if (importantTokens.includes(selectedToken.value)) {
-        const hasToken = account.assets.some(asset => {
+        const hasToken = account.assets.some((asset) => {
           const { token } = parseAssetId(asset.id);
           return token.toUpperCase() === selectedToken.value.toUpperCase();
         });
@@ -611,17 +587,13 @@ const filteredWallets = computed(() => {
       searchQuery.value === '' ||
       wallet.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
       wallet.id.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      (wallet.provider &&
-        wallet.provider.toLowerCase().includes(searchQuery.value.toLowerCase()));
+      (wallet.provider && wallet.provider.toLowerCase().includes(searchQuery.value.toLowerCase()));
 
-    const matchesType =
-      selectedType.value === 'all' ||
-      wallet.type.toLowerCase() === selectedType.value.toLowerCase();
+    const matchesType = selectedType.value === 'all' || wallet.type.toLowerCase() === selectedType.value.toLowerCase();
 
     const matchesProvider =
       selectedProvider.value === 'all' ||
-      (wallet.provider &&
-        wallet.provider.toLowerCase() === selectedProvider.value.toLowerCase()) ||
+      (wallet.provider && wallet.provider.toLowerCase() === selectedProvider.value.toLowerCase()) ||
       (selectedProvider.value === 'all' && !wallet.provider);
 
     return matchesSearch && matchesType && matchesProvider;
@@ -641,17 +613,16 @@ const formatBalance = (balance: number): string => {
   });
 };
 
-
 const handleRefresh = async () => {
   // Evitar múltiples refreshes simultáneos
   if (isRefreshingFlag) {
     return;
   }
-  
+
   isRefreshingFlag = true;
   isRefreshing.value = true; // Mostrar indicador de refresh sin ocultar la tabla
   error.value = null;
-  
+
   try {
     // Refrescar todos los balances (POST)
     await DiagonService.refreshAllBalances();
@@ -784,4 +755,3 @@ onUnmounted(() => {
   }
 });
 </script>
-
