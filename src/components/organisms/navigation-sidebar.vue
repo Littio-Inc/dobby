@@ -64,7 +64,7 @@ import { computed, onMounted } from 'vue';
 import { useStore } from '@nanostores/vue';
 import { $user, $isAdmin, $userRole, logout } from '../../stores/auth-store';
 import { goTo, Route } from '../../routes/routes';
-import { HomeIcon, CurrencyDollarIcon, UserGroupIcon } from '@heroicons/vue/24/outline';
+import { HomeIcon, CurrencyDollarIcon, UserGroupIcon, DocumentTextIcon } from '@heroicons/vue/24/outline';
 
 const logoUrl = new URL('../../assets/logo.png', import.meta.url).href;
 

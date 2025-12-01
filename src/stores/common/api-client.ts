@@ -1,6 +1,7 @@
 import axios, { type AxiosError } from 'axios';
 import { getIdToken } from '../auth-store';
 
+// API client for Azkaban (authentication service)
 export const azkabanApi = axios.create({
   baseURL: import.meta.env.PUBLIC_AZKABAN_API_URL || 'http://localhost:8001',
   timeout: 30000,
@@ -9,6 +10,9 @@ export const azkabanApi = axios.create({
   },
 });
 
+// API client for Cassandra (payouts service)
+// In production, Cassandra uses AWS IAM authentication
+// In local development, we can call directly without IAM
 export const cassandraApi = axios.create({
   baseURL: import.meta.env.PUBLIC_CASSANDRA_API_URL || 'https://jxxg0opg96.execute-api.us-east-1.amazonaws.com',
   timeout: 30000,
