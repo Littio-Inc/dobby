@@ -1,4 +1,5 @@
 import { diagonApi } from '../../../stores/common/api-client';
+import { getTokenBadgeColor } from '../../../utils/token-badge-colors';
 
 export interface DiagonAsset {
   id: string;
@@ -235,23 +236,13 @@ export class DiagonService {
       }
     }
 
-    const badgeColors: Record<string, string> = {
-      USDT: 'bg-green-100 text-green-700',
-      USDC: 'bg-blue-100 text-blue-700',
-      ETH: 'bg-purple-100 text-purple-700',
-      DAI: 'bg-orange-100 text-orange-700',
-      BTC: 'bg-yellow-100 text-yellow-700',
-      POL: 'bg-indigo-100 text-indigo-700',
-      MATIC: 'bg-indigo-100 text-indigo-700',
-    };
-
     return Object.entries(tokenBalances)
       .map(([symbol, data]) => ({
         symbol,
         balance: data.total,
         change: 0,
         walletsCount: data.wallets.size,
-        badgeColor: badgeColors[symbol] || 'bg-neutral-100 text-neutral-700',
+        badgeColor: getTokenBadgeColor(symbol),
       }))
       .filter((token) => token.balance > 0)
       .sort((a, b) => b.balance - a.balance);

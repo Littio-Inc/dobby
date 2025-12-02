@@ -1,7 +1,11 @@
 // @ts-check
+import { config } from 'dotenv';
 import { defineConfig } from 'astro/config';
 import vue from '@astrojs/vue';
 import tailwind from '@astrojs/tailwind';
+
+// Load environment variables from .env file
+config();
 
 // Parse and validate polling interval once (clamp to positive integer with 2000ms fallback)
 const parsePollingInterval = () => {
@@ -31,21 +35,24 @@ export default defineConfig({
   integrations: [vue(), tailwind()],
   // Server config only used in development (npm run dev)
   server: {
-    host: true, // Listen on all network interfaces
+    host: true,
     port: 4321,
-    watch: watchConfig,
   },
-  // Vite config - watch only used in development
   vite: {
     server: {
       watch: watchConfig,
-    },
-  },
-  vite: {
-    server: {
       proxy: {
         '/api/diagon': {
-          target: process.env.PUBLIC_DIAGON_API_URL || 'https://a3a9mlmbsk.execute-api.us-east-1.amazonaws.com/staging',
+          target: (() => {
+            const apiUrl = process.env.PUBLIC_DIAGON_API_URL;
+            if (!apiUrl) {
+              throw new Error(
+                'PUBLIC_DIAGON_API_URL environment variable is required. ' +
+                  'Please set it in your .env file or environment variables.'
+              );
+            }
+            return apiUrl;
+          })(),
           changeOrigin: true,
           secure: true,
           rewrite: (path) => path.replace(/^\/api\/diagon/, ''),

@@ -14,7 +14,7 @@ export const azkabanApi = axios.create({
 // In production, Cassandra uses AWS IAM authentication
 // In local development, we can call directly without IAM
 export const cassandraApi = axios.create({
-  baseURL: import.meta.env.PUBLIC_CASSANDRA_API_URL || 'https://jxxg0opg96.execute-api.us-east-1.amazonaws.com',
+  baseURL: import.meta.env.PUBLIC_CASSANDRA_API_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -25,7 +25,14 @@ const getDiagonBaseURL = () => {
   if (import.meta.env.DEV) {
     return '/api/diagon';
   }
-  return import.meta.env.PUBLIC_DIAGON_API_URL || 'https://a3a9mlmbsk.execute-api.us-east-1.amazonaws.com/staging';
+  const apiUrl = import.meta.env.PUBLIC_DIAGON_API_URL;
+  if (!apiUrl) {
+    throw new Error(
+      'PUBLIC_DIAGON_API_URL environment variable is required. ' +
+        'Please set it in your .env file or environment variables.',
+    );
+  }
+  return apiUrl;
 };
 
 export const diagonApi = axios.create({

@@ -7,111 +7,37 @@
         <p class="text-sm text-neutral-60">Resumen de saldos por token y desglose por wallet interna</p>
       </div>
 
-      <!-- Real-time Status Module -->
-      <div class="flex items-center gap-3 bg-white border border-neutral-20 rounded-lg px-4 py-3 shadow-sm">
-        <div class="flex items-center gap-2">
-          <div
-            :class="['h-2 w-2 rounded-full', isAutoRefreshActive ? 'bg-green-500 animate-pulse' : 'bg-neutral-40']"
-          />
-          <div class="text-sm">
-            <p class="text-neutral-60 text-xs">Última actualización:</p>
-            <p class="font-mono font-medium text-neutral-80">
-              {{ lastUpdateTime }}
-            </p>
-          </div>
-        </div>
-
-        <div class="h-8 w-px bg-neutral-20" />
-
-        <div class="flex items-center gap-2">
-          <button
-            class="px-3 py-1.5 h-8 border border-neutral-20 rounded hover:bg-neutral-20/20 transition-colors flex items-center gap-1 text-sm"
-            @click="toggleAutoRefresh"
-          >
-            <PlayIcon
-              v-if="!isAutoRefreshActive"
-              class="h-3 w-3"
-            />
-            <PauseIcon
-              v-else
-              class="h-3 w-3"
-            />
-            {{ isAutoRefreshActive ? 'Pausar' : 'Reanudar' }}
-          </button>
-          <button
-            :class="[
-              'px-3 py-1.5 h-8 bg-littio-secondary-sky text-white rounded hover:bg-littio-secondary-sky/90 transition-colors flex items-center gap-1 text-sm',
-              isRefreshing ? 'opacity-75 cursor-not-allowed' : '',
-            ]"
-            :disabled="isRefreshing"
-            @click="handleRefresh"
-          >
-            <ArrowPathIcon :class="['h-3 w-3', isRefreshing ? 'animate-spin' : '']" />
-            {{ isRefreshing ? 'Refrescando...' : 'Refrescar' }}
-          </button>
-        </div>
-      </div>
+      <RefreshControls
+        :is-active="isAutoRefreshActive"
+        :is-refreshing="isRefreshing"
+        :last-update-time="lastUpdateTime"
+        @toggle="toggleAutoRefresh"
+        @refresh="handleRefresh"
+      />
     </div>
 
-    <!-- Error Message -->
-    <div
-      v-if="error"
-      class="bg-red-50 border border-red-200 rounded-lg p-4"
-    >
-      <p class="text-red-800 text-sm">
-        {{ error }}
-      </p>
-    </div>
+    <ErrorMessage :message="error" />
 
-    <!-- Loading State -->
-    <div
+    <LoadingSpinner
       v-if="isLoading && wallets.length === 0"
-      class="flex items-center justify-center py-12"
-    >
-      <div class="text-center">
-        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-littio-secondary-sky mb-4" />
-        <p class="text-neutral-60">Cargando datos...</p>
-      </div>
-    </div>
+      message="Cargando datos..."
+    />
 
     <!-- Balance Cards Grid -->
     <div
       v-else
       class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
     >
-      <div
+      <TokenBalanceCard
         v-for="token in tokens"
         :key="token.symbol"
-        class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4"
-      >
-        <!-- Token Header -->
-        <div class="flex items-center justify-between">
-          <span :class="['px-3 py-1 rounded-full text-xs font-semibold', token.badgeColor]">
-            {{ token.symbol }}
-          </span>
-        </div>
-
-        <!-- Balance -->
-        <div class="space-y-1">
-          <p class="text-3xl font-bold text-neutral-80">
-            {{ formatBalance(token.balance) }}
-          </p>
-          <p class="text-sm text-neutral-60">{{ token.walletsCount }} wallets</p>
-        </div>
-
-        <!-- Action Button -->
-        <button
-          :class="[
-            'w-full px-4 py-2 border rounded transition-colors text-sm font-medium',
-            selectedToken === token.symbol
-              ? 'border-littio-secondary-sky bg-littio-secondary-sky/10 text-littio-secondary-sky'
-              : 'border-neutral-20 hover:bg-neutral-20/20',
-          ]"
-          @click="handleViewWallets(token.symbol)"
-        >
-          {{ selectedToken === token.symbol ? 'Ocultar wallets' : 'Ver wallets' }}
-        </button>
-      </div>
+        :symbol="token.symbol"
+        :formatted-balance="formatBalance(token.balance)"
+        :wallets-count="token.walletsCount"
+        :badge-color="token.badgeColor"
+        :is-selected="selectedToken === token.symbol"
+        @toggle="handleViewWallets(token.symbol)"
+      />
     </div>
 
     <!-- Wallets List Section -->
@@ -143,153 +69,33 @@
         </div>
       </div>
 
-      <!-- Search and Filters -->
-      <div class="flex flex-col sm:flex-row gap-4">
-        <div class="flex-1">
-          <div class="relative">
-            <MagnifyingGlassIcon class="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-neutral-60" />
-            <input
-              v-model="searchQuery"
-              type="text"
-              placeholder="Buscar wallet o proveedor..."
-              class="w-full pl-10 pr-4 py-2.5 border border-neutral-20 rounded-lg focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky focus:border-transparent"
-            />
-          </div>
-        </div>
-        <div class="flex gap-3">
-          <select
-            v-model="selectedType"
-            class="px-4 py-2.5 border border-neutral-20 rounded-lg focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky focus:border-transparent bg-white"
-          >
-            <option value="all">Todos los tipos</option>
-            <option value="vault">Vault</option>
-            <option value="otc">OTC</option>
-            <option value="proveedor">Proveedor</option>
-            <option value="operativa">Operativa</option>
-          </select>
-        </div>
-      </div>
+      <WalletsFilters
+        :search-query="searchQuery"
+        :selected-type="selectedType"
+        @update:search-query="searchQuery = $event"
+        @update:selected-type="selectedType = $event"
+      />
 
-      <!-- Wallets Table -->
-      <div class="bg-white rounded-lg border border-neutral-20 overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full">
-            <thead class="bg-neutral-10 border-b border-neutral-20">
-              <tr>
-                <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
-                  Nombre
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">Tipo</th>
-                <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
-                  Blockchain
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
-                  Proveedor
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
-                  Balance{{ selectedToken ? ` ${selectedToken}` : '' }}
-                </th>
-                <th class="px-6 py-3 text-right text-xs font-semibold text-neutral-60 uppercase tracking-wider">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-neutral-20">
-              <tr
-                v-if="filteredWallets.length === 0"
-                class="hover:bg-neutral-10"
-              >
-                <td
-                  colspan="6"
-                  class="px-6 py-8 text-center text-neutral-60"
-                >
-                  No se encontraron wallets
-                </td>
-              </tr>
-              <tr
-                v-for="wallet in filteredWallets"
-                :key="wallet.id"
-                class="hover:bg-neutral-10 transition-colors"
-              >
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="flex items-center gap-2">
-                    <div>
-                      <p class="text-sm font-medium text-neutral-80">
-                        {{ wallet.name }}
-                      </p>
-                      <div class="flex items-center gap-1 mt-1">
-                        <p class="text-xs text-neutral-60">
-                          {{ wallet.id }}
-                        </p>
-                        <button
-                          class="text-neutral-60 hover:text-neutral-80 transition-colors"
-                          @click="copyToClipboard(wallet.id)"
-                          title="Copiar ID"
-                        >
-                          <DocumentDuplicateIcon class="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span :class="['px-2.5 py-1 rounded-full text-xs font-semibold', getTypeBadgeColor(wallet.type)]">
-                    {{ wallet.type }}
-                  </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span class="text-sm text-neutral-80">
-                    {{ wallet.blockchain }}
-                  </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span class="text-sm text-neutral-80">
-                    {{ wallet.provider || '-' }}
-                  </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span class="text-sm font-medium text-neutral-80">
-                    <template v-if="selectedToken">
-                      {{ formatTokenBalance(getWalletTokenBalance(wallet.id, selectedToken)) }} {{ selectedToken }}
-                    </template>
-                    <template v-else>
-                      <template v-if="walletMainTokens[wallet.id]">
-                        {{ formatTokenBalance(walletMainTokens[wallet.id].balance) }}
-                        {{ walletMainTokens[wallet.id].token }}
-                      </template>
-                      <template v-else> - </template>
-                    </template>
-                  </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-right">
-                  <button
-                    class="p-1.5 text-neutral-60 hover:text-neutral-80 hover:bg-neutral-20 rounded transition-colors"
-                    @click="handleWalletActions(wallet.id)"
-                    title="Más opciones"
-                  >
-                    <EllipsisVerticalIcon class="h-5 w-5" />
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <WalletsTable
+        :wallets="tableWallets"
+        :selected-token="selectedToken"
+        @copy-id="copyToClipboard"
+        @actions="handleWalletActions"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import {
-  ArrowPathIcon,
-  PauseIcon,
-  PlayIcon,
-  MagnifyingGlassIcon,
-  DocumentDuplicateIcon,
-  EllipsisVerticalIcon,
-} from '@heroicons/vue/24/outline';
 import { DiagonService, type DiagonWallet, type DiagonAccountResponse, type DiagonAsset } from '../../services/api';
+import { getTokenBadgeColor } from '../../utils/token-badge-colors';
+import ErrorMessage from '../atoms/error-message.vue';
+import LoadingSpinner from '../atoms/loading-spinner.vue';
+import RefreshControls from '../molecules/refresh-controls.vue';
+import TokenBalanceCard from '../molecules/token-balance-card.vue';
+import WalletsFilters from '../molecules/wallets-filters.vue';
+import WalletsTable from '../molecules/wallets-table.vue';
 
 interface Token {
   symbol: string;
@@ -425,16 +231,6 @@ const calculateTokenBalances = (accounts: DiagonAccountResponse[]): Token[] => {
     }
   }
 
-  const badgeColors: Record<string, string> = {
-    USDT: 'bg-green-100 text-green-700',
-    USDC: 'bg-blue-100 text-blue-700',
-    ETH: 'bg-purple-100 text-purple-700',
-    DAI: 'bg-orange-100 text-orange-700',
-    BTC: 'bg-yellow-100 text-yellow-700',
-    POL: 'bg-indigo-100 text-indigo-700',
-    MATIC: 'bg-indigo-100 text-indigo-700',
-  };
-
   const importantTokens = ['ETH', 'BTC'];
 
   return Object.entries(tokenBalances)
@@ -443,7 +239,7 @@ const calculateTokenBalances = (accounts: DiagonAccountResponse[]): Token[] => {
       balance: data.total,
       change: 0,
       walletsCount: data.wallets.size,
-      badgeColor: badgeColors[symbol] || 'bg-neutral-100 text-neutral-700',
+      badgeColor: getTokenBadgeColor(symbol),
     }))
     .filter((token) => {
       if (importantTokens.includes(token.symbol) && token.walletsCount > 0) {
@@ -597,6 +393,32 @@ const filteredWallets = computed(() => {
       (selectedProvider.value === 'all' && !wallet.provider);
 
     return matchesSearch && matchesType && matchesProvider;
+  });
+});
+
+const tableWallets = computed(() => {
+  return filteredWallets.value.map((wallet) => {
+    let formattedBalance = '-';
+    
+    if (selectedToken.value) {
+      const balance = getWalletTokenBalance(wallet.id, selectedToken.value);
+      formattedBalance = `${formatTokenBalance(balance)} ${selectedToken.value}`;
+    } else {
+      const mainToken = walletMainTokens.value[wallet.id];
+      if (mainToken) {
+        formattedBalance = `${formatTokenBalance(mainToken.balance)} ${mainToken.token}`;
+      }
+    }
+
+    return {
+      id: wallet.id,
+      name: wallet.name,
+      type: wallet.type,
+      typeBadgeColor: getTypeBadgeColor(wallet.type),
+      blockchain: wallet.blockchain,
+      provider: wallet.provider,
+      formattedBalance,
+    };
   });
 });
 
