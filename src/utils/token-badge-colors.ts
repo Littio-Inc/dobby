@@ -11,12 +11,8 @@ export const TOKEN_BADGE_COLORS: Record<string, string> = {
   MATIC: 'bg-indigo-100 text-indigo-700',
 };
 
-/**
- * Obtiene el color del badge para un símbolo de token dado
- * @param symbol - Símbolo del token (ej: 'USDT', 'ETH')
- * @returns Clases CSS para el badge o un color por defecto
- */
 export function getTokenBadgeColor(symbol: string): string {
-  return TOKEN_BADGE_COLORS[symbol] || 'bg-neutral-100 text-neutral-700';
+  const normalizedSymbol = symbol.trim().toUpperCase();
+  return TOKEN_BADGE_COLORS[normalizedSymbol] || 'bg-neutral-100 text-neutral-700';
 }
 

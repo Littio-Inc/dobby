@@ -42,7 +42,7 @@
 
     <!-- Wallets List Section -->
     <div
-      v-if="(!isLoading || wallets.length > 0) && wallets.length > 0"
+      v-if="wallets.length > 0"
       class="space-y-4"
     >
       <div class="flex items-center justify-between">
