@@ -1,9 +1,7 @@
 <template>
   <div class="flex items-center gap-3 bg-white border border-neutral-20 rounded-lg px-4 py-3 shadow-sm">
     <div class="flex items-center gap-2">
-      <div
-        :class="['h-2 w-2 rounded-full', isActive ? 'bg-green-500 animate-pulse' : 'bg-neutral-40']"
-      />
+      <div :class="['h-2 w-2 rounded-full', isActive ? 'bg-green-500 animate-pulse' : 'bg-neutral-40']" />
       <div class="text-sm">
         <p class="text-neutral-60 text-xs">Última actualización:</p>
         <p class="font-mono font-medium text-neutral-80">
@@ -58,4 +56,3 @@ defineEmits<{
   refresh: [];
 }>();
 </script>
-

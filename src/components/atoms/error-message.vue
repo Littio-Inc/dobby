@@ -14,4 +14,3 @@ defineProps<{
   message: string | null;
 }>();
 </script>
-

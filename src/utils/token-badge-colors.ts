@@ -15,4 +15,3 @@ export function getTokenBadgeColor(symbol: string): string {
   const normalizedSymbol = symbol.trim().toUpperCase();
   return TOKEN_BADGE_COLORS[normalizedSymbol] || 'bg-neutral-100 text-neutral-700';
 }
-

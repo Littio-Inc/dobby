@@ -399,7 +399,7 @@ const filteredWallets = computed(() => {
 const tableWallets = computed(() => {
   return filteredWallets.value.map((wallet) => {
     let formattedBalance = '-';
-    
+
     if (selectedToken.value) {
       const balance = getWalletTokenBalance(wallet.id, selectedToken.value);
       formattedBalance = `${formatTokenBalance(balance)} ${selectedToken.value}`;

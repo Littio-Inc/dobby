@@ -4,9 +4,7 @@
       <table class="w-full">
         <thead class="bg-neutral-10 border-b border-neutral-20">
           <tr>
-            <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
-              Nombre
-            </th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">Nombre</th>
             <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">Tipo</th>
             <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
               Blockchain
@@ -119,4 +117,3 @@ defineEmits<{
   actions: [id: string];
 }>();
 </script>
-

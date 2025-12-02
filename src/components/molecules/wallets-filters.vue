@@ -41,4 +41,3 @@ defineEmits<{
   'update:selectedType': [value: string];
 }>();
 </script>
-

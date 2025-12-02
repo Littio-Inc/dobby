@@ -43,4 +43,3 @@ defineEmits<{
   toggle: [];
 }>();
 </script>
-

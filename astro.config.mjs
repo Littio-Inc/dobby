@@ -48,7 +48,7 @@ export default defineConfig({
             if (!apiUrl) {
               throw new Error(
                 'PUBLIC_DIAGON_API_URL environment variable is required. ' +
-                  'Please set it in your .env file or environment variables.'
+                  'Please set it in your .env file or environment variables.',
               );
             }
             return apiUrl;
