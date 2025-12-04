@@ -79,13 +79,33 @@
               </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right">
-              <button
-                class="p-1.5 text-neutral-60 hover:text-neutral-80 hover:bg-neutral-20 rounded transition-colors"
-                @click="$emit('actions', wallet.id)"
-                title="Más opciones"
+              <div
+                class="relative"
+                data-wallet-menu
               >
-                <EllipsisVerticalIcon class="h-5 w-5" />
-              </button>
+                <button
+                  class="p-1.5 text-neutral-60 hover:text-neutral-80 hover:bg-neutral-20 rounded transition-colors"
+                  @click.stop="toggleMenu(wallet.id)"
+                  title="Más opciones"
+                >
+                  <EllipsisVerticalIcon class="h-5 w-5" />
+                </button>
+                
+                <!-- Dropdown Menu -->
+                <div
+                  v-if="openMenuId === wallet.id"
+                  class="absolute right-0 mt-1 w-48 bg-white rounded-lg border border-neutral-20 shadow-lg z-10"
+                  @click.stop
+                >
+                  <button
+                    class="w-full px-4 py-3 text-left text-sm text-neutral-80 hover:bg-neutral-10 flex items-center gap-3 transition-colors first:rounded-t-lg last:rounded-b-lg"
+                    @click="handleMoveFunds(wallet.id)"
+                  >
+                    <ArrowsRightLeftIcon class="h-5 w-5 text-neutral-60" />
+                    <span>Mover fondos</span>
+                  </button>
+                </div>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -95,7 +115,8 @@
 </template>
 
 <script setup lang="ts">
-import { DocumentDuplicateIcon, EllipsisVerticalIcon } from '@heroicons/vue/24/outline';
+import { ref, onMounted, onUnmounted } from 'vue';
+import { DocumentDuplicateIcon, EllipsisVerticalIcon, ArrowsRightLeftIcon } from '@heroicons/vue/24/outline';
 
 interface WalletRow {
   id: string;
@@ -112,8 +133,39 @@ defineProps<{
   selectedToken: string | null;
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   copyId: [id: string];
   actions: [id: string];
+  moveFunds: [id: string];
 }>();
+
+const openMenuId = ref<string | null>(null);
+
+const toggleMenu = (walletId: string) => {
+  if (openMenuId.value === walletId) {
+    openMenuId.value = null;
+  } else {
+    openMenuId.value = walletId;
+  }
+};
+
+const handleMoveFunds = (walletId: string) => {
+  emit('moveFunds', walletId);
+  openMenuId.value = null; // Cerrar el menú después de hacer clic
+};
+
+const closeMenuOnClickOutside = (event: MouseEvent) => {
+  const target = event.target as HTMLElement;
+  if (!target.closest('[data-wallet-menu]')) {
+    openMenuId.value = null;
+  }
+};
+
+onMounted(() => {
+  document.addEventListener('click', closeMenuOnClickOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeMenuOnClickOutside);
+});
 </script>

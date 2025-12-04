@@ -80,7 +80,7 @@
         :wallets="tableWallets"
         :selected-token="selectedToken"
         @copy-id="copyToClipboard"
-        @actions="handleWalletActions"
+        @move-funds="handleMoveFunds"
       />
     </div>
 
@@ -550,8 +550,9 @@ const copyToClipboard = async (text: string) => {
   }
 };
 
-const handleWalletActions = (walletId: string) => {
-  console.log('Acciones para wallet:', walletId);
+const handleMoveFunds = (walletId: string) => {
+  console.log('Mover fondos para wallet:', walletId);
+  // TODO: Implementar funcionalidad de mover fondos
 };
 
 const startUpdateInterval = () => {
