@@ -21,28 +21,6 @@ export const cassandraApi = axios.create({
   },
 });
 
-const getDiagonBaseURL = () => {
-  if (import.meta.env.DEV) {
-    return '/api/diagon';
-  }
-  const apiUrl = import.meta.env.PUBLIC_DIAGON_API_URL;
-  if (!apiUrl) {
-    throw new Error(
-      'PUBLIC_DIAGON_API_URL environment variable is required. ' +
-        'Please set it in your .env file or environment variables.',
-    );
-  }
-  return apiUrl;
-};
-
-export const diagonApi = axios.create({
-  baseURL: getDiagonBaseURL(),
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
 azkabanApi.interceptors.request.use(
   async (config) => {
     try {
@@ -80,29 +58,9 @@ cassandraApi.interceptors.request.use(
   },
 );
 
-diagonApi.interceptors.request.use(
-  async (config) => {
-    try {
-      const apiKey = import.meta.env.PUBLIC_X_API_KEY_DIAGON || import.meta.env.X_API_KEY_DIAGON;
-
-      if (apiKey) {
-        config.headers['X-API-KEY'] = apiKey;
-      } else {
-        throw new Error('X_API_KEY_DIAGON environment variable is required. Use PUBLIC_X_API_KEY_DIAGON in .env file');
-      }
-    } catch (error) {
-      throw error;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  },
-);
-
 const handleAuthError = async (
   error: AxiosError,
-  apiInstance: typeof azkabanApi | typeof cassandraApi | typeof diagonApi,
+  apiInstance: typeof azkabanApi | typeof cassandraApi,
 ) => {
   if (error.response?.status === 401) {
     const { login } = await import('../auth-store');
@@ -125,11 +83,6 @@ azkabanApi.interceptors.response.use(
 cassandraApi.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => handleAuthError(error, cassandraApi),
-);
-
-diagonApi.interceptors.response.use(
-  (response) => response,
-  async (error: AxiosError) => handleAuthError(error, diagonApi),
 );
 
 export default azkabanApi;

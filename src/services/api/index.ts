@@ -1,1 +1,1 @@
-export * from './diagon';
+export * from './azkaban';

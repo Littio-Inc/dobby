@@ -3,7 +3,7 @@
     <!-- Dashboard Header -->
     <div class="flex items-start justify-between gap-4 pb-4 border-b border-neutral-20">
       <div class="space-y-1">
-        <h2 class="text-2xl font-bold text-neutral-80 mb-1">Dashboard de Saldos Diagon</h2>
+        <h2 class="text-2xl font-bold text-neutral-80 mb-1">Dashboard de Saldos Fireblocks</h2>
         <p class="text-sm text-neutral-60">Resumen de saldos por token y desglose por wallet interna</p>
       </div>
 
@@ -88,7 +88,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { DiagonService, type DiagonWallet, type DiagonAccountResponse, type DiagonAsset } from '../../services/api';
+import { AzkabanService, type DiagonWallet, type DiagonAccountResponse, type DiagonAsset } from '../../services/api';
 import { getTokenBadgeColor } from '../../utils/token-badge-colors';
 import ErrorMessage from '../atoms/error-message.vue';
 import LoadingSpinner from '../atoms/loading-spinner.vue';
@@ -126,7 +126,7 @@ const loadData = async () => {
   error.value = null;
 
   try {
-    const accountsData = await DiagonService.getAccountsWithAssets();
+    const accountsData = await AzkabanService.getAccountsWithAssets();
     accounts.value = accountsData;
 
     const walletsData = accountsData.map((account) => ({
@@ -447,7 +447,7 @@ const handleRefresh = async () => {
 
   try {
     // Refrescar todos los balances (POST)
-    await DiagonService.refreshAllBalances();
+    await AzkabanService.refreshAllBalances();
     // Recargar los datos actualizados
     await loadData();
   } catch (err: any) {
@@ -530,7 +530,7 @@ const startDataRefreshInterval = () => {
     if (isAutoRefreshActive.value && !isRefreshingFlag) {
       isRefreshingFlag = true;
       try {
-        await DiagonService.refreshAllBalances();
+        await AzkabanService.refreshAllBalances();
         await loadData();
       } catch (err: any) {
         if (!error.value) {

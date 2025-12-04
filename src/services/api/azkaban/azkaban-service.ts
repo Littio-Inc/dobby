@@ -1,5 +1,10 @@
-import { diagonApi } from '../../../stores/common/api-client';
-import { getTokenBadgeColor } from '../../../utils/token-badge-colors';
+import { azkabanApi } from '../../../stores/common/api-client';
+
+// Endpoints de Azkaban (migrados desde Diagon)
+const AZKABAN_ENDPOINTS = {
+  GET_ACCOUNTS: '/v1/vault/accounts',
+  REFRESH_BALANCE: '/v1/vault/accounts', // Base path para /v1/vault/accounts/{accountId}/{asset}/balance
+} as const;
 
 export interface DiagonAsset {
   id: string;
@@ -29,14 +34,6 @@ export interface DiagonWallet {
   blockchain: string;
   provider: string | null;
   balanceEth: number;
-}
-
-export interface DiagonTokenBalance {
-  symbol: string;
-  balance: number;
-  change: number;
-  walletsCount: number;
-  badgeColor: string;
 }
 
 const parseAssetId = (assetId: string): { token: string; blockchain: string } => {
@@ -141,133 +138,24 @@ const getMainBlockchain = (assets: DiagonAsset[]): string => {
   return Object.entries(blockchainCount).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Ethereum';
 };
 
-export interface DiagonBalancesResponse {
-  tokens: DiagonTokenBalance[];
-}
-
-export class DiagonService {
-  static async getWallets(): Promise<DiagonWallet[]> {
-    try {
-      const response = await diagonApi.get<DiagonAccountResponse[]>('/vault/accounts');
-
-      if (!Array.isArray(response.data)) {
-        console.warn('[DiagonService] Unexpected response format:', response.data);
-        return [];
-      }
-
-      return response.data.map((account) => ({
-        id: account.id,
-        name: account.name,
-        type: inferWalletType(account.name),
-        blockchain: getMainBlockchain(account.assets),
-        provider: extractProvider(account.name),
-        balanceEth: getEthBalance(account.assets),
-      }));
-    } catch (error) {
-      console.error('[DiagonService] Error fetching wallets:', error);
-      throw error;
-    }
-  }
-
-  static async getTokenBalances(): Promise<DiagonTokenBalance[]> {
-    try {
-      const response = await diagonApi.get<DiagonBalancesResponse>('/v1/balances');
-      return response.data.tokens;
-    } catch (error) {
-      console.error('[DiagonService] Error fetching token balances:', error);
-      throw error;
-    }
-  }
-
-  static async getWalletById(walletId: string): Promise<DiagonWallet> {
-    try {
-      const response = await diagonApi.get<{ wallet: DiagonWallet }>(`/v1/wallets/${walletId}`);
-      return response.data.wallet;
-    } catch (error) {
-      console.error('[DiagonService] Error fetching wallet by ID:', error);
-      throw error;
-    }
-  }
-
-  static async getWalletTokenBalance(walletId: string, tokenSymbol: string): Promise<number> {
-    try {
-      const response = await diagonApi.get<{ balance: number }>(`/v1/wallets/${walletId}/balances/${tokenSymbol}`);
-      return response.data.balance;
-    } catch (error) {
-      console.error('[DiagonService] Error fetching wallet token balance:', error);
-      throw error;
-    }
-  }
-
+/**
+ * Servicio para consultar saldos de cuentas Fireblocks
+ * Migrado de Diagon a Azkaban. Ahora usa azkabanApi.
+ * Las interfaces y respuestas se mantienen iguales para no romper el código existente.
+ */
+export class AzkabanService {
   static async getAccountsWithAssets(): Promise<DiagonAccountResponse[]> {
     try {
-      const response = await diagonApi.get<DiagonAccountResponse[]>('/vault/accounts');
+      const response = await azkabanApi.get<DiagonAccountResponse[]>(AZKABAN_ENDPOINTS.GET_ACCOUNTS);
 
       if (!Array.isArray(response.data)) {
-        console.warn('[DiagonService] Unexpected response format:', response.data);
+        console.warn('[AzkabanService] Unexpected response format:', response.data);
         return [];
       }
 
       return response.data;
     } catch (error) {
-      console.error('[DiagonService] Error fetching accounts with assets:', error);
-      throw error;
-    }
-  }
-
-  static calculateTokenBalancesFromAccounts(accounts: DiagonAccountResponse[]): DiagonTokenBalance[] {
-    const tokenBalances: Record<string, { total: number; wallets: Set<string> }> = {};
-
-    for (const account of accounts) {
-      for (const asset of account.assets) {
-        const { token } = parseAssetId(asset.id);
-        const tokenSymbol = token.toUpperCase();
-        const balance = parseFloat(asset.balance) || 0;
-
-        if (!tokenBalances[tokenSymbol]) {
-          tokenBalances[tokenSymbol] = {
-            total: 0,
-            wallets: new Set(),
-          };
-        }
-
-        tokenBalances[tokenSymbol].total += balance;
-        tokenBalances[tokenSymbol].wallets.add(account.id);
-      }
-    }
-
-    return Object.entries(tokenBalances)
-      .map(([symbol, data]) => ({
-        symbol,
-        balance: data.total,
-        change: 0,
-        walletsCount: data.wallets.size,
-        badgeColor: getTokenBadgeColor(symbol),
-      }))
-      .filter((token) => token.balance > 0)
-      .sort((a, b) => b.balance - a.balance);
-  }
-
-  static async refreshAllData(): Promise<{
-    wallets: DiagonWallet[];
-    tokenBalances: DiagonTokenBalance[];
-  }> {
-    try {
-      const accounts = await this.getAccountsWithAssets();
-      const wallets = accounts.map((account) => ({
-        id: account.id,
-        name: account.name,
-        type: inferWalletType(account.name),
-        blockchain: getMainBlockchain(account.assets),
-        provider: extractProvider(account.name),
-        balanceEth: getEthBalance(account.assets),
-      }));
-
-      const tokenBalances = this.calculateTokenBalancesFromAccounts(accounts);
-
-      return { wallets, tokenBalances };
-    } catch (error) {
-      console.error('[DiagonService] Error refreshing all data:', error);
+      console.error('[AzkabanService] Error fetching accounts with assets:', error);
       throw error;
     }
   }
@@ -288,7 +176,7 @@ export class DiagonService {
         if (error.response?.status === 429 && attempt < maxRetries) {
           const delay = initialDelay * Math.pow(2, attempt);
           console.warn(
-            `[DiagonService] Rate limited (429), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`,
+            `[AzkabanService] Rate limited (429), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`,
           );
           await new Promise((resolve) => setTimeout(resolve, delay));
           continue;
@@ -303,7 +191,7 @@ export class DiagonService {
 
   static async refreshAccountBalance(accountId: string, asset: string): Promise<void> {
     return this.retryWithBackoff(async () => {
-      await diagonApi.post(`/vault/accounts/${accountId}/${asset}/balance`);
+      await azkabanApi.post(`${AZKABAN_ENDPOINTS.REFRESH_BALANCE}/${accountId}/${asset}/balance`);
     });
   }
 
@@ -319,7 +207,7 @@ export class DiagonService {
       await Promise.allSettled(
         batch.map((item) =>
           processor(item).catch((error) => {
-            console.warn(`[DiagonService] Error processing item:`, error);
+            console.warn(`[AzkabanService] Error processing item:`, error);
           }),
         ),
       );
@@ -356,26 +244,27 @@ export class DiagonService {
       }
 
       console.log(
-        `[DiagonService] Total: ${accounts.length} accounts, ${refreshItems.length} unique account/asset combinations to refresh`,
+        `[AzkabanService] Total: ${accounts.length} accounts, ${refreshItems.length} unique account/asset combinations to refresh`,
       );
-      console.log(`[DiagonService] Processing in batches of 5 with 500ms delay between batches`);
+      console.log(`[AzkabanService] Processing in batches of 5 with 500ms delay between batches`);
 
       await this.processBatch(
         refreshItems,
         5,
         async (item) => {
           console.log(
-            `[DiagonService] Refreshing balance for account ${item.accountId} (${item.accountName}), asset ${item.asset}`,
+            `[AzkabanService] Refreshing balance for account ${item.accountId} (${item.accountName}), asset ${item.asset}`,
           );
           await this.refreshAccountBalance(item.accountId, item.asset);
         },
         500,
       );
 
-      console.log(`[DiagonService] Completed refreshing all balances`);
+      console.log(`[AzkabanService] Completed refreshing all balances`);
     } catch (error) {
-      console.error('[DiagonService] Error refreshing all balances:', error);
+      console.error('[AzkabanService] Error refreshing all balances:', error);
       throw error;
     }
   }
 }
+

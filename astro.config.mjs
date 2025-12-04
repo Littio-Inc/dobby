@@ -41,33 +41,6 @@ export default defineConfig({
   vite: {
     server: {
       watch: watchConfig,
-      proxy: {
-        '/api/diagon': {
-          target: (() => {
-            const apiUrl = process.env.PUBLIC_DIAGON_API_URL;
-            if (!apiUrl) {
-              throw new Error(
-                'PUBLIC_DIAGON_API_URL environment variable is required. ' +
-                  'Please set it in your .env file or environment variables.',
-              );
-            }
-            return apiUrl;
-          })(),
-          changeOrigin: true,
-          secure: true,
-          rewrite: (path) => path.replace(/^\/api\/diagon/, ''),
-          configure: (proxy) => {
-            proxy.on('proxyReq', (proxyReq, req) => {
-              const xApiKey = req.headers['x-api-key'] || req.headers['X-API-KEY'];
-              if (xApiKey) {
-                proxyReq.setHeader('X-API-KEY', xApiKey);
-              } else {
-                console.warn('[Proxy] X-API-KEY header not found in request');
-              }
-            });
-          },
-        },
-      },
     },
   },
 });
