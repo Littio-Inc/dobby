@@ -115,7 +115,7 @@ const menuItems = computed(() => {
     },
     {
       id: 'back-office-movements',
-      name: 'Movimientos Back Office',
+      name: 'Movimientos Internos',
       path: '/back-office-movements/index.html',
       icon: DocumentTextIcon,
     },

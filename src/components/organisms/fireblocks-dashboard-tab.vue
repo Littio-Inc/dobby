@@ -3,7 +3,7 @@
     <!-- Dashboard Header -->
     <div class="flex items-start justify-between gap-4 pb-4 border-b border-neutral-20">
       <div class="space-y-1">
-        <h2 class="text-2xl font-bold text-neutral-80 mb-1">Dashboard de Saldos Fireblocks</h2>
+        <h2 class="text-2xl font-bold text-neutral-80 mb-1">Saldos Fireblocks</h2>
         <p class="text-sm text-neutral-60">Resumen de saldos por token y desglose por wallet interna</p>
       </div>
 
@@ -82,6 +82,52 @@
         @copy-id="copyToClipboard"
         @actions="handleWalletActions"
       />
+    </div>
+
+    <!-- Movimientos Unificados Section -->
+    <div class="space-y-4">
+      <h3 class="text-xl font-bold text-neutral-80">Movimientos Unificados</h3>
+      <div class="bg-white rounded-lg border border-neutral-20 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-neutral-10 border-b border-neutral-20">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
+                  Fecha
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
+                  Tipo
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
+                  Desde
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
+                  Hacia
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
+                  Token
+                </th>
+                <th class="px-6 py-3 text-right text-xs font-semibold text-neutral-60 uppercase tracking-wider">
+                  Monto
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
+                  Estado
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-neutral-20">
+              <tr class="hover:bg-neutral-10">
+                <td
+                  colspan="7"
+                  class="px-6 py-8 text-center text-neutral-60"
+                >
+                  Logs de Movimientos - Próximamente
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -448,7 +494,9 @@ const handleRefresh = async () => {
   try {
     // Refrescar todos los balances (POST)
     await AzkabanService.refreshAllBalances();
-    // Recargar los datos actualizados
+
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    
     await loadData();
   } catch (err: any) {
     console.error('[FireblocksDashboard] Error refreshing data:', err);
@@ -531,6 +579,9 @@ const startDataRefreshInterval = () => {
       isRefreshingFlag = true;
       try {
         await AzkabanService.refreshAllBalances();
+        
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        
         await loadData();
       } catch (err: any) {
         if (!error.value) {

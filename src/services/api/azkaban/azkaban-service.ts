@@ -220,31 +220,23 @@ export class AzkabanService {
 
   static async refreshAllBalances(): Promise<void> {
     try {
+      console.log('[AzkabanService] Starting refreshAllBalances...');
+      const startTime = Date.now();
       const accounts = await this.getAccountsWithAssets();
-      const refreshItems: Array<{ accountId: string; accountName: string; asset: string; assetId: string }> = [];
-      const processedCombinations = new Set<string>();
+      const refreshItems: Array<{ accountId: string; accountName: string; assetId: string }> = [];
 
       for (const account of accounts) {
         for (const asset of account.assets) {
-          const { token } = parseAssetId(asset.id);
-          const tokenSymbol = token.toUpperCase();
-
-          const combinationKey = `${account.id}:${tokenSymbol}`;
-
-          if (!processedCombinations.has(combinationKey)) {
-            processedCombinations.add(combinationKey);
-            refreshItems.push({
-              accountId: account.id,
-              accountName: account.name,
-              asset: tokenSymbol,
-              assetId: asset.id,
-            });
-          }
+          refreshItems.push({
+            accountId: account.id,
+            accountName: account.name,
+            assetId: asset.id,
+          });
         }
       }
 
       console.log(
-        `[AzkabanService] Total: ${accounts.length} accounts, ${refreshItems.length} unique account/asset combinations to refresh`,
+        `[AzkabanService] Total: ${accounts.length} accounts, ${refreshItems.length} assets to refresh`,
       );
       console.log(`[AzkabanService] Processing in batches of 5 with 500ms delay between batches`);
 
@@ -253,14 +245,17 @@ export class AzkabanService {
         5,
         async (item) => {
           console.log(
-            `[AzkabanService] Refreshing balance for account ${item.accountId} (${item.accountName}), asset ${item.asset}`,
+            `[AzkabanService] Refreshing balance for account ${item.accountId} (${item.accountName}), assetId ${item.assetId}`,
           );
-          await this.refreshAccountBalance(item.accountId, item.asset);
+          await this.refreshAccountBalance(item.accountId, item.assetId);
         },
         500,
       );
 
-      console.log(`[AzkabanService] Completed refreshing all balances`);
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      console.log(
+        `[AzkabanService] Completed refreshing all balances in ${duration}s (${refreshItems.length} assets)`,
+      );
     } catch (error) {
       console.error('[AzkabanService] Error refreshing all balances:', error);
       throw error;
