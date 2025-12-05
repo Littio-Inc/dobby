@@ -4,6 +4,19 @@
 
     <ErrorMessage :message="transactionsError" />
 
+    <!-- Copy feedback message -->
+    <div
+      v-if="copyMessage"
+      :class="[
+        'rounded-lg p-3 text-sm',
+        copyMessageType === 'success'
+          ? 'bg-green-50 border border-green-200 text-green-800'
+          : 'bg-red-50 border border-red-200 text-red-800',
+      ]"
+    >
+      {{ copyMessage }}
+    </div>
+
     <div class="bg-white rounded-lg border border-neutral-20 overflow-hidden">
       <LoadingSpinner
         v-if="isLoadingTransactions && transactions.length === 0"
@@ -162,8 +175,13 @@
                 </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
-                <span :class="['px-2 py-1 rounded-full text-xs font-semibold', getStatusBadgeColor('completed')]">
-                  COMPLETED
+                <span
+                  :class="[
+                    'px-2 py-1 rounded-full text-xs font-semibold',
+                    getStatusBadgeColor(getTransactionStatus(transaction)),
+                  ]"
+                >
+                  {{ getTransactionStatusDisplay(transaction) }}
                 </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right">
@@ -284,9 +302,14 @@ const isLoadingTransactions = ref(false);
 const transactionsError = ref<string | null>(null);
 const currentPage = ref(1);
 const totalCount = ref(0);
-const limit = ref(5); // 5 filas para probar el paginado
+const limit = ref(10);
+const copyMessage = ref<string | null>(null);
+const copyMessageType = ref<'success' | 'error'>('success');
+let requestId = 0;
 
 const loadTransactions = async (page: number = 1) => {
+  // Increment request ID to track the latest request
+  const currentRequestId = ++requestId;
   isLoadingTransactions.value = true;
   transactionsError.value = null;
 
@@ -297,15 +320,34 @@ const loadTransactions = async (page: number = 1) => {
       limit: limit.value,
     });
 
+    // Ignore stale responses (if a newer request was made)
+    if (currentRequestId !== requestId) {
+      return;
+    }
+
     transactions.value = response.transactions;
     totalCount.value = response.total_count;
     currentPage.value = response.page;
   } catch (err: any) {
+    // Ignore stale responses (if a newer request was made)
+    if (currentRequestId !== requestId) {
+      return;
+    }
+
     console.error('[UnifiedMovementsTable] Error loading transactions:', err);
-    transactionsError.value = err.message || 'Error al cargar las transacciones';
+    // Normalize error messages: prefer server-provided messages
+    const errorMessage =
+      err.response?.data?.error?.message ||
+      err.response?.data?.detail ||
+      err.response?.data?.message ||
+      err.message ||
+      'Error al cargar las transacciones';
+    transactionsError.value = errorMessage;
     transactions.value = [];
   } finally {
-    isLoadingTransactions.value = false;
+    if (currentRequestId === requestId) {
+      isLoadingTransactions.value = false;
+    }
   }
 };
 
@@ -316,7 +358,11 @@ const handlePageChange = (newPage: number) => {
 };
 
 const totalPages = computed(() => {
-  return Math.ceil(totalCount.value / limit.value);
+  const l = Number(limit.value);
+  if (isNaN(l) || l <= 0) {
+    return 0;
+  }
+  return Math.ceil(totalCount.value / l);
 });
 
 const formatDate = (dateString: string): string => {
@@ -333,6 +379,9 @@ const formatDate = (dateString: string): string => {
 
 const formatNumber = (amount: string): string => {
   const numAmount = parseFloat(amount);
+  if (!Number.isFinite(numAmount)) {
+    return '--';
+  }
   return numAmount.toLocaleString('es-ES', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -345,6 +394,15 @@ const formatRate = (rate: string | null | undefined): string => {
   if (rateValue === 1.0 || rateValue === 1) return '-';
   if (rateValue <= 0) return '-';
   return rate;
+};
+
+const getTransactionStatus = (transaction: BackofficeTransaction): string => {
+  return transaction.status || 'completed';
+};
+
+const getTransactionStatusDisplay = (transaction: BackofficeTransaction): string => {
+  const status = getTransactionStatus(transaction);
+  return status.toUpperCase();
 };
 
 const getStatusBadgeColor = (status: string): string => {
@@ -392,12 +450,47 @@ const getCategoryBadgeColor = (category: string): string => {
   return 'bg-neutral-100 text-neutral-700';
 };
 
+const showCopyMessage = (message: string, type: 'success' | 'error') => {
+  copyMessage.value = message;
+  copyMessageType.value = type;
+  setTimeout(() => {
+    copyMessage.value = null;
+  }, 3000);
+};
+
 const copyToClipboard = async (text: string) => {
+  // Try modern Clipboard API first
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showCopyMessage('Copiado al portapapeles', 'success');
+      return;
+    } catch {
+      // Fall through to DOM-based fallback
+    }
+  }
+
+  // Fallback: DOM-based copy using textarea and execCommand
   try {
-    await navigator.clipboard.writeText(text);
-    console.log('Copiado al portapapeles:', text);
-  } catch (err) {
-    console.error('Error al copiar:', err);
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-999999px';
+    textarea.style.top = '-999999px';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textarea);
+
+    if (successful) {
+      showCopyMessage('Copiado al portapapeles', 'success');
+    } else {
+      throw new Error('execCommand copy failed');
+    }
+  } catch {
+    showCopyMessage('Error al copiar al portapapeles', 'error');
   }
 };
 

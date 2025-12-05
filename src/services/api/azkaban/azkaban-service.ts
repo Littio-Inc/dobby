@@ -55,6 +55,7 @@ export interface BackofficeTransaction {
   user_id_from: string | null;
   transfer_id: string | null;
   idempotency_key: string;
+  status?: string;
 }
 
 export interface BackofficeTransactionsResponse {
