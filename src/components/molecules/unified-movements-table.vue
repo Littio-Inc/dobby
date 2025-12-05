@@ -169,7 +169,7 @@
               <td class="px-6 py-4 whitespace-nowrap text-right">
                 <div class="flex items-center justify-end gap-2">
                   <span class="text-sm font-medium text-neutral-80">{{
-                    formatAmount(transaction.amount, transaction.currency)
+                    formatNumber(transaction.amount)
                   }}</span>
                   <span
                     :class="[
@@ -187,7 +187,7 @@
                   class="flex items-center justify-end gap-2"
                 >
                   <span class="text-sm text-neutral-80">{{
-                    formatAmount(transaction.fees, transaction.currency)
+                    formatNumber(transaction.fees)
                   }}</span>
                   <span
                     :class="[
@@ -205,7 +205,7 @@
                 >
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-80">
-                {{ transaction.rate && parseFloat(transaction.rate) > 0 ? transaction.rate : '-' }}
+                {{ formatRate(transaction.rate) }}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-80">
                 {{ transaction.st_hash || transaction.transfer_id || '-' }}
@@ -341,6 +341,22 @@ const formatAmount = (amount: string, currency: string): string => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} ${currency}`;
+};
+
+const formatNumber = (amount: string): string => {
+  const numAmount = parseFloat(amount);
+  return numAmount.toLocaleString('es-ES', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+const formatRate = (rate: string | null | undefined): string => {
+  if (!rate) return '-';
+  const rateValue = parseFloat(rate);
+  if (rateValue === 1.0 || rateValue === 1) return '-';
+  if (rateValue <= 0) return '-';
+  return rate;
 };
 
 const getStatusBadgeColor = (status: string): string => {
