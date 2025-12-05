@@ -58,7 +58,7 @@ jobs:
 
       - name: Upload static files to S3
         run: |
-          aws s3 sync dist s3://dobby-production --delete
+          aws s3 sync dist s3://dobby2-prod --delete
 
       - name: Invalidate CloudFront cache
         run: |
