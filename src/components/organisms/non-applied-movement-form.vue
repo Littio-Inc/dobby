@@ -4,7 +4,8 @@
     <div class="space-y-2">
       <h1 class="text-3xl font-bold text-neutral-80">Registro de movimientos – Proveedores no apificados</h1>
       <p class="text-base text-neutral-60">
-        Este módulo permite registrar manualmente operaciones realizadas fuera de Littio para garantizar trazabilidad y registro contable estructurado.
+        Este módulo permite registrar manualmente operaciones realizadas fuera de Littio para garantizar trazabilidad y
+        registro contable estructurado.
       </p>
     </div>
 
@@ -14,7 +15,9 @@
         <!-- Section Title -->
         <div class="space-y-2">
           <h2 class="text-xl font-semibold text-neutral-80">Nuevo Movimiento</h2>
-          <p class="text-sm text-neutral-60">Complete todos los campos requeridos para registrar el movimiento manual</p>
+          <p class="text-sm text-neutral-60">
+            Complete todos los campos requeridos para registrar el movimiento manual
+          </p>
         </div>
 
         <!-- Form -->
@@ -82,18 +85,10 @@
                   >
                     Seleccione tipo
                   </option>
-                  <option value="transfer_in">
-                    Transfer In
-                  </option>
-                  <option value="transfer_out">
-                    Transfer Out
-                  </option>
-                  <option value="payment">
-                    Payment
-                  </option>
-                  <option value="withdrawal">
-                    Withdrawal
-                  </option>
+                  <option value="transfer_in">Transfer In</option>
+                  <option value="transfer_out">Transfer Out</option>
+                  <option value="payment">Payment</option>
+                  <option value="withdrawal">Withdrawal</option>
                 </select>
               </div>
 
@@ -116,18 +111,10 @@
                   >
                     Seleccione moneda
                   </option>
-                  <option value="COP">
-                    COP
-                  </option>
-                  <option value="USD">
-                    USD
-                  </option>
-                  <option value="USDC">
-                    USDC
-                  </option>
-                  <option value="USDT">
-                    USDT
-                  </option>
+                  <option value="COP">COP</option>
+                  <option value="USD">USD</option>
+                  <option value="USDC">USDC</option>
+                  <option value="USDT">USDT</option>
                 </select>
               </div>
 
@@ -148,9 +135,7 @@
                     placeholder="Comentarios adicionales sobre esta operación..."
                     class="w-full px-4 py-2.5 border border-neutral-40 rounded-lg focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky text-neutral-80 placeholder:text-neutral-60 resize-none"
                   />
-                  <div class="absolute bottom-2 right-2 text-xs text-neutral-60">
-                    {{ formData.notes.length }}/250
-                  </div>
+                  <div class="absolute bottom-2 right-2 text-xs text-neutral-60">{{ formData.notes.length }}/250</div>
                 </div>
               </div>
             </div>
@@ -177,18 +162,10 @@
                   >
                     Seleccione proveedor
                   </option>
-                  <option value="bancolo">
-                    Bancolo
-                  </option>
-                  <option value="bbva">
-                    BBVA
-                  </option>
-                  <option value="minteo">
-                    Minteo
-                  </option>
-                  <option value="checker">
-                    Checker
-                  </option>
+                  <option value="bancolo">Bancolo</option>
+                  <option value="bbva">BBVA</option>
+                  <option value="minteo">Minteo</option>
+                  <option value="checker">Checker</option>
                 </select>
               </div>
 
@@ -370,10 +347,10 @@ const handleSubmit = async () => {
   try {
     // TODO: Implementar llamada a la API para registrar el movimiento
     console.log('Form data:', formData.value);
-    
+
     // Simular llamada a API
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    
+
     // Aquí se implementará la lógica de registro
     alert('Movimiento registrado exitosamente');
     handleClear();
@@ -385,4 +362,3 @@ const handleSubmit = async () => {
   }
 };
 </script>
-
