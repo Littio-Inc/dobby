@@ -10,30 +10,17 @@ export const azkabanApi = axios.create({
   },
 });
 
-// API client for Cassandra (payouts service)
-// In production, Cassandra uses AWS IAM authentication
-// In local development, we can call directly without IAM
-export const cassandraApi = axios.create({
-  baseURL: import.meta.env.PUBLIC_CASSANDRA_API_URL,
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
 azkabanApi.interceptors.request.use(
   async (config) => {
     try {
       const token = await getIdToken();
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-        console.log('[API-Client] Token added to request:', config.url);
       } else {
         console.error('[API-Client] No token available for request:', config.url);
         throw new Error('No authentication token available');
       }
     } catch (error) {
-      console.error('[API-Client] Error getting token:', error);
       throw error;
     }
     return config;
@@ -43,25 +30,8 @@ azkabanApi.interceptors.request.use(
   },
 );
 
-cassandraApi.interceptors.request.use(
-  async (config) => {
-    if (import.meta.env.DEV) {
-      const token = await getIdToken();
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  },
-);
-
-const handleAuthError = async (
-  error: AxiosError,
-  apiInstance: typeof azkabanApi | typeof cassandraApi,
-) => {
+// Response interceptor: Handle errors and refresh token
+const handleAuthError = async (error: AxiosError, apiInstance: typeof azkabanApi) => {
   if (error.response?.status === 401) {
     const { login } = await import('../auth-store');
     const newToken = await getIdToken();
@@ -80,9 +50,5 @@ azkabanApi.interceptors.response.use(
   async (error: AxiosError) => handleAuthError(error, azkabanApi),
 );
 
-cassandraApi.interceptors.response.use(
-  (response) => response,
-  async (error: AxiosError) => handleAuthError(error, cassandraApi),
-);
-
+// Default export for backward compatibility (points to Azkaban)
 export default azkabanApi;

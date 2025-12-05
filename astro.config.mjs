@@ -15,16 +15,15 @@ const parsePollingInterval = () => {
   return Number.isNaN(parsed) || parsed < 100 ? 2000 : parsed;
 };
 
-// Compute polling config once (reused for both server.watch and vite.server.watch)
+// Polling config for hot reload - only in development
 const isDevelopment = process.env.NODE_ENV === 'development';
-const usePolling = isDevelopment && process.env.DEV_USE_POLLING === '1';
 const pollingInterval = parsePollingInterval();
 
-const watchConfig = usePolling
+// Only enable watch/polling in development mode
+const watchConfig = isDevelopment
   ? {
       // Enable polling for better file watching in Docker/Windows
-      // Only enabled when DEV_USE_POLLING=1 environment variable is set
-      // Only used in development, not in production builds
+      // Only active when NODE_ENV=development
       usePolling: true,
       interval: pollingInterval,
     }

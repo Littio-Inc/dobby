@@ -6,7 +6,7 @@
       <p class="text-base text-neutral-60">Gestión de operaciones FX y movimientos de fondos</p>
     </div>
 
-    <!-- Tabs: Pomelo, B2C, B2B -->
+    <!-- Tabs: Pomelo, B2C -->
     <MonetizationTabs
       :active-tab="activeAccountType"
       :tabs="tabs"
@@ -19,15 +19,10 @@
       :quotes="pomeloQuotes"
       :recipients="pomeloRecipients"
       :available-providers="pomeloProviders"
+      :usdc-balance="pomeloUSDC"
+      :usdt-balance="pomeloUSDT"
       @monetize="handleMonetize"
-    />
-
-    <B2CTab
-      v-if="activeAccountType === 'b2c'"
-      :quotes="b2cQuotes"
-      :recipients="b2cRecipients"
-      :available-providers="b2cProviders"
-      @monetize="handleMonetize"
+      @update:quotes="pomeloQuotes = $event"
     />
 
     <B2BTab
@@ -35,7 +30,10 @@
       :quotes="b2bQuotes"
       :recipients="b2bRecipients"
       :available-providers="b2bProviders"
+      :usdc-balance="b2bUSDC"
+      :usdt-balance="b2bUSDT"
       @monetize="handleMonetize"
+      @update:quotes="b2bQuotes = $event"
     />
 
     <!-- Error Message -->
@@ -51,11 +49,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { cassandraApi } from '../../stores/common/api-client';
+import { ref, computed, onMounted } from 'vue';
+import { getBalances, WALLET_IDS, type BalanceResponse } from '../../services';
 import MonetizationTabs from '../molecules/monetization-tabs.vue';
 import PomeloTab from './pomelo-tab.vue';
-import B2CTab from './b2c-tab.vue';
 import B2BTab from './b2b-tab.vue';
 
 defineProps<{
@@ -63,10 +60,66 @@ defineProps<{
 }>();
 const activeAccountType = ref<'pomelo' | 'b2c' | 'b2b'>('pomelo');
 const error = ref('');
+const isLoadingBalances = ref(false);
+
+// Balance data
+const pomeloBalances = ref<BalanceResponse | null>(null);
+const b2bBalances = ref<BalanceResponse | null>(null);
+
+// Individual Pomelo token balances
+const pomeloUSDC = computed(() => {
+  if (!pomeloBalances.value || !pomeloBalances.value.balances) return 0;
+  const usdc = pomeloBalances.value.balances.find((b) => b.token === 'USDC');
+  return usdc ? parseFloat(usdc.amount || '0') : 0;
+});
+
+const pomeloUSDT = computed(() => {
+  if (!pomeloBalances.value || !pomeloBalances.value.balances) return 0;
+  const usdt = pomeloBalances.value.balances.find((b) => b.token === 'USDT');
+  return usdt ? parseFloat(usdt.amount || '0') : 0;
+});
+
+// Individual B2B token balances
+const b2bUSDC = computed(() => {
+  if (!b2bBalances.value || !b2bBalances.value.balances) return 0;
+  const usdc = b2bBalances.value.balances.find((b) => b.token === 'USDC');
+  return usdc ? parseFloat(usdc.amount || '0') : 0;
+});
+
+const b2bUSDT = computed(() => {
+  if (!b2bBalances.value || !b2bBalances.value.balances) return 0;
+  const usdt = b2bBalances.value.balances.find((b) => b.token === 'USDT');
+  return usdt ? parseFloat(usdt.amount || '0') : 0;
+});
+
+// Load balances
+const loadBalances = async () => {
+  isLoadingBalances.value = true;
+  error.value = '';
+  try {
+    const balances = await getBalances([
+      { account: 'transfer', walletId: WALLET_IDS.TRANSFER }, // Pomelo
+      { account: 'pay', walletId: WALLET_IDS.PAY }, // B2B
+    ]);
+
+    // Handle null values (failed requests)
+    pomeloBalances.value = balances[0] || null;
+    b2bBalances.value = balances[1] || null;
+  } catch (err: any) {
+    const errorMessage =
+      err.response?.data?.error?.message || err.response?.data?.detail || err.message || 'Error al cargar balances';
+    error.value = errorMessage;
+  } finally {
+    isLoadingBalances.value = false;
+  }
+};
+
+onMounted(() => {
+  loadBalances();
+});
 
 const tabs = [
   { value: 'pomelo', label: 'Pomelo' },
-  { value: 'b2c', label: 'B2C' },
   { value: 'b2b', label: 'B2B' },
 ];
 
@@ -79,35 +132,39 @@ interface Quote {
   rate: string;
   spread: string;
   provider: string;
+  disabled?: boolean;
 }
 
 const pomeloQuotes = ref<Quote[]>([
   {
     amount: '',
-    from: 'USD',
+    from: 'USDC', // Default to USDC
     to: 'COP',
     calculatedAmount: '-',
     rate: '4.005,00',
     spread: '15bp',
     provider: 'Supra',
+    disabled: true,
   },
   {
     amount: '',
-    from: 'USDT',
+    from: 'USDC', // Default to USDC
     to: 'BRL',
     calculatedAmount: '-',
     rate: '5,20',
     spread: '20bp',
     provider: 'Cobre',
+    disabled: true,
   },
   {
     amount: '',
-    from: 'USD',
-    to: 'ARS',
+    from: 'USDC', // Default to USDC - always set
+    to: 'COP',
     calculatedAmount: '-',
-    rate: '850,00',
-    spread: '18bp',
+    rate: '-',
+    spread: '-',
     provider: 'Kira',
+    disabled: false,
   },
 ]);
 
@@ -126,30 +183,33 @@ const b2cQuotes = ref<Quote[]>([
 const b2bQuotes = ref<Quote[]>([
   {
     amount: '',
-    from: 'USDT',
+    from: 'USDC', // Default to USDC
     to: 'COP',
     calculatedAmount: '-',
-    rate: '4.005,00',
+    rate: '-', // Will be populated after quote
     spread: '17bp',
     provider: 'Supra',
+    disabled: true,
   },
   {
     amount: '',
-    from: 'USD',
-    to: 'MXN',
+    from: 'USDC', // Default to USDC
+    to: 'COP',
     calculatedAmount: '-',
-    rate: '18,50',
+    rate: '-', // Will be populated after quote
     spread: '25bp',
     provider: 'Cobre',
+    disabled: true,
   },
   {
     amount: '',
-    from: 'USDT',
-    to: 'USD',
+    from: 'USDC', // Default to USDC - always set
+    to: 'COP',
     calculatedAmount: '-',
-    rate: '1,00',
-    spread: '12bp',
+    rate: '-', // Will be populated after quote
+    spread: '-',
     provider: 'Kira',
+    disabled: false,
   },
 ]);
 
@@ -165,24 +225,25 @@ const pomeloRecipients = ref<any[]>([
   },
 ]);
 
-const b2cRecipients = ref<any[]>([
-  {
-    id: 'b2c-cobre',
-    name: 'Cobre',
-    bank: 'Bancolombia',
-    account_type: 'Corriente',
-    type: 'company',
-    account_number: '9876548765',
-  },
-  {
-    id: 'b2c-paymentsway',
-    name: 'Payments Way',
-    bank: 'BBVA',
-    account_type: 'Ahorros',
-    type: 'company',
-    account_number: '55554321',
-  },
-]);
+// B2C recipients (for future use)
+// const b2cRecipients = ref<any[]>([
+//   {
+//     id: 'b2c-cobre',
+//     name: 'Cobre',
+//     bank: 'Bancolombia',
+//     account_type: 'Corriente',
+//     type: 'company',
+//     account_number: '9876548765',
+//   },
+//   {
+//     id: 'b2c-paymentsway',
+//     name: 'Payments Way',
+//     bank: 'BBVA',
+//     account_type: 'Ahorros',
+//     type: 'company',
+//     account_number: '55554321',
+//   },
+// ]);
 
 const b2bRecipients = ref<any[]>([
   {
@@ -218,11 +279,12 @@ const pomeloProviders = computed(() => [
   { value: 'kira', label: 'Kira', disabled: true },
 ]);
 
-const b2cProviders = computed(() => [
-  { value: 'cobre', label: 'Cobre', disabled: false },
-  { value: 'kira', label: 'Kira', disabled: true },
-  { value: 'supra', label: 'Supra', disabled: true },
-]);
+// B2C providers (for future use)
+// const b2cProviders = computed(() => [
+//   { value: 'cobre', label: 'Cobre', disabled: false },
+//   { value: 'kira', label: 'Kira', disabled: true },
+//   { value: 'supra', label: 'Supra', disabled: true },
+// ]);
 
 const b2bProviders = computed(() => [
   { value: 'supra', label: 'Supra', disabled: false },
@@ -245,28 +307,17 @@ const handleTabChange = (tab: string) => {
   });
 };
 
-const handleMonetize = async (payoutData: any) => {
+const handleMonetize = async (_payoutInfo: any) => {
   error.value = '';
 
+  // Payout is now handled directly in pomelo-tab and b2b-tab
+  // This function just reloads balances after successful payout
   try {
-    await cassandraApi.post('/v1/payouts/account/pay/payout', payoutData);
-
-    // Success - reset form
-    const quotes =
-      activeAccountType.value === 'pomelo'
-        ? pomeloQuotes.value
-        : activeAccountType.value === 'b2c'
-          ? b2cQuotes.value
-          : b2bQuotes.value;
-    quotes.forEach((q) => {
-      q.amount = '';
-      q.calculatedAmount = '-';
-    });
+    // Reload balances after successful payout
+    await loadBalances();
     error.value = '';
-    alert('Monetización exitosa');
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Error al monetizar';
-    console.error('Monetize error:', err);
+    error.value = err.response?.data?.detail || 'Error al recargar balances';
   }
 };
 </script>
