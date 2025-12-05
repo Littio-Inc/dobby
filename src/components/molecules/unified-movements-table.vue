@@ -168,9 +168,7 @@
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right">
                 <div class="flex items-center justify-end gap-2">
-                  <span class="text-sm font-medium text-neutral-80">{{
-                    formatNumber(transaction.amount)
-                  }}</span>
+                  <span class="text-sm font-medium text-neutral-80">{{ formatNumber(transaction.amount) }}</span>
                   <span
                     :class="[
                       'px-2 py-0.5 rounded text-xs font-semibold',
@@ -186,9 +184,7 @@
                   v-if="transaction.fees && parseFloat(transaction.fees) > 0"
                   class="flex items-center justify-end gap-2"
                 >
-                  <span class="text-sm text-neutral-80">{{
-                    formatNumber(transaction.fees)
-                  }}</span>
+                  <span class="text-sm text-neutral-80">{{ formatNumber(transaction.fees) }}</span>
                   <span
                     :class="[
                       'px-2 py-0.5 rounded text-xs font-semibold',
@@ -333,14 +329,6 @@ const formatDate = (dateString: string): string => {
     minute: '2-digit',
     second: '2-digit',
   });
-};
-
-const formatAmount = (amount: string, currency: string): string => {
-  const numAmount = parseFloat(amount);
-  return `${numAmount.toLocaleString('es-ES', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })} ${currency}`;
 };
 
 const formatNumber = (amount: string): string => {
