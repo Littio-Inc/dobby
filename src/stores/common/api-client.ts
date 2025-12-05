@@ -3,14 +3,13 @@ import { getIdToken } from '../auth-store';
 
 // API client for Azkaban (authentication service)
 export const azkabanApi = axios.create({
-  baseURL: import.meta.env.PUBLIC_AZKABAN_API_URL,
+  baseURL: import.meta.env.PUBLIC_AZKABAN_API_URL || 'http://localhost:8001',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor for Azkaban: Add Firebase ID Token
 azkabanApi.interceptors.request.use(
   async (config) => {
     try {
@@ -18,7 +17,7 @@ azkabanApi.interceptors.request.use(
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       } else {
-        // Don't make the request if there's no token
+        console.error('[API-Client] No token available for request:', config.url);
         throw new Error('No authentication token available');
       }
     } catch (error) {
@@ -34,16 +33,12 @@ azkabanApi.interceptors.request.use(
 // Response interceptor: Handle errors and refresh token
 const handleAuthError = async (error: AxiosError, apiInstance: typeof azkabanApi) => {
   if (error.response?.status === 401) {
-    // Token expired - Firebase handles refresh automatically
     const { login } = await import('../auth-store');
-    // Try to get new token
     const newToken = await getIdToken();
     if (newToken && error.config) {
-      // Retry request with new token
       error.config.headers.Authorization = `Bearer ${newToken}`;
       return apiInstance.request(error.config);
     } else {
-      // If no token, redirect to login
       await login();
     }
   }

@@ -64,7 +64,7 @@ import { computed, onMounted } from 'vue';
 import { useStore } from '@nanostores/vue';
 import { $user, $isAdmin, $userRole, logout } from '../../stores/auth-store';
 import { goTo, Route } from '../../routes/routes';
-import { HomeIcon, CurrencyDollarIcon, UserGroupIcon } from '@heroicons/vue/24/outline';
+import { HomeIcon, CurrencyDollarIcon, UserGroupIcon, DocumentTextIcon } from '@heroicons/vue/24/outline';
 
 const logoUrl = new URL('../../assets/logo.png', import.meta.url).href;
 
@@ -112,6 +112,12 @@ const menuItems = computed(() => {
       name: 'Monetización',
       path: '/monetization/index.html',
       icon: CurrencyDollarIcon,
+    },
+    {
+      id: 'back-office-movements',
+      name: 'Movimientos Internos',
+      path: '/back-office-movements/index.html',
+      icon: DocumentTextIcon,
     },
   ];
 
