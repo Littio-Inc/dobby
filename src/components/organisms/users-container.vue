@@ -257,7 +257,6 @@ const formatDate = (dateString: string | null): string => {
 const usersLoaded = ref(false);
 
 // Watch for auth state changes and load users when ready
-// Note: immediate: false ensures watcher only runs after stores are updated
 const stopWatcher = watch(
   [isAuthenticated, currentUser, authLoading],
   async ([authenticated, user, loading]) => {
@@ -287,13 +286,22 @@ const stopWatcher = watch(
       // Don't stop watcher, allow retry if auth state changes
     }
   },
-  { immediate: false }, // Changed: only run after stores are updated
+  { immediate: true }, // Changed: run immediately to check current state
 );
 
 // Initialize component
 onMounted(async () => {
   try {
     await initializeAuth();
+    // After initializing auth, check if we can load users immediately
+    if (isAuthenticated.value && currentUser.value && !usersLoaded.value) {
+      try {
+        await loadUsers();
+        usersLoaded.value = true;
+      } catch (err) {
+        console.error('Failed to load users on mount:', err);
+      }
+    }
   } catch {
     error.value = 'Error inicializando autenticación';
     isLoading.value = false;

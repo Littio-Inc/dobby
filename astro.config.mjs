@@ -3,24 +3,15 @@ import { defineConfig } from 'astro/config';
 import vue from '@astrojs/vue';
 import tailwind from '@astrojs/tailwind';
 
-// Parse and validate polling interval once (clamp to positive integer with 2000ms fallback)
-const parsePollingInterval = () => {
-  const raw = process.env.DEV_POLLING_INTERVAL || '2000';
-  const parsed = Number.parseInt(raw, 10);
-  // Clamp to positive integer, minimum 100ms, default 2000ms
-  return Number.isNaN(parsed) || parsed < 100 ? 2000 : parsed;
-};
-
-// Compute polling config once (reused for both server.watch and vite.server.watch)
+// Polling config for hot reload - only in development
 const isDevelopment = process.env.NODE_ENV === 'development';
-const usePolling = isDevelopment && process.env.DEV_USE_POLLING === '1';
-const pollingInterval = parsePollingInterval();
+const pollingInterval = 2000; // Fixed polling interval: 2000ms
 
-const watchConfig = usePolling
+// Only enable watch/polling in development mode
+const watchConfig = isDevelopment
   ? {
       // Enable polling for better file watching in Docker/Windows
-      // Only enabled when DEV_USE_POLLING=1 environment variable is set
-      // Only used in development, not in production builds
+      // Only active when NODE_ENV=development
       usePolling: true,
       interval: pollingInterval,
     }
@@ -33,7 +24,6 @@ export default defineConfig({
   server: {
     host: true, // Listen on all network interfaces
     port: 4321,
-    watch: watchConfig,
   },
   // Vite config - watch only used in development
   vite: {

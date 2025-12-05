@@ -1,6 +1,9 @@
 name: Production deployment
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -24,18 +27,14 @@ jobs:
           parse-json: true
 
       - name: Create .env file
-        env:
-          ENV_FILE: .env
         run: |
-          touch "$ENV_FILE"
-          echo "PUBLIC_FIREBASE_API_KEY=${{ env.DOBBY_PRODUCTION_FIREBASE_API_KEY }}" >> "$ENV_FILE"
-          echo "PUBLIC_FIREBASE_AUTH_DOMAIN=${{ env.DOBBY_PRODUCTION_FIREBASE_AUTH_DOMAIN }}" >> "$ENV_FILE"
-          echo "PUBLIC_FIREBASE_PROJECT_ID=${{ env.DOBBY_PRODUCTION_FIREBASE_PROJECT_ID }}" >> "$ENV_FILE"
-          echo "PUBLIC_FIREBASE_STORAGE_BUCKET=${{ env.DOBBY_PRODUCTION_FIREBASE_STORAGE_BUCKET }}" >> "$ENV_FILE"
-          echo "PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ env.DOBBY_PRODUCTION_FIREBASE_MESSAGING_SENDER_ID }}" >> "$ENV_FILE"
-          echo "PUBLIC_FIREBASE_APP_ID=${{ env.DOBBY_PRODUCTION_FIREBASE_APP_ID }}" >> "$ENV_FILE"
-          echo "PUBLIC_AZKABAN_API_URL=${{ env.DOBBY_PRODUCTION_AZKABAN_API_URL }}" >> "$ENV_FILE"
-          echo "PUBLIC_CASSANDRA_API_URL=${{ env.DOBBY_PRODUCTION_CASSANDRA_API_URL }}" >> "$ENV_FILE"
+          touch .env
+          # Automatically map all DOBBY_PRODUCTION_* environment variables to PUBLIC_* format
+          env | grep "^DOBBY_PRODUCTION_" | while IFS='=' read -r key value; do
+            # Remove DOBBY_PRODUCTION_ prefix and add PUBLIC_ prefix
+            public_key="PUBLIC_${key#DOBBY_PRODUCTION_}"
+            echo "${public_key}=${value}" >> .env
+          done
 
       - name: Cache node modules
         uses: actions/cache@v3
