@@ -133,9 +133,7 @@ export class AzkabanService {
         }
       }
 
-      console.log(
-        `[AzkabanService] Total: ${accounts.length} accounts, ${refreshItems.length} assets to refresh`,
-      );
+      console.log(`[AzkabanService] Total: ${accounts.length} accounts, ${refreshItems.length} assets to refresh`);
       console.log(`[AzkabanService] Processing in batches of 5 with 500ms delay between batches`);
 
       await this.processBatch(
@@ -151,13 +149,10 @@ export class AzkabanService {
       );
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(
-        `[AzkabanService] Completed refreshing all balances in ${duration}s (${refreshItems.length} assets)`,
-      );
+      console.log(`[AzkabanService] Completed refreshing all balances in ${duration}s (${refreshItems.length} assets)`);
     } catch (error) {
       console.error('[AzkabanService] Error refreshing all balances:', error);
       throw error;
     }
   }
 }
-

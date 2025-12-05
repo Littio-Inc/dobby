@@ -92,7 +92,7 @@
                 >
                   <EllipsisVerticalIcon class="h-5 w-5" />
                 </button>
-                
+
                 <!-- Dropdown Menu -->
                 <div
                   v-if="openMenuId === wallet.id"

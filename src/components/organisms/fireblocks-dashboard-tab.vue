@@ -95,9 +95,7 @@
                 <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
                   Fecha
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
-                  Tipo
-                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">Tipo</th>
                 <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
                   Desde
                 </th>
@@ -430,7 +428,7 @@ const filteredWallets = computed(() => {
 
       const importantTokens = ['ETH', 'BTC'];
       const tokenUpper = selectedToken.value.toUpperCase();
-      
+
       if (importantTokens.includes(tokenUpper)) {
         // Para tokens importantes, mostrar wallets que tienen el token (incluso con balance 0)
         const hasToken = account.assets.some((asset) => {
@@ -518,7 +516,7 @@ const handleRefresh = async () => {
     await AzkabanService.refreshAllBalances();
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
-    
+
     await loadData();
   } catch (err: any) {
     console.error('[FireblocksDashboard] Error refreshing data:', err);
@@ -615,9 +613,9 @@ const startDataRefreshInterval = () => {
       isRefreshingFlag = true;
       try {
         await AzkabanService.refreshAllBalances();
-        
+
         await new Promise((resolve) => setTimeout(resolve, BALANCE_SETTLE_DELAY_MS));
-        
+
         await loadData();
       } catch (err: any) {
         if (!error.value) {

@@ -20,9 +20,7 @@
               <span class="font-medium text-neutral-60">Balance:</span>
               <span class="text-neutral-80 ml-2">{{ walletBalance }}</span>
             </p>
-            <p
-              v-if="walletToken"
-            >
+            <p v-if="walletToken">
               <span class="font-medium text-neutral-60">Token:</span>
               <span class="text-neutral-80 ml-2">{{ walletToken }}</span>
             </p>

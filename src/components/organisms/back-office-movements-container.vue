@@ -89,12 +89,7 @@ const handleSubTabChange = (tab: string) => {
   activeSubTab.value = tab as 'dashboard' | 'move-funds';
 };
 
-const handleMoveFunds = (payload: {
-  walletId: string;
-  walletName: string;
-  balance: string;
-  token: string | null;
-}) => {
+const handleMoveFunds = (payload: { walletId: string; walletName: string; balance: string; token: string | null }) => {
   selectedWalletId.value = payload.walletId;
   selectedWalletName.value = payload.walletName;
   selectedWalletBalance.value = payload.balance;
