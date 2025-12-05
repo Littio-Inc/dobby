@@ -48,8 +48,9 @@
                       {{ wallet.id }}
                     </p>
                     <button
+                      type="button"
                       class="text-neutral-60 hover:text-neutral-80 transition-colors"
-                      @click="$emit('copyId', wallet.id)"
+                      @click="$emit('copy-id', wallet.id)"
                       title="Copiar ID"
                     >
                       <DocumentDuplicateIcon class="h-3.5 w-3.5" />
@@ -84,6 +85,7 @@
                 data-wallet-menu
               >
                 <button
+                  type="button"
                   class="p-1.5 text-neutral-60 hover:text-neutral-80 hover:bg-neutral-20 rounded transition-colors"
                   @click.stop="toggleMenu(wallet.id)"
                   title="Más opciones"
@@ -98,6 +100,7 @@
                   @click.stop
                 >
                   <button
+                    type="button"
                     class="w-full px-4 py-3 text-left text-sm text-neutral-80 hover:bg-neutral-10 flex items-center gap-3 transition-colors first:rounded-t-lg last:rounded-b-lg"
                     @click="handleMoveFunds(wallet.id)"
                   >
@@ -134,8 +137,8 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{
-  copyId: [id: string];
-  moveFunds: [id: string];
+  'copy-id': [id: string];
+  'move-funds': [id: string];
 }>();
 
 const openMenuId = ref<string | null>(null);
@@ -149,7 +152,7 @@ const toggleMenu = (walletId: string) => {
 };
 
 const handleMoveFunds = (walletId: string) => {
-  emit('moveFunds', walletId);
+  emit('move-funds', walletId);
   openMenuId.value = null; // Cerrar el menú después de hacer clic
 };
 

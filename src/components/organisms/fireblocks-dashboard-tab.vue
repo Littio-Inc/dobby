@@ -79,8 +79,8 @@
       <WalletsTable
         :wallets="tableWallets"
         :selected-token="selectedToken"
-        @copyId="copyToClipboard"
-        @moveFunds="handleMoveFunds"
+        @copy-id="copyToClipboard"
+        @move-funds="handleMoveFunds"
       />
     </div>
 
@@ -148,7 +148,6 @@ interface MoveFundsPayload {
   walletName: string;
   balance: string;
   token: string | null;
-  tokenBalance: number;
 }
 
 const emit = defineEmits<{
@@ -271,6 +270,7 @@ const getMainBlockchainFromAssets = (assets: DiagonAsset[]): string => {
 
 const calculateTokenBalances = (accounts: DiagonAccountResponse[]): Token[] => {
   const tokenBalances: Record<string, { total: number; wallets: Set<string> }> = {};
+  const importantTokens = ['ETH', 'BTC'];
 
   for (const account of accounts) {
     for (const asset of account.assets) {
@@ -278,19 +278,21 @@ const calculateTokenBalances = (accounts: DiagonAccountResponse[]): Token[] => {
       const tokenSymbol = token.toUpperCase();
       const balance = parseFloat(asset.balance) || 0;
 
-      if (!tokenBalances[tokenSymbol]) {
-        tokenBalances[tokenSymbol] = {
-          total: 0,
-          wallets: new Set(),
-        };
-      }
+      const shouldCount = importantTokens.includes(tokenSymbol) || balance > 0;
 
-      tokenBalances[tokenSymbol].total += balance;
-      tokenBalances[tokenSymbol].wallets.add(account.id);
+      if (shouldCount) {
+        if (!tokenBalances[tokenSymbol]) {
+          tokenBalances[tokenSymbol] = {
+            total: 0,
+            wallets: new Set(),
+          };
+        }
+
+        tokenBalances[tokenSymbol].total += balance;
+        tokenBalances[tokenSymbol].wallets.add(account.id);
+      }
     }
   }
-
-  const importantTokens = ['ETH', 'BTC'];
 
   return Object.entries(tokenBalances)
     .map(([symbol, data]) => ({
@@ -322,13 +324,16 @@ const getWalletTokenBalance = (walletId: string, tokenSymbol: string): number =>
   if (!account) return 0;
 
   const tokenUpper = tokenSymbol.toUpperCase();
+  let totalBalance = 0;
+
   for (const asset of account.assets) {
     const { token } = parseAssetId(asset.id);
     if (token.toUpperCase() === tokenUpper) {
-      return parseFloat(asset.balance) || 0;
+      totalBalance += parseFloat(asset.balance) || 0;
     }
   }
-  return 0;
+
+  return totalBalance;
 };
 
 const getWalletMainToken = (walletId: string): { token: string; balance: number } | null => {
@@ -424,13 +429,17 @@ const filteredWallets = computed(() => {
       if (!account) return false;
 
       const importantTokens = ['ETH', 'BTC'];
-      if (importantTokens.includes(selectedToken.value)) {
+      const tokenUpper = selectedToken.value.toUpperCase();
+      
+      if (importantTokens.includes(tokenUpper)) {
+        // Para tokens importantes, mostrar wallets que tienen el token (incluso con balance 0)
         const hasToken = account.assets.some((asset) => {
           const { token } = parseAssetId(asset.id);
-          return token.toUpperCase() === selectedToken.value.toUpperCase();
+          return token.toUpperCase() === tokenUpper;
         });
         if (!hasToken) return false;
       } else {
+        // Para otros tokens, solo mostrar wallets con balance > 0
         const tokenBalance = getWalletTokenBalance(wallet.id, selectedToken.value);
         if (tokenBalance <= 0) {
           return false;
@@ -578,7 +587,6 @@ const handleMoveFunds = (walletId: string) => {
     walletName: wallet.name,
     balance: walletData?.formattedBalance || '-',
     token: mainToken?.token || null,
-    tokenBalance: mainToken?.balance || 0,
   });
 };
 

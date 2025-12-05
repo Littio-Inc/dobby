@@ -46,6 +46,5 @@ defineProps<{
   walletName: string;
   walletBalance: string;
   walletToken: string | null;
-  walletTokenBalance: number;
 }>();
 </script>

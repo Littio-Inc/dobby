@@ -37,7 +37,6 @@
         :wallet-name="selectedWalletName"
         :wallet-balance="selectedWalletBalance"
         :wallet-token="selectedWalletToken"
-        :wallet-token-balance="selectedWalletTokenBalance"
       />
     </div>
 
@@ -77,7 +76,6 @@ const selectedWalletId = ref<string | null>(null);
 const selectedWalletName = ref<string>('');
 const selectedWalletBalance = ref<string>('');
 const selectedWalletToken = ref<string | null>(null);
-const selectedWalletTokenBalance = ref<number>(0);
 
 const handleMainTabChange = (tab: string) => {
   activeMainTab.value = tab as 'applied' | 'non-applied';
@@ -96,13 +94,11 @@ const handleMoveFunds = (payload: {
   walletName: string;
   balance: string;
   token: string | null;
-  tokenBalance: number;
 }) => {
   selectedWalletId.value = payload.walletId;
   selectedWalletName.value = payload.walletName;
   selectedWalletBalance.value = payload.balance;
   selectedWalletToken.value = payload.token;
-  selectedWalletTokenBalance.value = payload.tokenBalance;
   activeSubTab.value = 'move-funds';
 };
 </script>
