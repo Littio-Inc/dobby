@@ -4,6 +4,7 @@
 export const TOKEN_BADGE_COLORS: Record<string, string> = {
   USDT: 'bg-green-100 text-green-700',
   USDC: 'bg-blue-100 text-blue-700',
+  USD: 'bg-yellow-100 text-yellow-700',
   ETH: 'bg-purple-100 text-purple-700',
   DAI: 'bg-orange-100 text-orange-700',
   BTC: 'bg-yellow-100 text-yellow-700',
