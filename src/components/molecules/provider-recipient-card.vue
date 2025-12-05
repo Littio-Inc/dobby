@@ -5,20 +5,9 @@
       <div class="space-y-4">
         <div>
           <p class="text-sm text-neutral-60 mb-2">Proveedor</p>
-          <select
-            :model-value="selectedProvider"
-            class="w-full px-4 py-2.5 border border-neutral-40 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky/20 focus:border-littio-secondary-sky appearance-none cursor-pointer"
-            @change="$emit('update:selectedProvider', ($event.target as HTMLSelectElement).value)"
-          >
-            <option
-              v-for="provider in availableProviders"
-              :key="provider.value"
-              :value="provider.value"
-              :disabled="provider.disabled"
-            >
-              {{ provider.label }}
-            </option>
-          </select>
+          <div class="w-full px-4 py-2.5 border border-neutral-40 rounded-lg bg-neutral-5 text-neutral-80 font-medium">
+            {{ selectedProviderLabel || '-' }}
+          </div>
         </div>
 
         <div>
@@ -127,8 +116,10 @@ import { computed } from 'vue';
 interface Recipient {
   id: string;
   name?: string;
-  first_name?: string;
-  last_name?: string;
+  company_name?: string | null;
+  first_name?: string | null;
+  middle_name?: string | null;
+  last_name?: string | null;
   bank?: string;
   account_type?: string;
   account_number?: string;
@@ -157,23 +148,63 @@ defineEmits<{
   monetize: [];
 }>();
 
+const selectedProviderLabel = computed(() => {
+  if (!props.selectedProvider) return null;
+  const provider = props.availableProviders.find((p) => p.value === props.selectedProvider);
+  return provider ? provider.label : props.selectedProvider;
+});
+
 const selectedRecipientData = computed(() => {
   if (!props.selectedRecipient) return null;
   return props.recipients.find((r) => r.id === props.selectedRecipient) || null;
 });
 
 const getRecipientDisplayName = (recipient: Recipient) => {
-  if (recipient.name) return recipient.name;
-  if (recipient.first_name || recipient.last_name) {
-    return `${recipient.first_name || ''} ${recipient.last_name || ''}`.trim();
+  const parts: string[] = [];
+
+  // Add company_name if not null or undefined
+  if (recipient.company_name != null && recipient.company_name !== '') {
+    parts.push(recipient.company_name);
   }
-  return 'Destinatario';
+
+  // Add first_name if not null or undefined
+  if (recipient.first_name != null && recipient.first_name !== '') {
+    parts.push(recipient.first_name);
+  }
+
+  // Add middle_name if not null or undefined
+  if (recipient.middle_name != null && recipient.middle_name !== '') {
+    parts.push(recipient.middle_name);
+  }
+
+  // Add last_name if not null or undefined
+  if (recipient.last_name != null && recipient.last_name !== '') {
+    parts.push(recipient.last_name);
+  }
+
+  // Join parts with spaces
+  let displayName = parts.join(' ').trim();
+
+  // If no name parts, use fallback
+  if (!displayName) {
+    displayName = 'Destinatario';
+  }
+
+  // Add account_type in parentheses if available (use account_type, not account_details.type)
+  if (recipient.account_type && recipient.account_type !== '') {
+    displayName += ` (${recipient.account_type})`;
+  }
+
+  return displayName;
 };
 
 const getRecipientInitials = (recipient: Recipient) => {
   const name = getRecipientDisplayName(recipient);
-  return name
+  // Remove account_type from initials (everything after the last parenthesis)
+  const nameWithoutAccountType = name.replace(/\s*\([^)]*\)$/, '');
+  return nameWithoutAccountType
     .split(' ')
+    .filter((n: string) => n.length > 0)
     .map((n: string) => n[0])
     .join('')
     .toUpperCase()

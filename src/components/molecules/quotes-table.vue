@@ -9,24 +9,30 @@
               <th class="text-left p-4 font-semibold text-sm text-neutral-80">De</th>
               <th class="text-center p-4 font-semibold text-sm text-neutral-80"></th>
               <th class="text-left p-4 font-semibold text-sm text-neutral-80">Hacia</th>
+              <th class="text-right p-4 font-semibold text-sm text-neutral-80">Saldo</th>
+              <th class="text-center p-4 font-semibold text-sm text-neutral-80">Cotizar</th>
               <th class="text-right p-4 font-semibold text-sm text-neutral-80">Monto</th>
               <th class="text-right p-4 font-semibold text-sm text-neutral-80">Cotización Tasa</th>
               <th class="text-center p-4 font-semibold text-sm text-neutral-80">Spread</th>
               <th class="text-left p-4 font-semibold text-sm text-neutral-80">Proveedores</th>
+              <th class="text-center p-4 font-semibold text-sm text-neutral-80">Seleccionar</th>
             </tr>
           </thead>
           <tbody>
             <tr
               v-for="(quote, index) in quotes"
               :key="index"
-              class="border-b border-neutral-10 hover:bg-neutral-20/20 transition-colors"
+              :class="[
+                'border-b border-neutral-10 transition-colors',
+                quote.disabled === true ? 'opacity-50 bg-neutral-10' : 'hover:bg-neutral-20/20',
+              ]"
             >
-              <!-- Cotización (Input) -->
               <td class="p-4">
                 <input
                   :value="quote.amount"
                   type="text"
-                  class="w-36 px-3 py-2 border border-neutral-40 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky/20 focus:border-littio-secondary-sky bg-white"
+                  :disabled="!!quote.disabled"
+                  class="w-36 px-3 py-2 border border-neutral-40 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky/20 focus:border-littio-secondary-sky bg-white disabled:bg-neutral-20 disabled:cursor-not-allowed"
                   placeholder="Monto a cotizar"
                   @input="handleAmountInput(index, ($event.target as HTMLInputElement).value)"
                 />
@@ -35,13 +41,18 @@
               <!-- De (From Currency) -->
               <td class="p-4">
                 <select
-                  :value="quote.from"
-                  class="w-28 px-3 py-2 border border-neutral-40 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky/20 focus:border-littio-secondary-sky appearance-none cursor-pointer"
-                  @change="$emit('update:quote', index, { ...quote, from: ($event.target as HTMLSelectElement).value })"
+                  :value="quote.from || 'USDC'"
+                  :disabled="!!quote.disabled"
+                  class="w-28 px-3 py-2 border border-neutral-40 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky/20 focus:border-littio-secondary-sky appearance-none cursor-pointer disabled:bg-neutral-20 disabled:cursor-not-allowed"
+                  @change="
+                    $emit('update:quote', index, {
+                      ...quote,
+                      from: ($event.target as HTMLSelectElement).value || 'USDC',
+                    })
+                  "
                 >
-                  <option value="USD">USD</option>
-                  <option value="USDT">USDT</option>
                   <option value="USDC">USDC</option>
+                  <option value="USDT">USDT</option>
                 </select>
               </td>
 
@@ -66,25 +77,58 @@
               <td class="p-4">
                 <select
                   :value="quote.to"
-                  class="w-28 px-3 py-2 border border-neutral-40 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky/20 focus:border-littio-secondary-sky appearance-none cursor-pointer"
+                  :disabled="!!quote.disabled"
+                  class="w-28 px-3 py-2 border border-neutral-40 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky/20 focus:border-littio-secondary-sky appearance-none cursor-pointer disabled:bg-neutral-20 disabled:cursor-not-allowed"
                   @change="$emit('update:quote', index, { ...quote, to: ($event.target as HTMLSelectElement).value })"
                 >
-                  <option value="COP">COP</option>
-                  <option value="BRL">BRL</option>
-                  <option value="MXN">MXN</option>
-                  <option value="ARS">ARS</option>
-                  <option value="USD">USD</option>
+                  <option
+                    v-if="quote.provider === 'Kira' || quote.provider === 'Cotizar'"
+                    value="COP"
+                  >
+                    COP
+                  </option>
+                  <template v-else>
+                    <option value="COP">COP</option>
+                  </template>
                 </select>
               </td>
 
-              <!-- Monto (Calculated Amount) -->
+              <td class="p-4 text-right">
+                <span
+                  v-if="quote.provider === 'Kira' && quote.from"
+                  class="text-sm font-medium text-neutral-80"
+                >
+                  {{ formatBalance(getBalanceForCurrency(quote.from)) }}
+                </span>
+                <span
+                  v-else
+                  class="text-neutral-60"
+                  >-</span
+                >
+              </td>
+
+              <td class="p-4 text-center">
+                <button
+                  v-if="quote.provider === 'Kira' && quote.disabled !== true"
+                  type="button"
+                  class="px-4 py-2 bg-littio-secondary-sky text-white rounded-lg text-sm font-medium hover:bg-littio-secondary-sky/90 focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm whitespace-nowrap"
+                  @click="$emit('quote', index, quote)"
+                >
+                  Cotizar
+                </button>
+                <span
+                  v-else
+                  class="text-neutral-60"
+                  >-</span
+                >
+              </td>
+
               <td class="p-4 text-right font-semibold">
                 <span class="text-sm text-neutral-80">
                   {{ quote.calculatedAmount || '-' }}
                 </span>
               </td>
 
-              <!-- Cotización Tasa (Rate) -->
               <td class="p-4 text-right">
                 <span class="text-sm font-mono text-neutral-80">
                   {{ quote.rate || '-' }}
@@ -111,6 +155,24 @@
                   {{ quote.provider || '-' }}
                 </span>
               </td>
+
+              <!-- Seleccionar (Radio Button) -->
+              <td class="p-4 text-center">
+                <input
+                  v-if="quote.disabled !== true"
+                  type="radio"
+                  :name="`provider-${quote.provider}`"
+                  :checked="selectedProvider === quote.provider.toLowerCase()"
+                  :disabled="!!quote.disabled"
+                  class="w-4 h-4 text-littio-secondary-sky focus:ring-littio-secondary-sky focus:ring-2 cursor-pointer disabled:cursor-not-allowed"
+                  @change="$emit('select:provider', quote.provider.toLowerCase())"
+                />
+                <span
+                  v-else
+                  class="text-neutral-60"
+                  >-</span
+                >
+              </td>
             </tr>
           </tbody>
         </table>
@@ -128,18 +190,51 @@ interface Quote {
   rate: string;
   spread: string;
   provider: string;
+  disabled?: boolean;
 }
 
 const props = defineProps<{
   quotes: Quote[];
+  usdcBalance?: number;
+  usdtBalance?: number;
+  selectedProvider?: string;
 }>();
 
 const emit = defineEmits<{
   'update:quote': [index: number, quote: Quote];
+  quote: [index: number, quote: Quote];
+  'select:provider': [provider: string];
 }>();
 
+// Get balance for a specific currency
+const getBalanceForCurrency = (currency: string): number => {
+  if (currency === 'USDC') {
+    return props.usdcBalance ?? 0;
+  }
+  if (currency === 'USDT') {
+    return props.usdtBalance ?? 0;
+  }
+  return 0;
+};
+
+// Format balance for display
+const formatBalance = (amount: number): string => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+};
+
 const handleAmountInput = (index: number, value: string) => {
-  emit('update:quote', index, { ...props.quotes[index], amount: value });
+  const currentQuote = props.quotes[index];
+  emit('update:quote', index, {
+    ...currentQuote,
+    amount: value,
+    // Ensure 'from' has a default value if empty
+    from: currentQuote.from || 'USDC',
+  });
 };
 
 const getSpreadBadgeClass = (spread: string) => {

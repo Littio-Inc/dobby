@@ -8,4 +8,3 @@ export enum Route {
 export const goTo = (route: Route) => {
   window.location.href = route.toString();
 };
-
