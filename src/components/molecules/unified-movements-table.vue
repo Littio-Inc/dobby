@@ -391,9 +391,13 @@ const formatNumber = (amount: string): string => {
 const formatRate = (rate: string | null | undefined): string => {
   if (!rate) return '-';
   const rateValue = parseFloat(rate);
+  if (!Number.isFinite(rateValue) || isNaN(rateValue)) return '-';
   if (rateValue === 1.0 || rateValue === 1) return '-';
   if (rateValue <= 0) return '-';
-  return rate;
+  return rateValue.toLocaleString('es-ES', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 6,
+  });
 };
 
 const getTransactionStatus = (transaction: BackofficeTransaction): string => {
