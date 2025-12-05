@@ -4,6 +4,7 @@ import { azkabanApi } from '../../../stores/common/api-client';
 const AZKABAN_ENDPOINTS = {
   GET_ACCOUNTS: '/v1/vault/accounts',
   REFRESH_BALANCE: '/v1/vault/accounts', // Base path para /v1/vault/accounts/{accountId}/{asset}/balance
+  GET_BACKOFFICE_TRANSACTIONS: '/v1/backoffice/transactions',
 } as const;
 
 export interface DiagonAsset {
@@ -34,6 +35,40 @@ export interface DiagonWallet {
   blockchain: string;
   provider: string | null;
   balanceEth: number;
+}
+
+export interface BackofficeTransaction {
+  id: string;
+  transaction_id: string;
+  created_at: string;
+  type: string;
+  provider: string;
+  fees: string;
+  amount: string;
+  currency: string;
+  rate: string;
+  category: string;
+  st_id: string | null;
+  st_hash: string | null;
+  user_id: string;
+  user_id_to: string | null;
+  user_id_from: string | null;
+  transfer_id: string | null;
+  idempotency_key: string;
+}
+
+export interface BackofficeTransactionsResponse {
+  transactions: BackofficeTransaction[];
+  count: number;
+  total_count: number;
+  page: number;
+  limit: number;
+}
+
+export interface GetBackofficeTransactionsParams {
+  provider: string;
+  page?: number;
+  limit?: number;
 }
 
 /**
@@ -152,6 +187,38 @@ export class AzkabanService {
       console.log(`[AzkabanService] Completed refreshing all balances in ${duration}s (${refreshItems.length} assets)`);
     } catch (error) {
       console.error('[AzkabanService] Error refreshing all balances:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtiene el listado de transacciones de backoffice
+   * @param params - Parámetros de consulta: provider (requerido), page y limit (opcionales)
+   * @returns Respuesta con las transacciones y metadatos de paginación
+   */
+  static async getBackofficeTransactions(
+    params: GetBackofficeTransactionsParams,
+  ): Promise<BackofficeTransactionsResponse> {
+    try {
+      const queryParams = new URLSearchParams({
+        provider: params.provider,
+      });
+
+      if (params.page !== undefined) {
+        queryParams.append('page', params.page.toString());
+      }
+
+      if (params.limit !== undefined) {
+        queryParams.append('limit', params.limit.toString());
+      }
+
+      const response = await azkabanApi.get<BackofficeTransactionsResponse>(
+        `${AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS}?${queryParams.toString()}`,
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error('[AzkabanService] Error fetching backoffice transactions:', error);
       throw error;
     }
   }
