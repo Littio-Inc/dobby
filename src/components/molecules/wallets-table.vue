@@ -135,7 +135,6 @@ defineProps<{
 
 const emit = defineEmits<{
   copyId: [id: string];
-  actions: [id: string];
   moveFunds: [id: string];
 }>();
 
@@ -155,7 +154,10 @@ const handleMoveFunds = (walletId: string) => {
 };
 
 const closeMenuOnClickOutside = (event: MouseEvent) => {
-  const target = event.target as HTMLElement;
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
   if (!target.closest('[data-wallet-menu]')) {
     openMenuId.value = null;
   }

@@ -26,9 +26,19 @@
       />
 
       <!-- Sub-tab Content -->
-      <FireblocksDashboardTab v-if="activeSubTab === 'dashboard'" />
+      <FireblocksDashboardTab
+        v-if="activeSubTab === 'dashboard'"
+        @move-funds="handleMoveFunds"
+      />
 
-      <MoveFundsTab v-if="activeSubTab === 'move-funds'" />
+      <MoveFundsTab
+        v-if="activeSubTab === 'move-funds'"
+        :wallet-id="selectedWalletId"
+        :wallet-name="selectedWalletName"
+        :wallet-balance="selectedWalletBalance"
+        :wallet-token="selectedWalletToken"
+        :wallet-token-balance="selectedWalletTokenBalance"
+      />
     </div>
 
     <NonAppliedMovementsTab v-if="activeMainTab === 'non-applied'" />
@@ -62,6 +72,13 @@ const appliedSubTabs = [
   { value: 'move-funds', label: 'Mover fondos' },
 ];
 
+// Move funds state
+const selectedWalletId = ref<string | null>(null);
+const selectedWalletName = ref<string>('');
+const selectedWalletBalance = ref<string>('');
+const selectedWalletToken = ref<string | null>(null);
+const selectedWalletTokenBalance = ref<number>(0);
+
 const handleMainTabChange = (tab: string) => {
   activeMainTab.value = tab as 'applied' | 'non-applied';
   // Reset sub-tab when switching main tabs
@@ -72,5 +89,20 @@ const handleMainTabChange = (tab: string) => {
 
 const handleSubTabChange = (tab: string) => {
   activeSubTab.value = tab as 'dashboard' | 'move-funds';
+};
+
+const handleMoveFunds = (payload: {
+  walletId: string;
+  walletName: string;
+  balance: string;
+  token: string | null;
+  tokenBalance: number;
+}) => {
+  selectedWalletId.value = payload.walletId;
+  selectedWalletName.value = payload.walletName;
+  selectedWalletBalance.value = payload.balance;
+  selectedWalletToken.value = payload.token;
+  selectedWalletTokenBalance.value = payload.tokenBalance;
+  activeSubTab.value = 'move-funds';
 };
 </script>

@@ -79,8 +79,8 @@
       <WalletsTable
         :wallets="tableWallets"
         :selected-token="selectedToken"
-        @copy-id="copyToClipboard"
-        @move-funds="handleMoveFunds"
+        @copyId="copyToClipboard"
+        @moveFunds="handleMoveFunds"
       />
     </div>
 
@@ -143,6 +143,18 @@ import TokenBalanceCard from '../molecules/token-balance-card.vue';
 import WalletsFilters from '../molecules/wallets-filters.vue';
 import WalletsTable from '../molecules/wallets-table.vue';
 
+interface MoveFundsPayload {
+  walletId: string;
+  walletName: string;
+  balance: string;
+  token: string | null;
+  tokenBalance: number;
+}
+
+const emit = defineEmits<{
+  'move-funds': [payload: MoveFundsPayload];
+}>();
+
 interface Token {
   symbol: string;
   balance: number;
@@ -162,6 +174,7 @@ const lastUpdateTime = ref('');
 const isAutoRefreshActive = ref(true);
 
 const AUTO_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+const BALANCE_SETTLE_DELAY_MS = 2000;
 
 let updateInterval: ReturnType<typeof setInterval> | null = null;
 let dataRefreshInterval: ReturnType<typeof setInterval> | null = null;
@@ -551,8 +564,22 @@ const copyToClipboard = async (text: string) => {
 };
 
 const handleMoveFunds = (walletId: string) => {
-  console.log('Mover fondos para wallet:', walletId);
-  // TODO: Implementar funcionalidad de mover fondos
+  const wallet = wallets.value.find((w) => w.id === walletId);
+  if (!wallet) {
+    console.error('[FireblocksDashboard] Wallet not found:', walletId);
+    return;
+  }
+
+  const walletData = tableWallets.value.find((w) => w.id === walletId);
+  const mainToken = walletMainTokens.value[walletId];
+
+  emit('move-funds', {
+    walletId,
+    walletName: wallet.name,
+    balance: walletData?.formattedBalance || '-',
+    token: mainToken?.token || null,
+    tokenBalance: mainToken?.balance || 0,
+  });
 };
 
 const startUpdateInterval = () => {
@@ -581,7 +608,7 @@ const startDataRefreshInterval = () => {
       try {
         await AzkabanService.refreshAllBalances();
         
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, BALANCE_SETTLE_DELAY_MS));
         
         await loadData();
       } catch (err: any) {
