@@ -1,9 +1,8 @@
 import { azkabanApi } from '../../../stores/common/api-client';
 
-// Endpoints de Azkaban (migrados desde Diagon)
 const AZKABAN_ENDPOINTS = {
   GET_ACCOUNTS: '/v1/vault/accounts',
-  REFRESH_BALANCE: '/v1/vault/accounts', // Base path para /v1/vault/accounts/{accountId}/{asset}/balance
+  REFRESH_BALANCE: '/v1/vault/accounts',
   GET_BACKOFFICE_TRANSACTIONS: '/v1/backoffice/transactions',
 } as const;
 
@@ -70,6 +69,18 @@ export interface GetBackofficeTransactionsParams {
   provider: string;
   page?: number;
   limit?: number;
+}
+
+export interface CreateBackofficeTransactionParams {
+  operationDate: string; // YYYY-MM-DD
+  movementType: 'transfer_in' | 'transfer_out' | 'payment' | 'withdrawal';
+  provider: string;
+  amount: string;
+  currency: string;
+  externalTransactionId: string;
+  destinationAccount: string;
+  originAccount: string;
+  notes?: string;
 }
 
 /**
@@ -220,6 +231,51 @@ export class AzkabanService {
       return response.data;
     } catch (error) {
       console.error('[AzkabanService] Error fetching backoffice transactions:', error);
+      throw error;
+    }
+  }
+
+  static async createBackofficeTransaction(
+    params: CreateBackofficeTransactionParams,
+  ): Promise<BackofficeTransaction> {
+    try {
+      const idempotencyKey = crypto.randomUUID();
+
+      const now = new Date();
+      const datePart = params.operationDate;
+      const timePart = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.${String(now.getMilliseconds()).padStart(3, '0')}`;
+      const formattedDate = `${datePart} ${timePart}`;
+
+      const type =
+        params.movementType === 'transfer_in' || params.movementType === 'transfer_out'
+          ? 'transfer'
+          : params.movementType;
+
+      const payload = {
+        created_at: formattedDate,
+        type: type,
+        provider: params.provider,
+        amount: String(params.amount),
+        currency: params.currency,
+        st_id: params.externalTransactionId,
+        user_id: params.provider,
+        user_id_to: params.destinationAccount,
+        user_id_from: params.originAccount,
+        method: params.movementType,
+        reason: params.notes || '',
+        occurred_at: formattedDate,
+        idempotency_key: idempotencyKey,
+        status: 'COMPLETED',
+      };
+
+      const response = await azkabanApi.post<BackofficeTransaction>(
+        AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS,
+        payload,
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error('[AzkabanService] Error creating backoffice transaction:', error);
       throw error;
     }
   }

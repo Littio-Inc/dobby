@@ -291,6 +291,26 @@
             </button>
           </div>
         </form>
+
+        <!-- Success Message -->
+        <div
+          v-if="success"
+          class="mt-6 bg-green-50 border border-green-200 rounded-lg p-4"
+        >
+          <p class="text-green-800 font-medium">
+            {{ success }}
+          </p>
+        </div>
+
+        <!-- Error Message -->
+        <div
+          v-if="error"
+          class="mt-6 bg-carmine-light border border-carmine rounded-lg p-4"
+        >
+          <p class="text-carmine font-medium">
+            {{ error }}
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -298,11 +318,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { AzkabanService } from '../../services/api/azkaban';
 
 interface FormData {
   operationDate: string;
   originAccount: string;
-  movementType: string;
+  movementType: 'transfer_in' | 'transfer_out' | 'payment' | 'withdrawal' | '';
   currency: string;
   notes: string;
   provider: string;
@@ -324,6 +345,8 @@ const formData = ref<FormData>({
 });
 
 const isSubmitting = ref(false);
+const error = ref('');
+const success = ref('');
 
 const handleClear = () => {
   formData.value = {
@@ -337,25 +360,57 @@ const handleClear = () => {
     amount: '',
     externalTransactionId: '',
   };
+  error.value = '';
+  success.value = '';
 };
 
 const handleSubmit = async () => {
   if (isSubmitting.value) return;
 
+  // Validar que movementType sea válido
+  if (
+    !formData.value.movementType ||
+    (formData.value.movementType !== 'transfer_in' &&
+      formData.value.movementType !== 'transfer_out' &&
+      formData.value.movementType !== 'payment' &&
+      formData.value.movementType !== 'withdrawal')
+  ) {
+    error.value = 'Por favor, seleccione un tipo de movimiento válido.';
+    return;
+  }
+
   isSubmitting.value = true;
+  error.value = '';
+  success.value = '';
+
   try {
-    // TODO: Implementar llamada a la API para registrar el movimiento
-    console.log('Form data:', formData.value);
+    await AzkabanService.createBackofficeTransaction({
+      operationDate: formData.value.operationDate,
+      movementType: formData.value.movementType as 'transfer_in' | 'transfer_out' | 'payment' | 'withdrawal',
+      provider: formData.value.provider,
+      amount: formData.value.amount,
+      currency: formData.value.currency,
+      externalTransactionId: formData.value.externalTransactionId,
+      destinationAccount: formData.value.destinationAccount,
+      originAccount: formData.value.originAccount,
+      notes: formData.value.notes,
+    });
 
-    // Simular llamada a API
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // Aquí se implementará la lógica de registro
-    alert('Movimiento registrado exitosamente');
+    success.value = 'Movimiento registrado exitosamente';
     handleClear();
-  } catch (error) {
-    console.error('Error al registrar movimiento:', error);
-    alert('Error al registrar el movimiento. Por favor, intente nuevamente.');
+  } catch (err: any) {
+    console.error('Error al registrar movimiento:', err);
+    let errorMessage = 'Error al registrar el movimiento. Por favor, intente nuevamente.';
+
+    if (err.response?.data?.detail) {
+      errorMessage = err.response.data.detail;
+    } else if (err.response?.data?.message) {
+      errorMessage = err.response.data.message;
+    } else if (err.message && !err.message.includes('status code')) {
+      errorMessage = err.message;
+    }
+
+    error.value = errorMessage;
   } finally {
     isSubmitting.value = false;
   }
