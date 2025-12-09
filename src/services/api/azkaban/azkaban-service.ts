@@ -73,9 +73,10 @@ export interface GetBackofficeTransactionsParams {
 
 export interface CreateBackofficeTransactionParams {
   operationDate: string; // YYYY-MM-DD
+  operationTime?: string; // HH:mm:ss.SSS (opcional, por defecto 00:00:00.000)
   movementType: 'transfer_in' | 'transfer_out' | 'payment' | 'withdrawal';
   provider: string;
-  amount: string;
+  amount: number;
   currency: string;
   externalTransactionId: string;
   destinationAccount: string;
@@ -235,15 +236,35 @@ export class AzkabanService {
     }
   }
 
-  static async createBackofficeTransaction(
-    params: CreateBackofficeTransactionParams,
-  ): Promise<BackofficeTransaction> {
+  static async createBackofficeTransaction(params: CreateBackofficeTransactionParams): Promise<BackofficeTransaction> {
     try {
       const idempotencyKey = crypto.randomUUID();
 
-      const now = new Date();
+      // Validar y parsear la fecha de operación
       const datePart = params.operationDate;
-      const timePart = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.${String(now.getMilliseconds()).padStart(3, '0')}`;
+
+      // Validar formato de fecha (YYYY-MM-DD)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+        throw new Error('Formato de fecha inválido. Debe ser YYYY-MM-DD');
+      }
+
+      // Usar hora proporcionada o hora fija 00:00:00.000 para operaciones históricas
+      let timePart: string;
+      if (params.operationTime) {
+        // Validar formato de hora (HH:mm:ss.SSS o HH:mm:ss)
+        const timeRegex = /^(\d{2}):(\d{2}):(\d{2})(\.\d{3})?$/;
+        if (!timeRegex.test(params.operationTime)) {
+          throw new Error('Formato de hora inválido. Debe ser HH:mm:ss.SSS o HH:mm:ss');
+        }
+        // Asegurar que tenga milisegundos
+        timePart = params.operationTime.includes('.')
+          ? params.operationTime.padEnd(12, '0').substring(0, 12) // Asegurar 3 dígitos de milisegundos
+          : `${params.operationTime}.000`;
+      } else {
+        // Hora fija para operaciones históricas
+        timePart = '00:00:00.000';
+      }
+
       const formattedDate = `${datePart} ${timePart}`;
 
       const type =

@@ -396,14 +396,7 @@ const handleClear = () => {
 const handleSubmit = async () => {
   if (isSubmitting.value) return;
 
-  // Validar que movementType sea válido
-  if (
-    !formData.value.movementType ||
-    (formData.value.movementType !== 'transfer_in' &&
-      formData.value.movementType !== 'transfer_out' &&
-      formData.value.movementType !== 'payment' &&
-      formData.value.movementType !== 'withdrawal')
-  ) {
+  if (!formData.value.movementType) {
     error.value = 'Por favor, seleccione un tipo de movimiento válido.';
     return;
   }
@@ -414,11 +407,19 @@ const handleSubmit = async () => {
   transactionId.value = '';
 
   try {
+    // Parsear amount a número
+    const parsedAmount = parseFloat(formData.value.amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      error.value = 'Por favor, ingrese un monto válido mayor a cero.';
+      isSubmitting.value = false;
+      return;
+    }
+
     const response = await AzkabanService.createBackofficeTransaction({
       operationDate: formData.value.operationDate,
       movementType: formData.value.movementType as 'transfer_in' | 'transfer_out' | 'payment' | 'withdrawal',
       provider: formData.value.provider,
-      amount: formData.value.amount,
+      amount: parsedAmount,
       currency: formData.value.currency,
       externalTransactionId: formData.value.externalTransactionId,
       destinationAccount: formData.value.destinationAccount,
@@ -435,7 +436,18 @@ const handleSubmit = async () => {
     // Hacer scroll hacia arriba para mostrar el mensaje de éxito
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err: any) {
-    console.error('Error al registrar movimiento:', err);
+    // Logging seguro: solo información no sensible y condicional al entorno
+    if (import.meta.env.DEV) {
+      console.error('Error al registrar movimiento:', {
+        message: err.message,
+        status: err.response?.status,
+        stack: err.stack,
+      });
+    } else {
+      // En producción, solo loguear mensaje básico sin datos sensibles
+      console.error('Error al registrar movimiento:', err.message || 'Error desconocido');
+    }
+
     let errorMessage = 'Error al registrar el movimiento. Por favor, intente nuevamente.';
 
     if (err.response?.data?.detail) {
