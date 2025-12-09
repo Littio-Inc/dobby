@@ -10,6 +10,7 @@ export const TOKEN_BADGE_COLORS: Record<string, string> = {
   BTC: 'bg-yellow-100 text-yellow-700',
   POL: 'bg-indigo-100 text-indigo-700',
   MATIC: 'bg-indigo-100 text-indigo-700',
+  COP: 'bg-emerald-100 text-emerald-800',
 };
 
 export function getTokenBadgeColor(symbol: string): string {

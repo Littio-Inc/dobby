@@ -47,6 +47,7 @@ export interface BackofficeTransaction {
   currency: string;
   rate: string;
   category: string;
+  method?: string;
   st_id: string | null;
   st_hash: string | null;
   user_id: string;
@@ -66,7 +67,8 @@ export interface BackofficeTransactionsResponse {
 }
 
 export interface GetBackofficeTransactionsParams {
-  provider: string;
+  provider?: string;
+  exclude_provider?: string;
   page?: number;
   limit?: number;
 }
@@ -213,9 +215,15 @@ export class AzkabanService {
     params: GetBackofficeTransactionsParams,
   ): Promise<BackofficeTransactionsResponse> {
     try {
-      const queryParams = new URLSearchParams({
-        provider: params.provider,
-      });
+      const queryParams = new URLSearchParams();
+
+      if (params.provider) {
+        queryParams.append('provider', params.provider);
+      }
+
+      if (params.exclude_provider) {
+        queryParams.append('exclude_provider', params.exclude_provider);
+      }
 
       if (params.page !== undefined) {
         queryParams.append('page', params.page.toString());
