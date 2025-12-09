@@ -429,10 +429,10 @@ const handleSubmit = async () => {
 
     success.value = 'Movimiento registrado exitosamente';
     transactionId.value = response.id;
-    
+
     // Limpiar solo el formulario, mantener el mensaje de éxito visible
     clearForm();
-    
+
     // Hacer scroll hacia arriba para mostrar el mensaje de éxito
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err: any) {
