@@ -9,6 +9,39 @@
       </p>
     </div>
 
+    <!-- Success Message -->
+    <div
+      v-if="success"
+      class="bg-green-50 border border-green-200 rounded-lg p-4"
+    >
+      <div class="flex items-start gap-3">
+        <svg
+          class="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <div class="flex-1">
+          <p class="text-green-800 font-medium">
+            {{ success }}
+          </p>
+          <p
+            v-if="transactionId"
+            class="text-green-700 text-sm mt-1"
+          >
+            ID de transacción: <span class="font-mono font-semibold">{{ transactionId }}</span>
+          </p>
+        </div>
+      </div>
+    </div>
+
     <!-- Form Section -->
     <div class="bg-white rounded-lg border border-neutral-20 p-6">
       <div class="space-y-6">
@@ -292,16 +325,6 @@
           </div>
         </form>
 
-        <!-- Success Message -->
-        <div
-          v-if="success"
-          class="mt-6 bg-green-50 border border-green-200 rounded-lg p-4"
-        >
-          <p class="text-green-800 font-medium">
-            {{ success }}
-          </p>
-        </div>
-
         <!-- Error Message -->
         <div
           v-if="error"
@@ -347,8 +370,9 @@ const formData = ref<FormData>({
 const isSubmitting = ref(false);
 const error = ref('');
 const success = ref('');
+const transactionId = ref('');
 
-const handleClear = () => {
+const clearForm = () => {
   formData.value = {
     operationDate: '',
     originAccount: '',
@@ -360,8 +384,13 @@ const handleClear = () => {
     amount: '',
     externalTransactionId: '',
   };
+};
+
+const handleClear = () => {
+  clearForm();
   error.value = '';
   success.value = '';
+  transactionId.value = '';
 };
 
 const handleSubmit = async () => {
@@ -382,9 +411,10 @@ const handleSubmit = async () => {
   isSubmitting.value = true;
   error.value = '';
   success.value = '';
+  transactionId.value = '';
 
   try {
-    await AzkabanService.createBackofficeTransaction({
+    const response = await AzkabanService.createBackofficeTransaction({
       operationDate: formData.value.operationDate,
       movementType: formData.value.movementType as 'transfer_in' | 'transfer_out' | 'payment' | 'withdrawal',
       provider: formData.value.provider,
@@ -397,7 +427,13 @@ const handleSubmit = async () => {
     });
 
     success.value = 'Movimiento registrado exitosamente';
-    handleClear();
+    transactionId.value = response.id;
+    
+    // Limpiar solo el formulario, mantener el mensaje de éxito visible
+    clearForm();
+    
+    // Hacer scroll hacia arriba para mostrar el mensaje de éxito
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err: any) {
     console.error('Error al registrar movimiento:', err);
     let errorMessage = 'Error al registrar el movimiento. Por favor, intente nuevamente.';
