@@ -84,9 +84,7 @@
                   </svg>
                 </div>
               </th>
-              <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
-                Método
-              </th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">Método</th>
               <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">Status</th>
               <th class="px-6 py-3 text-right text-xs font-semibold text-neutral-60 uppercase tracking-wider">
                 <div class="flex items-center justify-end gap-1">
