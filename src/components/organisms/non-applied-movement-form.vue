@@ -9,6 +9,39 @@
       </p>
     </div>
 
+    <!-- Success Message -->
+    <div
+      v-if="success"
+      class="bg-green-50 border border-green-200 rounded-lg p-4"
+    >
+      <div class="flex items-start gap-3">
+        <svg
+          class="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <div class="flex-1">
+          <p class="text-green-800 font-medium">
+            {{ success }}
+          </p>
+          <p
+            v-if="transactionId"
+            class="text-green-700 text-sm mt-1"
+          >
+            ID de transacción: <span class="font-mono font-semibold">{{ transactionId }}</span>
+          </p>
+        </div>
+      </div>
+    </div>
+
     <!-- Form Section -->
     <div class="bg-white rounded-lg border border-neutral-20 p-6">
       <div class="space-y-6">
@@ -291,6 +324,16 @@
             </button>
           </div>
         </form>
+
+        <!-- Error Message -->
+        <div
+          v-if="error"
+          class="mt-6 bg-carmine-light border border-carmine rounded-lg p-4"
+        >
+          <p class="text-carmine font-medium">
+            {{ error }}
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -298,11 +341,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { AzkabanService } from '../../services/api/azkaban';
 
 interface FormData {
   operationDate: string;
   originAccount: string;
-  movementType: string;
+  movementType: 'transfer_in' | 'transfer_out' | 'payment' | 'withdrawal' | '';
   currency: string;
   notes: string;
   provider: string;
@@ -324,8 +368,11 @@ const formData = ref<FormData>({
 });
 
 const isSubmitting = ref(false);
+const error = ref('');
+const success = ref('');
+const transactionId = ref('');
 
-const handleClear = () => {
+const clearForm = () => {
   formData.value = {
     operationDate: '',
     originAccount: '',
@@ -339,23 +386,79 @@ const handleClear = () => {
   };
 };
 
+const handleClear = () => {
+  clearForm();
+  error.value = '';
+  success.value = '';
+  transactionId.value = '';
+};
+
 const handleSubmit = async () => {
   if (isSubmitting.value) return;
 
+  if (!formData.value.movementType) {
+    error.value = 'Por favor, seleccione un tipo de movimiento válido.';
+    return;
+  }
+
   isSubmitting.value = true;
+  error.value = '';
+  success.value = '';
+  transactionId.value = '';
+
   try {
-    // TODO: Implementar llamada a la API para registrar el movimiento
-    console.log('Form data:', formData.value);
+    // Parsear amount a número
+    const parsedAmount = parseFloat(formData.value.amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      error.value = 'Por favor, ingrese un monto válido mayor a cero.';
+      isSubmitting.value = false;
+      return;
+    }
 
-    // Simular llamada a API
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const response = await AzkabanService.createBackofficeTransaction({
+      operationDate: formData.value.operationDate,
+      movementType: formData.value.movementType as 'transfer_in' | 'transfer_out' | 'payment' | 'withdrawal',
+      provider: formData.value.provider,
+      amount: parsedAmount,
+      currency: formData.value.currency,
+      externalTransactionId: formData.value.externalTransactionId,
+      destinationAccount: formData.value.destinationAccount,
+      originAccount: formData.value.originAccount,
+      notes: formData.value.notes,
+    });
 
-    // Aquí se implementará la lógica de registro
-    alert('Movimiento registrado exitosamente');
-    handleClear();
-  } catch (error) {
-    console.error('Error al registrar movimiento:', error);
-    alert('Error al registrar el movimiento. Por favor, intente nuevamente.');
+    success.value = 'Movimiento registrado exitosamente';
+    transactionId.value = response.id;
+
+    // Limpiar solo el formulario, mantener el mensaje de éxito visible
+    clearForm();
+
+    // Hacer scroll hacia arriba para mostrar el mensaje de éxito
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (err: any) {
+    // Logging seguro: solo información no sensible y condicional al entorno
+    if (import.meta.env.DEV) {
+      console.error('Error al registrar movimiento:', {
+        message: err.message,
+        status: err.response?.status,
+        stack: err.stack,
+      });
+    } else {
+      // En producción, solo loguear mensaje básico sin datos sensibles
+      console.error('Error al registrar movimiento:', err.message || 'Error desconocido');
+    }
+
+    let errorMessage = 'Error al registrar el movimiento. Por favor, intente nuevamente.';
+
+    if (err.response?.data?.detail) {
+      errorMessage = err.response.data.detail;
+    } else if (err.response?.data?.message) {
+      errorMessage = err.response.data.message;
+    } else if (err.message && !err.message.includes('status code')) {
+      errorMessage = err.message;
+    }
+
+    error.value = errorMessage;
   } finally {
     isSubmitting.value = false;
   }

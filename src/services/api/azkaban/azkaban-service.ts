@@ -1,9 +1,8 @@
 import { azkabanApi } from '../../../stores/common/api-client';
 
-// Endpoints de Azkaban (migrados desde Diagon)
 const AZKABAN_ENDPOINTS = {
   GET_ACCOUNTS: '/v1/vault/accounts',
-  REFRESH_BALANCE: '/v1/vault/accounts', // Base path para /v1/vault/accounts/{accountId}/{asset}/balance
+  REFRESH_BALANCE: '/v1/vault/accounts',
   GET_BACKOFFICE_TRANSACTIONS: '/v1/backoffice/transactions',
 } as const;
 
@@ -70,6 +69,19 @@ export interface GetBackofficeTransactionsParams {
   provider: string;
   page?: number;
   limit?: number;
+}
+
+export interface CreateBackofficeTransactionParams {
+  operationDate: string; // YYYY-MM-DD
+  operationTime?: string; // HH:mm:ss.SSS (opcional, por defecto 00:00:00.000)
+  movementType: 'transfer_in' | 'transfer_out' | 'payment' | 'withdrawal';
+  provider: string;
+  amount: number;
+  currency: string;
+  externalTransactionId: string;
+  destinationAccount: string;
+  originAccount: string;
+  notes?: string;
 }
 
 /**
@@ -220,6 +232,71 @@ export class AzkabanService {
       return response.data;
     } catch (error) {
       console.error('[AzkabanService] Error fetching backoffice transactions:', error);
+      throw error;
+    }
+  }
+
+  static async createBackofficeTransaction(params: CreateBackofficeTransactionParams): Promise<BackofficeTransaction> {
+    try {
+      const idempotencyKey = crypto.randomUUID();
+
+      // Validar y parsear la fecha de operación
+      const datePart = params.operationDate;
+
+      // Validar formato de fecha (YYYY-MM-DD)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+        throw new Error('Formato de fecha inválido. Debe ser YYYY-MM-DD');
+      }
+
+      // Usar hora proporcionada o hora fija 00:00:00.000 para operaciones históricas
+      let timePart: string;
+      if (params.operationTime) {
+        // Validar formato de hora (HH:mm:ss.SSS o HH:mm:ss)
+        const timeRegex = /^(\d{2}):(\d{2}):(\d{2})(\.\d{3})?$/;
+        if (!timeRegex.test(params.operationTime)) {
+          throw new Error('Formato de hora inválido. Debe ser HH:mm:ss.SSS o HH:mm:ss');
+        }
+        // Asegurar que tenga milisegundos
+        timePart = params.operationTime.includes('.')
+          ? params.operationTime.padEnd(12, '0').substring(0, 12) // Asegurar 3 dígitos de milisegundos
+          : `${params.operationTime}.000`;
+      } else {
+        // Hora fija para operaciones históricas
+        timePart = '00:00:00.000';
+      }
+
+      const formattedDate = `${datePart} ${timePart}`;
+
+      const type =
+        params.movementType === 'transfer_in' || params.movementType === 'transfer_out'
+          ? 'transfer'
+          : params.movementType;
+
+      const payload = {
+        created_at: formattedDate,
+        type: type,
+        provider: params.provider,
+        amount: String(params.amount),
+        currency: params.currency,
+        st_id: params.externalTransactionId,
+        user_id: params.provider,
+        user_id_to: params.destinationAccount,
+        user_id_from: params.originAccount,
+        method: params.movementType,
+        reason: params.notes || '',
+        occurred_at: formattedDate,
+        idempotency_key: idempotencyKey,
+        status: 'COMPLETED',
+      };
+
+      const response = await azkabanApi.post<BackofficeTransaction>(
+        AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS,
+        payload,
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error('[AzkabanService] Error creating backoffice transaction:', error);
       throw error;
     }
   }
