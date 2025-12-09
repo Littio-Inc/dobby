@@ -393,6 +393,10 @@ const handleClear = () => {
   transactionId.value = '';
 };
 
+const emit = defineEmits<{
+  'movement-created': [];
+}>();
+
 const handleSubmit = async () => {
   if (isSubmitting.value) return;
 
@@ -432,6 +436,9 @@ const handleSubmit = async () => {
 
     // Limpiar solo el formulario, mantener el mensaje de éxito visible
     clearForm();
+
+    // Emitir evento para refrescar la tabla
+    emit('movement-created');
 
     // Hacer scroll hacia arriba para mostrar el mensaje de éxito
     window.scrollTo({ top: 0, behavior: 'smooth' });

@@ -551,4 +551,11 @@ const copyToClipboard = async (text: string) => {
 onMounted(async () => {
   await loadTransactions(1);
 });
+
+// Exponer método para refrescar la tabla desde componentes padre
+defineExpose({
+  refresh: () => {
+    loadTransactions(currentPage.value);
+  },
+});
 </script>
