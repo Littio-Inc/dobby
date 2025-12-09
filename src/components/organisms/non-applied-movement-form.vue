@@ -162,10 +162,9 @@
                   >
                     Seleccione proveedor
                   </option>
-                  <option value="bancolo">Bancolo</option>
-                  <option value="bbva">BBVA</option>
-                  <option value="minteo">Minteo</option>
-                  <option value="checker">Checker</option>
+                  <option value="BCOLO3036">Bancolombia 3036</option>
+                  <option value="BCOLO4708">Bancolombia 4708</option>
+                  <option value="BBVA">BBVA</option>
                 </select>
               </div>
 
