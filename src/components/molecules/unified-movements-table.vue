@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-4">
-    <h3 class="text-xl font-bold text-neutral-80">Movimientos Unificados</h3>
+    <h3 class="text-xl font-bold text-neutral-80">{{ title }}</h3>
 
     <ErrorMessage :message="transactionsError" />
 
@@ -84,9 +84,7 @@
                   </svg>
                 </div>
               </th>
-              <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
-                Categoría
-              </th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">Método</th>
               <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">Status</th>
               <th class="px-6 py-3 text-right text-xs font-semibold text-neutral-60 uppercase tracking-wider">
                 <div class="flex items-center justify-end gap-1">
@@ -106,9 +104,19 @@
                   </svg>
                 </div>
               </th>
-              <th class="px-6 py-3 text-right text-xs font-semibold text-neutral-60 uppercase tracking-wider">Fees</th>
+              <th
+                v-if="showFees"
+                class="px-6 py-3 text-right text-xs font-semibold text-neutral-60 uppercase tracking-wider"
+              >
+                Fees
+              </th>
               <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">Rate</th>
-              <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">Hash</th>
+              <th
+                v-if="showHash"
+                class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider"
+              >
+                Hash
+              </th>
             </tr>
           </thead>
           <tbody class="divide-y divide-neutral-20">
@@ -117,7 +125,7 @@
               class="hover:bg-neutral-10"
             >
               <td
-                colspan="10"
+                :colspan="getTotalColumns()"
                 class="px-6 py-8 text-center text-neutral-60"
               >
                 No hay transacciones disponibles
@@ -169,9 +177,9 @@
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <span
-                  :class="['px-2 py-1 rounded-full text-xs font-semibold', getCategoryBadgeColor(transaction.category)]"
+                  :class="['px-2 py-1 rounded-full text-xs font-semibold', getMethodBadgeColor(transaction.method)]"
                 >
-                  {{ transaction.category.toUpperCase() }}
+                  {{ transaction.method ? transaction.method.toUpperCase() : '-' }}
                 </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
@@ -197,7 +205,10 @@
                   </span>
                 </div>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right">
+              <td
+                v-if="showFees"
+                class="px-6 py-4 whitespace-nowrap text-right"
+              >
                 <div
                   v-if="transaction.fees && parseFloat(transaction.fees) > 0"
                   class="flex items-center justify-end gap-2"
@@ -221,7 +232,10 @@
               <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-80">
                 {{ formatRate(transaction.rate) }}
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-80">
+              <td
+                v-if="showHash"
+                class="px-6 py-4 whitespace-nowrap text-sm text-neutral-80"
+              >
                 {{ transaction.st_hash || transaction.transfer_id || '-' }}
               </td>
             </tr>
@@ -296,6 +310,26 @@ import { getTokenBadgeColor } from '../../utils/token-badge-colors';
 import ErrorMessage from '../atoms/error-message.vue';
 import LoadingSpinner from '../atoms/loading-spinner.vue';
 
+interface Props {
+  provider?: string;
+  excludeProvider?: string;
+  title?: string;
+  showFees?: boolean;
+  showHash?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  provider: undefined,
+  excludeProvider: undefined,
+  title: 'Movimientos Unificados',
+  showFees: true,
+  showHash: false,
+});
+
+const getTotalColumns = () => {
+  return props.showFees ? (props.showHash ? 10 : 9) : props.showHash ? 9 : 8;
+};
+
 // Estados para transacciones de backoffice
 const transactions = ref<BackofficeTransaction[]>([]);
 const isLoadingTransactions = ref(false);
@@ -314,11 +348,20 @@ const loadTransactions = async (page: number = 1) => {
   transactionsError.value = null;
 
   try {
-    const response = await AzkabanService.getBackofficeTransactions({
-      provider: 'fireblocks',
+    const params: { provider?: string; exclude_provider?: string; page: number; limit: number } = {
       page,
       limit: limit.value,
-    });
+    };
+
+    if (props.provider) {
+      params.provider = props.provider;
+    }
+
+    if (props.excludeProvider) {
+      params.exclude_provider = props.excludeProvider;
+    }
+
+    const response = await AzkabanService.getBackofficeTransactions(params);
 
     // Ignore stale responses (if a newer request was made)
     if (currentRequestId !== requestId) {
@@ -440,16 +483,23 @@ const getTypeBadgeColorForTransaction = (type: string): string => {
   return 'bg-neutral-100 text-neutral-700';
 };
 
-const getCategoryBadgeColor = (category: string): string => {
-  const categoryLower = category.toLowerCase();
-  if (categoryLower.includes('transfer')) {
-    return 'bg-purple-100 text-purple-700';
-  }
-  if (categoryLower.includes('settlement')) {
-    return 'bg-indigo-100 text-indigo-700';
-  }
-  if (categoryLower.includes('deposit')) {
+const getMethodBadgeColor = (method: string | undefined): string => {
+  if (!method) return 'bg-neutral-100 text-neutral-700';
+  const methodLower = method.toLowerCase();
+  if (methodLower.includes('transfer_in') || methodLower === 'transfer_in') {
     return 'bg-green-100 text-green-700';
+  }
+  if (methodLower.includes('transfer_out') || methodLower === 'transfer_out') {
+    return 'bg-orange-100 text-orange-700';
+  }
+  if (methodLower.includes('payment') || methodLower === 'payment') {
+    return 'bg-blue-100 text-blue-700';
+  }
+  if (methodLower.includes('withdrawal') || methodLower === 'withdrawal') {
+    return 'bg-red-100 text-red-700';
+  }
+  if (methodLower.includes('transfer')) {
+    return 'bg-purple-100 text-purple-700';
   }
   return 'bg-neutral-100 text-neutral-700';
 };
@@ -500,5 +550,12 @@ const copyToClipboard = async (text: string) => {
 
 onMounted(async () => {
   await loadTransactions(1);
+});
+
+// Exponer método para refrescar la tabla desde componentes padre
+defineExpose({
+  refresh: () => {
+    loadTransactions(currentPage.value);
+  },
 });
 </script>
