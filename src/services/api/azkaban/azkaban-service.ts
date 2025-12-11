@@ -4,6 +4,7 @@ const AZKABAN_ENDPOINTS = {
   GET_ACCOUNTS: '/v1/vault/accounts',
   REFRESH_BALANCE: '/v1/vault/accounts',
   GET_BACKOFFICE_TRANSACTIONS: '/v1/backoffice/transactions',
+  GET_EXTERNAL_WALLETS: '/v1/vault/external-wallets',
 } as const;
 
 export interface DiagonAsset {
@@ -82,6 +83,25 @@ export interface CreateBackofficeTransactionParams {
   destinationAccount: string;
   originAccount: string;
   notes?: string;
+}
+
+export interface ExternalWalletAsset {
+  id: string;
+  status: string;
+  address: string;
+  tag: string;
+}
+
+export interface ExternalWallet {
+  id: string;
+  name: string;
+  assets: ExternalWalletAsset[];
+}
+
+export interface ExternalWalletsResponse {
+  message: string;
+  code: number;
+  data: ExternalWallet[];
 }
 
 /**
@@ -297,6 +317,27 @@ export class AzkabanService {
       return response.data;
     } catch (error) {
       console.error('[AzkabanService] Error creating backoffice transaction:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtiene el listado de wallets externas
+   * @returns Respuesta con las wallets externas (puede ser un array vacío si no hay wallets)
+   */
+  static async getExternalWallets(): Promise<ExternalWallet[]> {
+    try {
+      const response = await azkabanApi.get<ExternalWalletsResponse>(AZKABAN_ENDPOINTS.GET_EXTERNAL_WALLETS);
+
+      // Si no hay wallets, data será un array vacío
+      if (!Array.isArray(response.data.data)) {
+        console.warn('[AzkabanService] Unexpected response format for external wallets:', response.data);
+        return [];
+      }
+
+      return response.data.data;
+    } catch (error) {
+      console.error('[AzkabanService] Error fetching external wallets:', error);
       throw error;
     }
   }

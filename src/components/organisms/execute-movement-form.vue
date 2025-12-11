@@ -161,8 +161,6 @@
                 <option value="supra">Supra</option>
                 <option value="cobre">Cobre</option>
                 <option value="kira">Kira</option>
-                <option value="bridge">Bridge</option>
-                <option value="koywe">Koywe</option>
               </select>
             </div>
 
@@ -190,9 +188,9 @@
                 <option
                   v-for="wallet in destinationWallets"
                   :key="wallet.id"
-                  :value="wallet.id"
+                  :value="wallet.address"
                 >
-                  {{ wallet.name }} ({{ wallet.balance }})
+                  {{ wallet.name }} ({{ wallet.address }})
                 </option>
               </select>
             </div>
@@ -356,7 +354,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { AzkabanService, type DiagonAccountResponse } from '../../services/api';
+import { AzkabanService, type DiagonAccountResponse, type ExternalWallet } from '../../services/api';
 import { getTokenBadgeColor } from '../../utils/token-badge-colors';
 import LoadingSpinner from '../atoms/loading-spinner.vue';
 
@@ -365,6 +363,12 @@ interface Wallet {
   name: string;
   balance: string;
   token: string;
+}
+
+interface DestinationWallet {
+  id: string;
+  name: string;
+  address: string;
 }
 
 interface FormData {
@@ -402,8 +406,9 @@ const success = ref('');
 const isLoading = ref(false);
 const accounts = ref<DiagonAccountResponse[]>([]);
 const originWallets = ref<Wallet[]>([]);
-const destinationWallets = ref<Wallet[]>([]);
+const destinationWallets = ref<DestinationWallet[]>([]);
 const availableTokens = ref<Array<{ symbol: string; badgeColor: string }>>([]);
+const externalWallets = ref<ExternalWallet[]>([]);
 
 const estimatedGas = computed(() => {
   if (formData.value.transactionSpeed === 'slow') return '10 Gwei';
@@ -548,7 +553,7 @@ const formatTokenBalance = (balance: number): string => {
 };
 
 const extractProviderFromName = (name: string): string | null => {
-  const providers = ['Supra', 'Cobre', 'Kira', 'Bridge', 'Koywe'];
+  const providers = ['Supra', 'Cobre', 'Kira'];
   for (const provider of providers) {
     if (name.toLowerCase().includes(provider.toLowerCase())) {
       return provider;
@@ -591,12 +596,31 @@ const extractAvailableTokens = (
     });
 };
 
+const loadExternalWallets = async () => {
+  try {
+    const wallets = await AzkabanService.getExternalWallets();
+    externalWallets.value = wallets;
+    
+    // Si ya hay un proveedor seleccionado, actualizar las wallets destino
+    if (formData.value.provider) {
+      handleProviderChange();
+    }
+  } catch (err: any) {
+    console.error('[ExecuteMovementForm] Error loading external wallets:', err);
+    // No mostrar error al usuario si falla, solo loguear
+    externalWallets.value = [];
+  }
+};
+
 const loadWallets = async () => {
   isLoading.value = true;
   error.value = '';
 
   try {
+    // Cargar cuentas de Fireblocks y external wallets en paralelo
     const accountsData = await AzkabanService.getAccountsWithAssets();
+    await loadExternalWallets();
+    
     accounts.value = accountsData;
 
     availableTokens.value = extractAvailableTokens(accountsData);
@@ -633,20 +657,41 @@ const handleProviderChange = () => {
 
   const providerLower = formData.value.provider.toLowerCase();
   const tokenUpper = formData.value.token.toUpperCase();
+  
+  // Mapear los valores del select a los nombres de los proveedores
+  const providerNameMap: Record<string, string> = {
+    'supra': 'Supra',
+    'cobre': 'Cobre',
+    'kira': 'Kira',
+  };
 
-  destinationWallets.value = accounts.value
-    .filter((account) => {
-      const provider = extractProviderFromName(account.name);
-      return provider && provider.toLowerCase() === providerLower;
+  const providerName = providerNameMap[providerLower];
+  if (!providerName) {
+    destinationWallets.value = [];
+    return;
+  }
+
+  // Filtrar las external wallets por proveedor y token
+  // El nombre de la wallet debe contener el nombre del proveedor
+  // Y el asset debe ser del token seleccionado
+  destinationWallets.value = externalWallets.value
+    .filter((wallet) => {
+      // Filtrar por nombre que contenga el proveedor
+      return wallet.name.toLowerCase().includes(providerName.toLowerCase());
     })
-    .map((account) => {
-      const balance = getWalletTokenBalance(account, tokenUpper);
-      return {
-        id: account.id,
-        name: account.name,
-        balance: `${formatTokenBalance(balance)} ${tokenUpper}`,
-        token: tokenUpper,
-      };
+    .flatMap((wallet) => {
+      // Filtrar assets por token y mapear a opciones del select
+      return wallet.assets
+        .filter((asset) => {
+          // Extraer el token del asset id
+          const { token } = parseAssetId(asset.id);
+          return token.toUpperCase() === tokenUpper;
+        })
+        .map((asset) => ({
+          id: `${wallet.id}-${asset.id}`,
+          name: wallet.name,
+          address: asset.address,
+        }));
     });
 };
 
