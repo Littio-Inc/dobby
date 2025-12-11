@@ -85,7 +85,7 @@
     </div>
 
     <!-- Movimientos Unificados Section -->
-    <UnifiedMovementsTable />
+    <UnifiedMovementsTable provider="fireblocks" />
   </div>
 </template>
 
@@ -183,12 +183,7 @@ const inferWalletType = (name: string): 'Vault' | 'OTC' | 'Proveedor' | 'Operati
   const nameLower = name.toLowerCase();
   if (nameLower.includes('vault') || nameLower.includes('treasury')) return 'Vault';
   if (nameLower.includes('otc') || nameLower.includes('trading')) return 'OTC';
-  if (
-    nameLower.includes('supra') ||
-    nameLower.includes('cobre') ||
-    nameLower.includes('kira')
-  )
-    return 'Proveedor';
+  if (nameLower.includes('supra') || nameLower.includes('cobre') || nameLower.includes('kira')) return 'Proveedor';
   return 'Operativa';
 };
 

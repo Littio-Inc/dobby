@@ -248,7 +248,13 @@
                     value=""
                     disabled
                   >
-                    {{ isLoadingFee ? 'Calculando fees...' : speedOptions.length === 0 ? 'Complete los campos para calcular fees' : 'Seleccione velocidad' }}
+                    {{
+                      isLoadingFee
+                        ? 'Calculando fees...'
+                        : speedOptions.length === 0
+                          ? 'Complete los campos para calcular fees'
+                          : 'Seleccione velocidad'
+                    }}
                   </option>
                   <option
                     v-for="option in speedOptions"
@@ -280,12 +286,6 @@
                 <span class="text-sm text-neutral-60">Gas estimado:</span>
                 <span class="text-sm font-medium text-neutral-80">
                   {{ estimatedGas === '-' ? '-' : estimatedGas }}
-                </span>
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-sm text-neutral-60">Network Fee:</span>
-                <span class="text-sm font-medium text-neutral-80">
-                  {{ networkFee > 0 ? `${networkFee.toFixed(6)} ${feeCurrency}` : '-' }}
                 </span>
               </div>
             </div>
@@ -362,7 +362,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import {
   AzkabanService,
   type DiagonAccountResponse,
@@ -384,8 +384,8 @@ interface DestinationWallet {
   id: string;
   name: string;
   address: string;
-  walletId: string; // ID de la external wallet
-  assetId: string; // ID del asset
+  walletId: string;
+  assetId: string;
 }
 
 interface FormData {
@@ -429,7 +429,6 @@ const externalWallets = ref<ExternalWallet[]>([]);
 const feeOptions = ref<EstimateFeeResponse | null>(null);
 const isLoadingFee = ref(false);
 
-// Mapeo de slow/medium/fast (valores del form) a low/medium/high (valores del API)
 const getFeeOptionFromSpeed = (speed: string): FeeOption | null => {
   if (!feeOptions.value) return null;
 
@@ -458,60 +457,25 @@ const estimatedGas = computed(() => {
   return '-';
 });
 
-const getFeeCurrency = (): string => {
-  const assetId = getOriginAssetId();
-  if (!assetId) {
-    return 'ETH'; // Default
-  }
-
-  const { blockchain } = parseAssetId(assetId);
-  
-  // Mapear blockchain a su moneda nativa
-  const blockchainCurrencyMap: Record<string, string> = {
-    'Ethereum': 'ETH',
-    'Polygon': 'POL',
-    'Bitcoin': 'BTC',
-  };
-
-  return blockchainCurrencyMap[blockchain] || 'ETH';
-};
-
-const networkFee = computed(() => {
-  if (!feeOptions.value || !formData.value.transactionSpeed) {
-    return 0;
-  }
-
-  const option = getFeeOptionFromSpeed(formData.value.transactionSpeed);
-  if (option?.networkFee) {
-    return parseFloat(option.networkFee);
-  }
-
-  return 0;
-});
-
-const feeCurrency = computed(() => {
-  return getFeeCurrency();
-});
-
 const speedOptions = computed(() => {
   if (!feeOptions.value) {
     return [];
   }
 
   const options = [];
-  
+
   if (feeOptions.value.low) {
     const low = feeOptions.value.low;
     const gasPrice = parseFloat(low.gasPrice).toFixed(2);
     options.push({ value: 'slow', label: `Lento (5-10 min) - ${gasPrice} Gwei` });
   }
-  
+
   if (feeOptions.value.medium) {
     const medium = feeOptions.value.medium;
     const gasPrice = parseFloat(medium.gasPrice).toFixed(2);
     options.push({ value: 'medium', label: `Medio (2-5 min) - ${gasPrice} Gwei` });
   }
-  
+
   if (feeOptions.value.high) {
     const high = feeOptions.value.high;
     const gasPrice = parseFloat(high.gasPrice).toFixed(2);
@@ -649,7 +613,6 @@ const formatTokenBalance = (balance: number): string => {
   });
 };
 
-
 const extractAvailableTokens = (
   accountsData: DiagonAccountResponse[],
 ): Array<{ symbol: string; badgeColor: string }> => {
@@ -688,14 +651,12 @@ const loadExternalWallets = async () => {
   try {
     const wallets = await AzkabanService.getExternalWallets();
     externalWallets.value = wallets;
-    
-    // Si ya hay un proveedor seleccionado, actualizar las wallets destino
+
     if (formData.value.provider) {
       handleProviderChange();
     }
   } catch (err: any) {
     console.error('[ExecuteMovementForm] Error loading external wallets:', err);
-    // No mostrar error al usuario si falla, solo loguear
     externalWallets.value = [];
   }
 };
@@ -705,10 +666,9 @@ const loadWallets = async () => {
   error.value = '';
 
   try {
-    // Cargar cuentas de Fireblocks y external wallets en paralelo
     const accountsData = await AzkabanService.getAccountsWithAssets();
     await loadExternalWallets();
-    
+
     accounts.value = accountsData;
 
     availableTokens.value = extractAvailableTokens(accountsData);
@@ -761,12 +721,9 @@ const getDestinationWalletId = (): string | null => {
     return null;
   }
 
-  const destinationWallet = destinationWallets.value.find(
-    (w) => w.address === formData.value.destinationWallet,
-  );
+  const destinationWallet = destinationWallets.value.find((w) => w.address === formData.value.destinationWallet);
   return destinationWallet?.walletId || null;
 };
-
 
 const estimateTransactionFee = async () => {
   if (
@@ -808,8 +765,7 @@ const estimateTransactionFee = async () => {
     });
 
     feeOptions.value = response;
-    
-    // Si no hay opciones disponibles, resetear a vacío
+
     if (!response.low && !response.medium && !response.high) {
       formData.value.transactionSpeed = '';
     }
@@ -834,12 +790,11 @@ const handleProviderChange = () => {
 
   const providerLower = formData.value.provider.toLowerCase();
   const tokenUpper = formData.value.token.toUpperCase();
-  
-  // Mapear los valores del select a los nombres de los proveedores
+
   const providerNameMap: Record<string, string> = {
-    'supra': 'Supra',
-    'cobre': 'Cobre',
-    'kira': 'Kira',
+    supra: 'Supra',
+    cobre: 'Cobre',
+    kira: 'Kira',
   };
 
   const providerName = providerNameMap[providerLower];
@@ -848,19 +803,13 @@ const handleProviderChange = () => {
     return;
   }
 
-  // Filtrar las external wallets por proveedor y token
-  // El nombre de la wallet debe contener el nombre del proveedor
-  // Y el asset debe ser del token seleccionado
   destinationWallets.value = externalWallets.value
     .filter((wallet) => {
-      // Filtrar por nombre que contenga el proveedor
       return wallet.name.toLowerCase().includes(providerName.toLowerCase());
     })
     .flatMap((wallet) => {
-      // Filtrar assets por token y mapear a opciones del select
       return wallet.assets
         .filter((asset) => {
-          // Extraer el token del asset id
           const { token } = parseAssetId(asset.id);
           return token.toUpperCase() === tokenUpper;
         })
@@ -950,7 +899,6 @@ watch(
 watch(
   () => formData.value.destinationWallet,
   (newValue, oldValue) => {
-    // Si cambió la wallet destino, resetear la velocidad
     if (oldValue && newValue !== oldValue) {
       formData.value.transactionSpeed = '';
     }
@@ -963,7 +911,6 @@ let amountTimeout: ReturnType<typeof setTimeout> | null = null;
 watch(
   () => formData.value.amount,
   () => {
-    // Debounce para no hacer demasiadas llamadas mientras el usuario escribe
     if (amountTimeout) {
       clearTimeout(amountTimeout);
     }
@@ -976,5 +923,12 @@ watch(
 
 onMounted(() => {
   loadWallets();
+});
+
+onBeforeUnmount(() => {
+  if (amountTimeout) {
+    clearTimeout(amountTimeout);
+    amountTimeout = null;
+  }
 });
 </script>
