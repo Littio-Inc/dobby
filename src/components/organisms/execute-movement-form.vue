@@ -457,6 +457,19 @@ const estimatedGas = computed(() => {
   return '-';
 });
 
+const formatGasPrice = (gasPrice: string | undefined): string => {
+  if (!gasPrice) {
+    return '—';
+  }
+
+  const parsed = parseFloat(gasPrice);
+  if (!Number.isFinite(parsed)) {
+    return '—';
+  }
+
+  return parsed.toFixed(2);
+};
+
 const speedOptions = computed(() => {
   if (!feeOptions.value) {
     return [];
@@ -466,19 +479,19 @@ const speedOptions = computed(() => {
 
   if (feeOptions.value.low) {
     const low = feeOptions.value.low;
-    const gasPrice = parseFloat(low.gasPrice).toFixed(2);
+    const gasPrice = formatGasPrice(low.gasPrice);
     options.push({ value: 'slow', label: `Lento (5-10 min) - ${gasPrice} Gwei` });
   }
 
   if (feeOptions.value.medium) {
     const medium = feeOptions.value.medium;
-    const gasPrice = parseFloat(medium.gasPrice).toFixed(2);
+    const gasPrice = formatGasPrice(medium.gasPrice);
     options.push({ value: 'medium', label: `Medio (2-5 min) - ${gasPrice} Gwei` });
   }
 
   if (feeOptions.value.high) {
     const high = feeOptions.value.high;
-    const gasPrice = parseFloat(high.gasPrice).toFixed(2);
+    const gasPrice = formatGasPrice(high.gasPrice);
     options.push({ value: 'fast', label: `Rápido (1-2 min) - ${gasPrice} Gwei` });
   }
 
