@@ -93,7 +93,7 @@
             <h3 class="text-lg font-semibold text-neutral-80">Wallet Origen</h3>
           </div>
 
-          <div class="pl-10">
+          <div class="pl-10 space-y-4">
             <div>
               <label
                 for="origin-wallet"
@@ -118,9 +118,27 @@
                   :key="wallet.id"
                   :value="wallet.id"
                 >
-                  {{ wallet.name }} ({{ wallet.balance }})
+                  {{ wallet.name }}
                 </option>
               </select>
+            </div>
+            
+            <!-- Balance Card para Wallet Origen -->
+            <div
+              v-if="selectedOriginWalletBalance"
+              class="bg-neutral-10 rounded-lg p-4 border border-neutral-20"
+            >
+              <div class="flex justify-between items-center">
+                <span class="text-sm font-medium text-neutral-60">Balance disponible:</span>
+                <div class="text-right">
+                  <div class="text-lg font-bold text-neutral-80 leading-tight">
+                    {{ selectedOriginWalletBalance.balance }} {{ formData.token }}
+                  </div>
+                  <div class="text-sm text-neutral-60 mt-0.5">
+                    ${{ selectedOriginWalletBalance.usdValue }} USD
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -168,42 +186,62 @@
             </div>
 
             <!-- Wallet Destino -->
-            <div>
-              <label
-                for="destination-wallet"
-                class="block text-sm font-medium text-neutral-80 mb-2"
-              >
-                Wallet Destino <span class="text-carmine">*</span>
-              </label>
-              <select
-                id="destination-wallet"
-                v-model="formData.destinationWallet"
-                required
-                :disabled="
-                  (showProviderField && !formData.provider) ||
-                  (formData.operationType === 'internal_rebalancing' && !formData.originWallet)
-                "
-                class="w-full px-4 py-2.5 border border-neutral-40 rounded-lg focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky text-neutral-80 bg-white disabled:bg-neutral-20 disabled:cursor-not-allowed"
-              >
-                <option
-                  value=""
-                  disabled
+            <div class="space-y-4">
+              <div>
+                <label
+                  for="destination-wallet"
+                  class="block text-sm font-medium text-neutral-80 mb-2"
                 >
-                  {{
-                    formData.operationType === 'internal_rebalancing' && !formData.originWallet
-                      ? 'Seleccione primero la wallet origen'
-                      : 'Seleccione wallet destino'
-                  }}
-                </option>
-                <option
-                  v-for="wallet in destinationWallets"
-                  :key="wallet.id"
-                  :value="'address' in wallet ? wallet.address : wallet.id"
+                  Wallet Destino <span class="text-carmine">*</span>
+                </label>
+                <select
+                  id="destination-wallet"
+                  v-model="formData.destinationWallet"
+                  required
+                  :disabled="
+                    (showProviderField && !formData.provider) ||
+                    (formData.operationType === 'internal_rebalancing' && !formData.originWallet)
+                  "
+                  class="w-full px-4 py-2.5 border border-neutral-40 rounded-lg focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky text-neutral-80 bg-white disabled:bg-neutral-20 disabled:cursor-not-allowed"
                 >
-                  {{ wallet.name }}
-                  {{ 'address' in wallet ? `(${wallet.address})` : 'balance' in wallet ? `(${wallet.balance})` : '' }}
-                </option>
-              </select>
+                  <option
+                    value=""
+                    disabled
+                  >
+                    {{
+                      formData.operationType === 'internal_rebalancing' && !formData.originWallet
+                        ? 'Seleccione primero la wallet origen'
+                        : 'Seleccione wallet destino'
+                    }}
+                  </option>
+                  <option
+                    v-for="wallet in destinationWallets"
+                    :key="wallet.id"
+                    :value="'address' in wallet ? wallet.address : wallet.id"
+                  >
+                    {{ wallet.name }}
+                    {{ 'address' in wallet ? `(${wallet.address})` : '' }}
+                  </option>
+                </select>
+              </div>
+              
+              <!-- Balance Card para Wallet Destino (solo para rebalanceo interno) -->
+              <div
+                v-if="formData.operationType === 'internal_rebalancing' && selectedDestinationWalletBalance"
+                class="bg-neutral-10 rounded-lg p-4 border border-neutral-20"
+              >
+                <div class="flex justify-between items-center">
+                  <span class="text-sm font-medium text-neutral-60">Balance disponible:</span>
+                  <div class="text-right">
+                    <div class="text-lg font-bold text-neutral-80 leading-tight">
+                      {{ selectedDestinationWalletBalance.balance }} {{ formData.token }}
+                    </div>
+                    <div class="text-sm text-neutral-60 mt-0.5">
+                      ${{ selectedDestinationWalletBalance.usdValue }} USD
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -292,10 +330,10 @@
             </div>
 
             <!-- Gas y Fee Info -->
-            <div class="bg-neutral-10 rounded-lg p-4 space-y-2">
+            <div class="bg-neutral-10 rounded-lg p-4 border border-neutral-20">
               <div class="flex justify-between items-center">
-                <span class="text-sm text-neutral-60">Gas estimado:</span>
-                <span class="text-sm font-medium text-neutral-80">
+                <span class="text-sm font-medium text-neutral-60">Gas estimado:</span>
+                <span class="text-lg font-bold text-neutral-80">
                   {{ estimatedGas === '-' ? '-' : estimatedGas }}
                 </span>
               </div>
@@ -703,6 +741,77 @@ const formatTokenBalance = (balance: number): string => {
     maximumFractionDigits: 4,
   });
 };
+
+const calculateUsdValue = (balance: number, token: string): string => {
+  const tokenUpper = token.toUpperCase();
+  
+  // Para stablecoins, el valor es 1:1 con USD
+  if (tokenUpper === 'USDT' || tokenUpper === 'USDC' || tokenUpper === 'DAI') {
+    return balance.toLocaleString('es-ES', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+  
+  // Para otros tokens, por ahora mostramos el mismo valor numérico
+  // En el futuro se podría integrar una API de precios
+  return balance.toLocaleString('es-ES', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+const selectedOriginWalletBalance = computed(() => {
+  if (!formData.value.originWallet || !formData.value.token) {
+    return null;
+  }
+
+  const wallet = originWallets.value.find((w) => w.id === formData.value.originWallet);
+  if (!wallet) {
+    return null;
+  }
+
+  const account = accounts.value.find((acc) => acc.id === formData.value.originWallet);
+  if (!account) {
+    return null;
+  }
+
+  const tokenUpper = formData.value.token.toUpperCase();
+  const balance = getWalletTokenBalance(account, tokenUpper);
+  const formattedBalance = formatTokenBalance(balance);
+  const usdValue = calculateUsdValue(balance, tokenUpper);
+
+  return {
+    balance: formattedBalance,
+    usdValue,
+  };
+});
+
+const selectedDestinationWalletBalance = computed(() => {
+  if (!formData.value.destinationWallet || !formData.value.token || formData.value.operationType !== 'internal_rebalancing') {
+    return null;
+  }
+
+  const wallet = destinationWallets.value.find((w) => !('address' in w) && w.id === formData.value.destinationWallet);
+  if (!wallet || !('balance' in wallet)) {
+    return null;
+  }
+
+  const account = accounts.value.find((acc) => acc.id === formData.value.destinationWallet);
+  if (!account) {
+    return null;
+  }
+
+  const tokenUpper = formData.value.token.toUpperCase();
+  const balance = getWalletTokenBalance(account, tokenUpper);
+  const formattedBalance = formatTokenBalance(balance);
+  const usdValue = calculateUsdValue(balance, tokenUpper);
+
+  return {
+    balance: formattedBalance,
+    usdValue,
+  };
+});
 
 const extractAvailableTokens = (
   accountsData: DiagonAccountResponse[],
