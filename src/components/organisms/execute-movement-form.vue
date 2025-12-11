@@ -136,9 +136,9 @@
             <h3 class="text-lg font-semibold text-neutral-80">Wallet Destino</h3>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pl-10">
-            <!-- Proveedor -->
-            <div>
+          <div :class="showProviderField ? 'grid grid-cols-1 md:grid-cols-2 gap-6 pl-10' : 'pl-10'">
+            <!-- Proveedor (solo para prefunding_provider y b2c_funding) -->
+            <div v-if="showProviderField">
               <label
                 for="provider"
                 class="block text-sm font-medium text-neutral-80 mb-2"
@@ -158,9 +158,13 @@
                 >
                   Seleccione proveedor
                 </option>
-                <option value="supra">Supra</option>
-                <option value="cobre">Cobre</option>
-                <option value="kira">Kira</option>
+                <option
+                  v-for="provider in availableProviders"
+                  :key="provider.value"
+                  :value="provider.value"
+                >
+                  {{ provider.label }}
+                </option>
               </select>
             </div>
 
@@ -176,21 +180,22 @@
                 id="destination-wallet"
                 v-model="formData.destinationWallet"
                 required
-                :disabled="!formData.provider"
+                :disabled="(showProviderField && !formData.provider) || (formData.operationType === 'internal_rebalancing' && !formData.originWallet)"
                 class="w-full px-4 py-2.5 border border-neutral-40 rounded-lg focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky text-neutral-80 bg-white disabled:bg-neutral-20 disabled:cursor-not-allowed"
               >
                 <option
                   value=""
                   disabled
                 >
-                  Seleccione wallet destino
+                  {{ formData.operationType === 'internal_rebalancing' && !formData.originWallet ? 'Seleccione primero la wallet origen' : 'Seleccione wallet destino' }}
                 </option>
                 <option
                   v-for="wallet in destinationWallets"
                   :key="wallet.id"
-                  :value="wallet.address"
+                  :value="'address' in wallet ? wallet.address : wallet.id"
                 >
-                  {{ wallet.name }} ({{ wallet.address }})
+                  {{ wallet.name }}
+                  {{ 'address' in wallet ? `(${wallet.address})` : 'balance' in wallet ? `(${wallet.balance})` : '' }}
                 </option>
               </select>
             </div>
@@ -423,11 +428,35 @@ const success = ref('');
 const isLoading = ref(false);
 const accounts = ref<DiagonAccountResponse[]>([]);
 const originWallets = ref<Wallet[]>([]);
-const destinationWallets = ref<DestinationWallet[]>([]);
+const destinationWallets = ref<Array<DestinationWallet | Wallet>>([]);
 const availableTokens = ref<Array<{ symbol: string; badgeColor: string }>>([]);
 const externalWallets = ref<ExternalWallet[]>([]);
 const feeOptions = ref<EstimateFeeResponse | null>(null);
 const isLoadingFee = ref(false);
+
+const showProviderField = computed(() => {
+  return (
+    formData.value.operationType === 'prefunding_provider' ||
+    formData.value.operationType === 'b2c_funding'
+  );
+});
+
+const availableProviders = computed(() => {
+  if (formData.value.operationType === 'prefunding_provider') {
+    return [
+      { value: 'supra', label: 'Supra' },
+      { value: 'cobre', label: 'Cobre' },
+      { value: 'kira', label: 'Kira' },
+    ];
+  }
+  if (formData.value.operationType === 'b2c_funding') {
+    return [
+      { value: 'bridge', label: 'Bridge' },
+      { value: 'koywe', label: 'Koywe' },
+    ];
+  }
+  return [];
+});
 
 const getFeeOptionFromSpeed = (speed: string): FeeOption | null => {
   if (!feeOptions.value) return null;
@@ -537,11 +566,8 @@ const updateOriginWallets = () => {
 
 const handleTokenChange = () => {
   formData.value.destinationWallet = '';
-  destinationWallets.value = [];
   updateOriginWallets();
-  if (formData.value.provider) {
-    handleProviderChange();
-  }
+  updateDestinationWallets();
 };
 
 const parseAssetId = (assetId: string): { token: string; blockchain: string } => {
@@ -697,8 +723,8 @@ const loadWallets = async () => {
       updateOriginWallets();
     }
 
-    if (formData.value.provider) {
-      handleProviderChange();
+    if (formData.value.operationType) {
+      updateDestinationWallets();
     }
   } catch (err: any) {
     console.error('[ExecuteMovementForm] Error loading wallets:', err);
@@ -734,8 +760,22 @@ const getDestinationWalletId = (): string | null => {
     return null;
   }
 
-  const destinationWallet = destinationWallets.value.find((w) => w.address === formData.value.destinationWallet);
-  return destinationWallet?.walletId || null;
+  // Para rebalanceo interno, la wallet destino es una wallet de Fireblocks (usa id)
+  if (formData.value.operationType === 'internal_rebalancing') {
+    return formData.value.destinationWallet;
+  }
+
+  // Para external wallets, buscar por address
+  const destinationWallet = destinationWallets.value.find(
+    (w) => 'address' in w && w.address === formData.value.destinationWallet,
+  );
+  return destinationWallet && 'walletId' in destinationWallet
+    ? destinationWallet.walletId
+    : null;
+};
+
+const getDestinationType = (): 'VAULT_ACCOUNT' | 'EXTERNAL_WALLET' => {
+  return formData.value.operationType === 'internal_rebalancing' ? 'VAULT_ACCOUNT' : 'EXTERNAL_WALLET';
 };
 
 const estimateTransactionFee = async () => {
@@ -770,7 +810,7 @@ const estimateTransactionFee = async () => {
         id: formData.value.originWallet,
       },
       destination: {
-        type: 'EXTERNAL_WALLET',
+        type: getDestinationType(),
         id: destinationWalletId,
       },
       assetId: assetId,
@@ -791,49 +831,83 @@ const estimateTransactionFee = async () => {
   }
 };
 
-const handleProviderChange = () => {
+const updateDestinationWallets = () => {
   formData.value.destinationWallet = '';
   formData.value.transactionSpeed = '';
   feeOptions.value = null;
 
-  if (!formData.value.provider || !formData.value.token) {
-    destinationWallets.value = [];
+  // Rebalanceo interno: usar wallets de Fireblocks
+  if (formData.value.operationType === 'internal_rebalancing') {
+    if (!formData.value.token || !formData.value.originWallet) {
+      destinationWallets.value = [];
+      return;
+    }
+
+    const tokenUpper = formData.value.token.toUpperCase();
+    destinationWallets.value = originWallets.value
+      .filter((wallet) => wallet.id !== formData.value.originWallet)
+      .map((wallet) => ({
+        id: wallet.id,
+        name: wallet.name,
+        balance: wallet.balance,
+        token: wallet.token,
+      }));
     return;
   }
 
-  const providerLower = formData.value.provider.toLowerCase();
-  const tokenUpper = formData.value.token.toUpperCase();
+  // Prefunding provider y B2C funding: usar external wallets
+  if (
+    formData.value.operationType === 'prefunding_provider' ||
+    formData.value.operationType === 'b2c_funding'
+  ) {
+    if (!formData.value.provider || !formData.value.token) {
+      destinationWallets.value = [];
+      return;
+    }
 
-  const providerNameMap: Record<string, string> = {
-    supra: 'Supra',
-    cobre: 'Cobre',
-    kira: 'Kira',
-  };
+    const providerLower = formData.value.provider.toLowerCase();
+    const tokenUpper = formData.value.token.toUpperCase();
 
-  const providerName = providerNameMap[providerLower];
-  if (!providerName) {
-    destinationWallets.value = [];
+    const providerNameMap: Record<string, string> = {
+      supra: 'Supra',
+      cobre: 'Cobre',
+      kira: 'Kira',
+      bridge: 'Bridge',
+      koywe: 'Koywe',
+    };
+
+    const providerName = providerNameMap[providerLower];
+    if (!providerName) {
+      destinationWallets.value = [];
+      return;
+    }
+
+    destinationWallets.value = externalWallets.value
+      .filter((wallet) => {
+        return wallet.name.toLowerCase().includes(providerName.toLowerCase());
+      })
+      .flatMap((wallet) => {
+        return wallet.assets
+          .filter((asset) => {
+            const { token } = parseAssetId(asset.id);
+            return token.toUpperCase() === tokenUpper;
+          })
+          .map((asset) => ({
+            id: `${wallet.id}-${asset.id}`,
+            name: wallet.name,
+            address: asset.address,
+            walletId: wallet.id,
+            assetId: asset.id,
+          }));
+      });
     return;
   }
 
-  destinationWallets.value = externalWallets.value
-    .filter((wallet) => {
-      return wallet.name.toLowerCase().includes(providerName.toLowerCase());
-    })
-    .flatMap((wallet) => {
-      return wallet.assets
-        .filter((asset) => {
-          const { token } = parseAssetId(asset.id);
-          return token.toUpperCase() === tokenUpper;
-        })
-        .map((asset) => ({
-          id: `${wallet.id}-${asset.id}`,
-          name: wallet.name,
-          address: asset.address,
-          walletId: wallet.id,
-          assetId: asset.id,
-        }));
-    });
+  destinationWallets.value = [];
+};
+
+const handleProviderChange = () => {
+  updateDestinationWallets();
 };
 
 const handleSubmit = async () => {
@@ -884,9 +958,7 @@ watch(
     if (normalizedToken && availableTokens.value.some((t) => t.symbol === normalizedToken)) {
       formData.value.token = normalizedToken;
       updateOriginWallets();
-      if (formData.value.provider) {
-        handleProviderChange();
-      }
+      updateDestinationWallets();
     }
   },
 );
@@ -895,16 +967,26 @@ watch(
   () => formData.value.token,
   () => {
     updateOriginWallets();
-    if (formData.value.provider) {
-      handleProviderChange();
-    }
+    updateDestinationWallets();
     estimateTransactionFee();
+  },
+);
+
+watch(
+  () => formData.value.operationType,
+  () => {
+    formData.value.provider = '';
+    updateDestinationWallets();
   },
 );
 
 watch(
   () => formData.value.originWallet,
   () => {
+    // Si es rebalanceo interno, actualizar las wallets destino cuando cambia la wallet origen
+    if (formData.value.operationType === 'internal_rebalancing') {
+      updateDestinationWallets();
+    }
     estimateTransactionFee();
   },
 );
