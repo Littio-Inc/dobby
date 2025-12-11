@@ -341,7 +341,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { AzkabanService, type DiagonAccountResponse, type DiagonAsset } from '../../services/api';
+import { AzkabanService, type DiagonAccountResponse } from '../../services/api';
 import { getTokenBadgeColor } from '../../utils/token-badge-colors';
 import LoadingSpinner from '../atoms/loading-spinner.vue';
 
@@ -371,7 +371,7 @@ const props = defineProps<{
 }>();
 
 const formData = ref<FormData>({
-  token: props.walletToken || '',
+  token: props.walletToken?.toUpperCase() || '',
   operationType: '',
   originWallet: props.walletId || '',
   provider: '',
@@ -445,6 +445,9 @@ const handleTokenChange = () => {
   formData.value.destinationWallet = '';
   destinationWallets.value = [];
   updateOriginWallets();
+  if (formData.value.provider) {
+    handleProviderChange();
+  }
 };
 
 const parseAssetId = (assetId: string): { token: string; blockchain: string } => {
@@ -581,8 +584,9 @@ const loadWallets = async () => {
 
     availableTokens.value = extractAvailableTokens(accountsData);
 
-    if (props.walletToken && availableTokens.value.some((t) => t.symbol === props.walletToken)) {
-      formData.value.token = props.walletToken;
+    const normalizedWalletToken = props.walletToken?.toUpperCase();
+    if (normalizedWalletToken && availableTokens.value.some((t) => t.symbol === normalizedWalletToken)) {
+      formData.value.token = normalizedWalletToken;
     } else if (!formData.value.token && availableTokens.value.length > 0) {
       formData.value.token = availableTokens.value[0].symbol;
     }
@@ -643,7 +647,7 @@ const handleSubmit = async () => {
     
     setTimeout(() => {
       formData.value = {
-        token: props.walletToken || '',
+        token: props.walletToken?.toUpperCase() || '',
         operationType: '',
         originWallet: props.walletId || '',
         provider: '',
@@ -667,24 +671,31 @@ watch(
     if (newId) {
       formData.value.originWallet = newId;
     }
-  }
+  },
 );
 
 watch(
   () => props.walletToken,
   (newToken) => {
-    if (newToken && availableTokens.value.some((t) => t.symbol === newToken)) {
-      formData.value.token = newToken;
+    const normalizedToken = newToken?.toUpperCase();
+    if (normalizedToken && availableTokens.value.some((t) => t.symbol === normalizedToken)) {
+      formData.value.token = normalizedToken;
       updateOriginWallets();
+      if (formData.value.provider) {
+        handleProviderChange();
+      }
     }
-  }
+  },
 );
 
 watch(
   () => formData.value.token,
   () => {
     updateOriginWallets();
-  }
+    if (formData.value.provider) {
+      handleProviderChange();
+    }
+  },
 );
 
 onMounted(() => {
