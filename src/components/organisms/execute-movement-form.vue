@@ -16,7 +16,10 @@
         <!-- Sección 1: Información General -->
         <div class="space-y-4">
           <div class="flex items-center gap-2 mb-4">
-            <span class="flex items-center justify-center w-8 h-8 rounded-full bg-littio-secondary-sky text-white font-semibold text-sm">1</span>
+            <span
+              class="flex items-center justify-center w-8 h-8 rounded-full bg-littio-secondary-sky text-white font-semibold text-sm"
+              >1</span
+            >
             <h3 class="text-lg font-semibold text-neutral-80">Información General</h3>
           </div>
 
@@ -84,7 +87,10 @@
         <!-- Sección 2: Wallet Origen -->
         <div class="space-y-4">
           <div class="flex items-center gap-2 mb-4">
-            <span class="flex items-center justify-center w-8 h-8 rounded-full bg-littio-secondary-sky text-white font-semibold text-sm">2</span>
+            <span
+              class="flex items-center justify-center w-8 h-8 rounded-full bg-littio-secondary-sky text-white font-semibold text-sm"
+              >2</span
+            >
             <h3 class="text-lg font-semibold text-neutral-80">Wallet Origen</h3>
           </div>
 
@@ -123,7 +129,10 @@
         <!-- Sección 3: Wallet Destino -->
         <div class="space-y-4">
           <div class="flex items-center gap-2 mb-4">
-            <span class="flex items-center justify-center w-8 h-8 rounded-full bg-littio-secondary-sky text-white font-semibold text-sm">3</span>
+            <span
+              class="flex items-center justify-center w-8 h-8 rounded-full bg-littio-secondary-sky text-white font-semibold text-sm"
+              >3</span
+            >
             <h3 class="text-lg font-semibold text-neutral-80">Wallet Destino</h3>
           </div>
 
@@ -193,7 +202,10 @@
         <!-- Sección 4: Monto y Fees -->
         <div class="space-y-4">
           <div class="flex items-center gap-2 mb-4">
-            <span class="flex items-center justify-center w-8 h-8 rounded-full bg-littio-secondary-sky text-white font-semibold text-sm">4</span>
+            <span
+              class="flex items-center justify-center w-8 h-8 rounded-full bg-littio-secondary-sky text-white font-semibold text-sm"
+              >4</span
+            >
             <h3 class="text-lg font-semibold text-neutral-80">Monto y Fees</h3>
           </div>
 
@@ -276,7 +288,10 @@
         <!-- Sección 5: Notas -->
         <div class="space-y-4">
           <div class="flex items-center gap-2 mb-4">
-            <span class="flex items-center justify-center w-8 h-8 rounded-full bg-littio-secondary-sky text-white font-semibold text-sm">5</span>
+            <span
+              class="flex items-center justify-center w-8 h-8 rounded-full bg-littio-secondary-sky text-white font-semibold text-sm"
+              >5</span
+            >
             <h3 class="text-lg font-semibold text-neutral-80">Notas (Opcional)</h3>
           </div>
 
@@ -542,7 +557,9 @@ const extractProviderFromName = (name: string): string | null => {
   return null;
 };
 
-const extractAvailableTokens = (accountsData: DiagonAccountResponse[]): Array<{ symbol: string; badgeColor: string }> => {
+const extractAvailableTokens = (
+  accountsData: DiagonAccountResponse[],
+): Array<{ symbol: string; badgeColor: string }> => {
   const tokenSet = new Set<string>();
   const importantTokens = ['ETH', 'BTC'];
 
@@ -606,9 +623,9 @@ const loadWallets = async () => {
   }
 };
 
-const handleProviderChange = () => {    
+const handleProviderChange = () => {
   formData.value.destinationWallet = '';
-  
+
   if (!formData.value.provider || !formData.value.token) {
     destinationWallets.value = [];
     return;
@@ -644,7 +661,7 @@ const handleSubmit = async () => {
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     success.value = 'Movimiento ejecutado exitosamente';
-    
+
     setTimeout(() => {
       formData.value = {
         token: props.walletToken?.toUpperCase() || '',
@@ -702,4 +719,3 @@ onMounted(() => {
   loadWallets();
 });
 </script>
-
