@@ -455,6 +455,7 @@ const estimatedGas = computed(() => {
     return `${option.gasPrice} Gwei`;
   }
 
+  return '-';
 });
 
 const getFeeCurrency = (): string => {
@@ -648,15 +649,6 @@ const formatTokenBalance = (balance: number): string => {
   });
 };
 
-const extractProviderFromName = (name: string): string | null => {
-  const providers = ['Supra', 'Cobre', 'Kira'];
-  for (const provider of providers) {
-    if (name.toLowerCase().includes(provider.toLowerCase())) {
-      return provider;
-    }
-  }
-  return null;
-};
 
 const extractAvailableTokens = (
   accountsData: DiagonAccountResponse[],
@@ -775,16 +767,6 @@ const getDestinationWalletId = (): string | null => {
   return destinationWallet?.walletId || null;
 };
 
-const getDestinationAssetId = (): string | null => {
-  if (!formData.value.destinationWallet) {
-    return null;
-  }
-
-  const destinationWallet = destinationWallets.value.find(
-    (w) => w.address === formData.value.destinationWallet,
-  );
-  return destinationWallet?.assetId || null;
-};
 
 const estimateTransactionFee = async () => {
   if (
