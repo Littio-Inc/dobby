@@ -179,14 +179,21 @@
                 id="destination-wallet"
                 v-model="formData.destinationWallet"
                 required
-                :disabled="(showProviderField && !formData.provider) || (formData.operationType === 'internal_rebalancing' && !formData.originWallet)"
+                :disabled="
+                  (showProviderField && !formData.provider) ||
+                  (formData.operationType === 'internal_rebalancing' && !formData.originWallet)
+                "
                 class="w-full px-4 py-2.5 border border-neutral-40 rounded-lg focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky text-neutral-80 bg-white disabled:bg-neutral-20 disabled:cursor-not-allowed"
               >
                 <option
                   value=""
                   disabled
                 >
-                  {{ formData.operationType === 'internal_rebalancing' && !formData.originWallet ? 'Seleccione primero la wallet origen' : 'Seleccione wallet destino' }}
+                  {{
+                    formData.operationType === 'internal_rebalancing' && !formData.originWallet
+                      ? 'Seleccione primero la wallet origen'
+                      : 'Seleccione wallet destino'
+                  }}
                 </option>
                 <option
                   v-for="wallet in destinationWallets"
@@ -434,10 +441,7 @@ const feeOptions = ref<EstimateFeeResponse | null>(null);
 const isLoadingFee = ref(false);
 
 const showProviderField = computed(() => {
-  return (
-    formData.value.operationType === 'prefunding_provider' ||
-    formData.value.operationType === 'b2c_funding'
-  );
+  return formData.value.operationType === 'prefunding_provider' || formData.value.operationType === 'b2c_funding';
 });
 
 const extractProviderFromWalletName = (walletName: string, prefix: string): string | null => {
@@ -810,9 +814,7 @@ const getDestinationWalletId = (): string | null => {
   const destinationWallet = destinationWallets.value.find(
     (w) => 'address' in w && w.address === formData.value.destinationWallet,
   );
-  return destinationWallet && 'walletId' in destinationWallet
-    ? destinationWallet.walletId
-    : null;
+  return destinationWallet && 'walletId' in destinationWallet ? destinationWallet.walletId : null;
 };
 
 const getDestinationType = (): 'VAULT_ACCOUNT' | 'EXTERNAL_WALLET' => {
@@ -883,7 +885,6 @@ const updateDestinationWallets = () => {
       return;
     }
 
-    const tokenUpper = formData.value.token.toUpperCase();
     destinationWallets.value = originWallets.value
       .filter((wallet) => wallet.id !== formData.value.originWallet)
       .map((wallet) => ({
@@ -895,10 +896,7 @@ const updateDestinationWallets = () => {
     return;
   }
 
-  if (
-    formData.value.operationType === 'prefunding_provider' ||
-    formData.value.operationType === 'b2c_funding'
-  ) {
+  if (formData.value.operationType === 'prefunding_provider' || formData.value.operationType === 'b2c_funding') {
     if (!formData.value.provider || !formData.value.token) {
       destinationWallets.value = [];
       return;
