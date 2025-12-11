@@ -5,6 +5,7 @@ const AZKABAN_ENDPOINTS = {
   REFRESH_BALANCE: '/v1/vault/accounts',
   GET_BACKOFFICE_TRANSACTIONS: '/v1/backoffice/transactions',
   GET_EXTERNAL_WALLETS: '/v1/vault/external-wallets',
+  ESTIMATE_FEE: '/v1/vault/transactions/estimate-fee',
 } as const;
 
 export interface DiagonAsset {
@@ -102,6 +103,40 @@ export interface ExternalWalletsResponse {
   message: string;
   code: number;
   data: ExternalWallet[];
+}
+
+export interface EstimateFeeSource {
+  type: 'VAULT_ACCOUNT';
+  id: string;
+}
+
+export interface EstimateFeeDestination {
+  type: 'EXTERNAL_WALLET' | 'VAULT_ACCOUNT';
+  id: string;
+}
+
+export interface EstimateFeeRequest {
+  operation: 'TRANSFER';
+  source: EstimateFeeSource;
+  destination: EstimateFeeDestination;
+  assetId: string;
+  amount: string;
+}
+
+export interface FeeOption {
+  networkFee: string;
+  gasPrice: string;
+  gasLimit: string;
+  baseFee: string;
+  priorityFee: string;
+  l1Fee: string;
+  maxFeePerGasDelta: string;
+}
+
+export interface EstimateFeeResponse {
+  low: FeeOption;
+  medium: FeeOption;
+  high: FeeOption;
 }
 
 /**
@@ -338,6 +373,21 @@ export class AzkabanService {
       return response.data.data;
     } catch (error) {
       console.error('[AzkabanService] Error fetching external wallets:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Estima el fee de una transacción
+   * @param params - Parámetros para estimar el fee
+   * @returns Respuesta con las opciones de fee (low, medium, high)
+   */
+  static async estimateFee(params: EstimateFeeRequest): Promise<EstimateFeeResponse> {
+    try {
+      const response = await azkabanApi.post<EstimateFeeResponse>(AZKABAN_ENDPOINTS.ESTIMATE_FEE, params);
+      return response.data;
+    } catch (error) {
+      console.error('[AzkabanService] Error estimating fee:', error);
       throw error;
     }
   }

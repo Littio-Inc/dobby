@@ -241,17 +241,22 @@
                   id="transaction-speed"
                   v-model="formData.transactionSpeed"
                   required
-                  class="w-full px-4 py-2.5 border border-neutral-40 rounded-lg focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky text-neutral-80 bg-white appearance-none pr-10"
+                  :disabled="isLoadingFee || !feeOptions || speedOptions.length === 0"
+                  class="w-full px-4 py-2.5 border border-neutral-40 rounded-lg focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky text-neutral-80 bg-white disabled:bg-neutral-20 disabled:cursor-not-allowed appearance-none pr-10"
                 >
                   <option
                     value=""
                     disabled
                   >
-                    Seleccione velocidad
+                    {{ isLoadingFee ? 'Calculando fees...' : speedOptions.length === 0 ? 'Complete los campos para calcular fees' : 'Seleccione velocidad' }}
                   </option>
-                  <option value="slow">Lento (5-10 min) - 10 Gwei</option>
-                  <option value="medium">Medio (2-5 min) - 20 Gwei</option>
-                  <option value="fast">Rápido (1-2 min) - 30 Gwei</option>
+                  <option
+                    v-for="option in speedOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
                 </select>
                 <svg
                   class="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-60 pointer-events-none"
@@ -273,11 +278,15 @@
             <div class="bg-neutral-10 rounded-lg p-4 space-y-2">
               <div class="flex justify-between items-center">
                 <span class="text-sm text-neutral-60">Gas estimado:</span>
-                <span class="text-sm font-medium text-neutral-80">{{ estimatedGas }}</span>
+                <span class="text-sm font-medium text-neutral-80">
+                  {{ estimatedGas === '-' ? '-' : estimatedGas }}
+                </span>
               </div>
               <div class="flex justify-between items-center">
-                <span class="text-sm text-neutral-60">Fee en USD:</span>
-                <span class="text-sm font-medium text-neutral-80">${{ feeInUsd.toFixed(2) }}</span>
+                <span class="text-sm text-neutral-60">Network Fee:</span>
+                <span class="text-sm font-medium text-neutral-80">
+                  {{ networkFee > 0 ? `${networkFee.toFixed(6)} ${feeCurrency}` : '-' }}
+                </span>
               </div>
             </div>
           </div>
@@ -354,7 +363,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { AzkabanService, type DiagonAccountResponse, type ExternalWallet } from '../../services/api';
+import {
+  AzkabanService,
+  type DiagonAccountResponse,
+  type ExternalWallet,
+  type EstimateFeeResponse,
+  type FeeOption,
+} from '../../services/api';
 import { getTokenBadgeColor } from '../../utils/token-badge-colors';
 import LoadingSpinner from '../atoms/loading-spinner.vue';
 
@@ -369,6 +384,8 @@ interface DestinationWallet {
   id: string;
   name: string;
   address: string;
+  walletId: string; // ID de la external wallet
+  assetId: string; // ID del asset
 }
 
 interface FormData {
@@ -396,7 +413,7 @@ const formData = ref<FormData>({
   provider: '',
   destinationWallet: '',
   amount: '',
-  transactionSpeed: 'medium',
+  transactionSpeed: '',
   notes: '',
 });
 
@@ -409,19 +426,98 @@ const originWallets = ref<Wallet[]>([]);
 const destinationWallets = ref<DestinationWallet[]>([]);
 const availableTokens = ref<Array<{ symbol: string; badgeColor: string }>>([]);
 const externalWallets = ref<ExternalWallet[]>([]);
+const feeOptions = ref<EstimateFeeResponse | null>(null);
+const isLoadingFee = ref(false);
+
+// Mapeo de slow/medium/fast (valores del form) a low/medium/high (valores del API)
+const getFeeOptionFromSpeed = (speed: string): FeeOption | null => {
+  if (!feeOptions.value) return null;
+
+  const speedMap: Record<string, keyof EstimateFeeResponse> = {
+    slow: 'low',
+    medium: 'medium',
+    fast: 'high',
+  };
+
+  const apiSpeed = speedMap[speed];
+  if (!apiSpeed) return null;
+
+  return feeOptions.value[apiSpeed] || null;
+};
 
 const estimatedGas = computed(() => {
-  if (formData.value.transactionSpeed === 'slow') return '10 Gwei';
-  if (formData.value.transactionSpeed === 'medium') return '20 Gwei';
-  if (formData.value.transactionSpeed === 'fast') return '30 Gwei';
-  return '20 Gwei';
+  if (!feeOptions.value || !formData.value.transactionSpeed) {
+    return '-';
+  }
+
+  const option = getFeeOptionFromSpeed(formData.value.transactionSpeed);
+  if (option?.gasPrice) {
+    return `${option.gasPrice} Gwei`;
+  }
+
 });
 
-const feeInUsd = computed(() => {
-  if (formData.value.transactionSpeed === 'slow') return 2.5;
-  if (formData.value.transactionSpeed === 'medium') return 5.0;
-  if (formData.value.transactionSpeed === 'fast') return 7.5;
-  return 5.0;
+const getFeeCurrency = (): string => {
+  const assetId = getOriginAssetId();
+  if (!assetId) {
+    return 'ETH'; // Default
+  }
+
+  const { blockchain } = parseAssetId(assetId);
+  
+  // Mapear blockchain a su moneda nativa
+  const blockchainCurrencyMap: Record<string, string> = {
+    'Ethereum': 'ETH',
+    'Polygon': 'POL',
+    'Bitcoin': 'BTC',
+  };
+
+  return blockchainCurrencyMap[blockchain] || 'ETH';
+};
+
+const networkFee = computed(() => {
+  if (!feeOptions.value || !formData.value.transactionSpeed) {
+    return 0;
+  }
+
+  const option = getFeeOptionFromSpeed(formData.value.transactionSpeed);
+  if (option?.networkFee) {
+    return parseFloat(option.networkFee);
+  }
+
+  return 0;
+});
+
+const feeCurrency = computed(() => {
+  return getFeeCurrency();
+});
+
+const speedOptions = computed(() => {
+  if (!feeOptions.value) {
+    return [];
+  }
+
+  const options = [];
+  
+  if (feeOptions.value.low) {
+    const low = feeOptions.value.low;
+    const gasPrice = parseFloat(low.gasPrice).toFixed(2);
+    options.push({ value: 'slow', label: `Lento (5-10 min) - ${gasPrice} Gwei` });
+  }
+  
+  if (feeOptions.value.medium) {
+    const medium = feeOptions.value.medium;
+    const gasPrice = parseFloat(medium.gasPrice).toFixed(2);
+    options.push({ value: 'medium', label: `Medio (2-5 min) - ${gasPrice} Gwei` });
+  }
+  
+  if (feeOptions.value.high) {
+    const high = feeOptions.value.high;
+    const gasPrice = parseFloat(high.gasPrice).toFixed(2);
+    options.push({ value: 'fast', label: `Rápido (1-2 min) - ${gasPrice} Gwei` });
+  }
+
+  return options;
 });
 
 const updateOriginWallets = () => {
@@ -647,8 +743,107 @@ const loadWallets = async () => {
   }
 };
 
+const getOriginAssetId = (): string | null => {
+  if (!formData.value.originWallet || !formData.value.token) {
+    return null;
+  }
+
+  const account = accounts.value.find((acc) => acc.id === formData.value.originWallet);
+  if (!account) {
+    return null;
+  }
+
+  const tokenUpper = formData.value.token.toUpperCase();
+  for (const asset of account.assets) {
+    const { token } = parseAssetId(asset.id);
+    if (token.toUpperCase() === tokenUpper) {
+      return asset.id;
+    }
+  }
+
+  return null;
+};
+
+const getDestinationWalletId = (): string | null => {
+  if (!formData.value.destinationWallet) {
+    return null;
+  }
+
+  const destinationWallet = destinationWallets.value.find(
+    (w) => w.address === formData.value.destinationWallet,
+  );
+  return destinationWallet?.walletId || null;
+};
+
+const getDestinationAssetId = (): string | null => {
+  if (!formData.value.destinationWallet) {
+    return null;
+  }
+
+  const destinationWallet = destinationWallets.value.find(
+    (w) => w.address === formData.value.destinationWallet,
+  );
+  return destinationWallet?.assetId || null;
+};
+
+const estimateTransactionFee = async () => {
+  if (
+    !formData.value.originWallet ||
+    !formData.value.destinationWallet ||
+    !formData.value.token ||
+    !formData.value.amount ||
+    parseFloat(formData.value.amount) <= 0
+  ) {
+    feeOptions.value = null;
+    formData.value.transactionSpeed = '';
+    return;
+  }
+
+  const assetId = getOriginAssetId();
+  const destinationWalletId = getDestinationWalletId();
+
+  if (!assetId || !destinationWalletId) {
+    feeOptions.value = null;
+    formData.value.transactionSpeed = '';
+    return;
+  }
+
+  isLoadingFee.value = true;
+
+  try {
+    const response = await AzkabanService.estimateFee({
+      operation: 'TRANSFER',
+      source: {
+        type: 'VAULT_ACCOUNT',
+        id: formData.value.originWallet,
+      },
+      destination: {
+        type: 'EXTERNAL_WALLET',
+        id: destinationWalletId,
+      },
+      assetId: assetId,
+      amount: String(formData.value.amount),
+    });
+
+    feeOptions.value = response;
+    
+    // Si no hay opciones disponibles, resetear a vacío
+    if (!response.low && !response.medium && !response.high) {
+      formData.value.transactionSpeed = '';
+    }
+  } catch (err: any) {
+    console.error('[ExecuteMovementForm] Error estimating fee:', err);
+    feeOptions.value = null;
+    formData.value.transactionSpeed = '';
+  } finally {
+    isLoadingFee.value = false;
+  }
+};
+
 const handleProviderChange = () => {
   formData.value.destinationWallet = '';
+  formData.value.transactionSpeed = '';
+  feeOptions.value = null;
 
   if (!formData.value.provider || !formData.value.token) {
     destinationWallets.value = [];
@@ -691,6 +886,8 @@ const handleProviderChange = () => {
           id: `${wallet.id}-${asset.id}`,
           name: wallet.name,
           address: asset.address,
+          walletId: wallet.id,
+          assetId: asset.id,
         }));
     });
 };
@@ -715,7 +912,7 @@ const handleSubmit = async () => {
         provider: '',
         destinationWallet: '',
         amount: '',
-        transactionSpeed: 'medium',
+        transactionSpeed: '',
         notes: '',
       };
       success.value = '';
@@ -757,6 +954,41 @@ watch(
     if (formData.value.provider) {
       handleProviderChange();
     }
+    estimateTransactionFee();
+  },
+);
+
+watch(
+  () => formData.value.originWallet,
+  () => {
+    estimateTransactionFee();
+  },
+);
+
+watch(
+  () => formData.value.destinationWallet,
+  (newValue, oldValue) => {
+    // Si cambió la wallet destino, resetear la velocidad
+    if (oldValue && newValue !== oldValue) {
+      formData.value.transactionSpeed = '';
+    }
+    estimateTransactionFee();
+  },
+);
+
+let amountTimeout: ReturnType<typeof setTimeout> | null = null;
+
+watch(
+  () => formData.value.amount,
+  () => {
+    // Debounce para no hacer demasiadas llamadas mientras el usuario escribe
+    if (amountTimeout) {
+      clearTimeout(amountTimeout);
+    }
+    amountTimeout = setTimeout(() => {
+      estimateTransactionFee();
+      amountTimeout = null;
+    }, 500);
   },
 );
 
