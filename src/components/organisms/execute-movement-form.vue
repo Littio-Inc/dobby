@@ -78,7 +78,6 @@
                 <option value="prefunding_provider">Prefondeo proveedor</option>
                 <option value="b2c_funding">Fondeo B2C</option>
                 <option value="internal_rebalancing">Rebalanceo interno</option>
-                <option value="internal_swap">Swap interno</option>
               </select>
             </div>
           </div>
@@ -412,7 +411,7 @@ const props = defineProps<{
 }>();
 
 const formData = ref<FormData>({
-  token: props.walletToken?.toUpperCase() || '',
+  token: '',
   operationType: '',
   originWallet: props.walletId || '',
   provider: '',
@@ -441,20 +440,69 @@ const showProviderField = computed(() => {
   );
 });
 
+const extractProviderFromWalletName = (walletName: string, prefix: string): string | null => {
+  if (!walletName.toUpperCase().startsWith(prefix.toUpperCase())) {
+    return null;
+  }
+
+  const providerPart = walletName.substring(prefix.length);
+  if (!providerPart) {
+    return null;
+  }
+
+  return providerPart.toLowerCase();
+};
+
+const getProviderDisplayName = (providerValue: string): string => {
+  return providerValue.toUpperCase().replace(/_/g, ' ');
+};
+
+const getUniqueProviderBase = (providerValue: string): string => {
+  const parts = providerValue.split('_');
+  return parts[0];
+};
+
 const availableProviders = computed(() => {
+  if (!externalWallets.value.length) {
+    return [];
+  }
+
   if (formData.value.operationType === 'prefunding_provider') {
-    return [
-      { value: 'supra', label: 'Supra' },
-      { value: 'cobre', label: 'Cobre' },
-      { value: 'kira', label: 'Kira' },
-    ];
+    const providers = new Set<string>();
+    externalWallets.value.forEach((wallet) => {
+      const provider = extractProviderFromWalletName(wallet.name, 'PROVIDER_');
+      if (provider) {
+        const baseProvider = getUniqueProviderBase(provider);
+        providers.add(baseProvider);
+      }
+    });
+
+    return Array.from(providers)
+      .sort()
+      .map((provider) => ({
+        value: provider,
+        label: getProviderDisplayName(provider),
+      }));
   }
+
   if (formData.value.operationType === 'b2c_funding') {
-    return [
-      { value: 'bridge', label: 'Bridge' },
-      { value: 'koywe', label: 'Koywe' },
-    ];
+    const providers = new Set<string>();
+    externalWallets.value.forEach((wallet) => {
+      const provider = extractProviderFromWalletName(wallet.name, 'B2C_');
+      if (provider) {
+        const baseProvider = getUniqueProviderBase(provider);
+        providers.add(baseProvider);
+      }
+    });
+
+    return Array.from(providers)
+      .sort()
+      .map((provider) => ({
+        value: provider,
+        label: getProviderDisplayName(provider),
+      }));
   }
+
   return [];
 });
 
@@ -715,11 +763,6 @@ const loadWallets = async () => {
     const normalizedWalletToken = props.walletToken?.toUpperCase();
     if (normalizedWalletToken && availableTokens.value.some((t) => t.symbol === normalizedWalletToken)) {
       formData.value.token = normalizedWalletToken;
-    } else if (!formData.value.token && availableTokens.value.length > 0) {
-      formData.value.token = availableTokens.value[0].symbol;
-    }
-
-    if (formData.value.token) {
       updateOriginWallets();
     }
 
@@ -760,12 +803,10 @@ const getDestinationWalletId = (): string | null => {
     return null;
   }
 
-  // Para rebalanceo interno, la wallet destino es una wallet de Fireblocks (usa id)
   if (formData.value.operationType === 'internal_rebalancing') {
     return formData.value.destinationWallet;
   }
 
-  // Para external wallets, buscar por address
   const destinationWallet = destinationWallets.value.find(
     (w) => 'address' in w && w.address === formData.value.destinationWallet,
   );
@@ -836,7 +877,6 @@ const updateDestinationWallets = () => {
   formData.value.transactionSpeed = '';
   feeOptions.value = null;
 
-  // Rebalanceo interno: usar wallets de Fireblocks
   if (formData.value.operationType === 'internal_rebalancing') {
     if (!formData.value.token || !formData.value.originWallet) {
       destinationWallets.value = [];
@@ -855,7 +895,6 @@ const updateDestinationWallets = () => {
     return;
   }
 
-  // Prefunding provider y B2C funding: usar external wallets
   if (
     formData.value.operationType === 'prefunding_provider' ||
     formData.value.operationType === 'b2c_funding'
@@ -865,26 +904,20 @@ const updateDestinationWallets = () => {
       return;
     }
 
-    const providerLower = formData.value.provider.toLowerCase();
+    const providerValue = formData.value.provider.toLowerCase();
     const tokenUpper = formData.value.token.toUpperCase();
 
-    const providerNameMap: Record<string, string> = {
-      supra: 'Supra',
-      cobre: 'Cobre',
-      kira: 'Kira',
-      bridge: 'Bridge',
-      koywe: 'Koywe',
-    };
-
-    const providerName = providerNameMap[providerLower];
-    if (!providerName) {
-      destinationWallets.value = [];
-      return;
-    }
+    const prefix = formData.value.operationType === 'prefunding_provider' ? 'PROVIDER_' : 'B2C_';
 
     destinationWallets.value = externalWallets.value
       .filter((wallet) => {
-        return wallet.name.toLowerCase().includes(providerName.toLowerCase());
+        const walletProvider = extractProviderFromWalletName(wallet.name, prefix);
+        if (!walletProvider) {
+          return false;
+        }
+
+        const walletBaseProvider = getUniqueProviderBase(walletProvider);
+        return walletBaseProvider === providerValue;
       })
       .flatMap((wallet) => {
         return wallet.assets
@@ -894,7 +927,7 @@ const updateDestinationWallets = () => {
           })
           .map((asset) => ({
             id: `${wallet.id}-${asset.id}`,
-            name: wallet.name,
+            name: wallet.name.replace(/_/g, ' '),
             address: asset.address,
             walletId: wallet.id,
             assetId: asset.id,
@@ -924,7 +957,7 @@ const handleSubmit = async () => {
 
     setTimeout(() => {
       formData.value = {
-        token: props.walletToken?.toUpperCase() || '',
+        token: '',
         operationType: '',
         originWallet: props.walletId || '',
         provider: '',
@@ -983,7 +1016,6 @@ watch(
 watch(
   () => formData.value.originWallet,
   () => {
-    // Si es rebalanceo interno, actualizar las wallets destino cuando cambia la wallet origen
     if (formData.value.operationType === 'internal_rebalancing') {
       updateDestinationWallets();
     }
