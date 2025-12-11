@@ -122,7 +122,7 @@
                 </option>
               </select>
             </div>
-            
+
             <!-- Balance Card para Wallet Origen -->
             <div
               v-if="selectedOriginWalletBalance"
@@ -134,9 +134,7 @@
                   <div class="text-lg font-bold text-neutral-80 leading-tight">
                     {{ selectedOriginWalletBalance.balance }} {{ formData.token }}
                   </div>
-                  <div class="text-sm text-neutral-60 mt-0.5">
-                    ${{ selectedOriginWalletBalance.usdValue }} USD
-                  </div>
+                  <div class="text-sm text-neutral-60 mt-0.5">${{ selectedOriginWalletBalance.usdValue }} USD</div>
                 </div>
               </div>
             </div>
@@ -224,7 +222,7 @@
                   </option>
                 </select>
               </div>
-              
+
               <!-- Balance Card para Wallet Destino (solo para rebalanceo interno) -->
               <div
                 v-if="formData.operationType === 'internal_rebalancing' && selectedDestinationWalletBalance"
@@ -744,7 +742,7 @@ const formatTokenBalance = (balance: number): string => {
 
 const calculateUsdValue = (balance: number, token: string): string => {
   const tokenUpper = token.toUpperCase();
-  
+
   // Para stablecoins, el valor es 1:1 con USD
   if (tokenUpper === 'USDT' || tokenUpper === 'USDC' || tokenUpper === 'DAI') {
     return balance.toLocaleString('es-ES', {
@@ -752,7 +750,7 @@ const calculateUsdValue = (balance: number, token: string): string => {
       maximumFractionDigits: 2,
     });
   }
-  
+
   // Para otros tokens, por ahora mostramos el mismo valor numérico
   // En el futuro se podría integrar una API de precios
   return balance.toLocaleString('es-ES', {
@@ -788,7 +786,11 @@ const selectedOriginWalletBalance = computed(() => {
 });
 
 const selectedDestinationWalletBalance = computed(() => {
-  if (!formData.value.destinationWallet || !formData.value.token || formData.value.operationType !== 'internal_rebalancing') {
+  if (
+    !formData.value.destinationWallet ||
+    !formData.value.token ||
+    formData.value.operationType !== 'internal_rebalancing'
+  ) {
     return null;
   }
 
