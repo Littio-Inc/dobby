@@ -743,7 +743,6 @@ const formatTokenBalance = (balance: number): string => {
 const calculateUsdValue = (balance: number, token: string): string => {
   const tokenUpper = token.toUpperCase();
 
-  // Para stablecoins, el valor es 1:1 con USD
   if (tokenUpper === 'USDT' || tokenUpper === 'USDC' || tokenUpper === 'DAI') {
     return balance.toLocaleString('es-ES', {
       minimumFractionDigits: 2,
@@ -751,8 +750,6 @@ const calculateUsdValue = (balance: number, token: string): string => {
     });
   }
 
-  // Para otros tokens, por ahora mostramos el mismo valor numérico
-  // En el futuro se podría integrar una API de precios
   return balance.toLocaleString('es-ES', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -1034,13 +1031,16 @@ const updateDestinationWallets = () => {
             const { token } = parseAssetId(asset.id);
             return token.toUpperCase() === tokenUpper;
           })
-          .map((asset) => ({
-            id: `${wallet.id}-${asset.id}`,
-            name: wallet.name.replace(/_/g, ' '),
-            address: asset.address,
-            walletId: wallet.id,
-            assetId: asset.id,
-          }));
+          .map((asset) => {
+            const nameWithoutPrefix = wallet.name.replace(new RegExp(`^${prefix}`, 'i'), '');
+            return {
+              id: `${wallet.id}-${asset.id}`,
+              name: nameWithoutPrefix.replace(/_/g, ' '),
+              address: asset.address,
+              walletId: wallet.id,
+              assetId: asset.id,
+            };
+          });
       });
     return;
   }
