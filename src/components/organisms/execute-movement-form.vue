@@ -78,7 +78,6 @@
                 <option value="prefunding_provider">Prefondeo proveedor</option>
                 <option value="b2c_funding">Fondeo B2C</option>
                 <option value="internal_rebalancing">Rebalanceo interno</option>
-                <option value="internal_swap">Swap interno</option>
               </select>
             </div>
           </div>
@@ -94,7 +93,7 @@
             <h3 class="text-lg font-semibold text-neutral-80">Wallet Origen</h3>
           </div>
 
-          <div class="pl-10">
+          <div class="pl-10 space-y-4">
             <div>
               <label
                 for="origin-wallet"
@@ -119,9 +118,25 @@
                   :key="wallet.id"
                   :value="wallet.id"
                 >
-                  {{ wallet.name }} ({{ wallet.balance }})
+                  {{ wallet.name }}
                 </option>
               </select>
+            </div>
+
+            <!-- Balance Card para Wallet Origen -->
+            <div
+              v-if="selectedOriginWalletBalance"
+              class="bg-neutral-10 rounded-lg p-4 border border-neutral-20"
+            >
+              <div class="flex justify-between items-center">
+                <span class="text-sm font-medium text-neutral-60">Balance disponible:</span>
+                <div class="text-right">
+                  <div class="text-lg font-bold text-neutral-80 leading-tight">
+                    {{ selectedOriginWalletBalance.balance }} {{ formData.token }}
+                  </div>
+                  <div class="text-sm text-neutral-60 mt-0.5">${{ selectedOriginWalletBalance.usdValue }} USD</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -136,9 +151,9 @@
             <h3 class="text-lg font-semibold text-neutral-80">Wallet Destino</h3>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pl-10">
-            <!-- Proveedor -->
-            <div>
+          <div :class="showProviderField ? 'grid grid-cols-1 md:grid-cols-2 gap-6 pl-10' : 'pl-10'">
+            <!-- Proveedor (solo para prefunding_provider y b2c_funding) -->
+            <div v-if="showProviderField">
               <label
                 for="provider"
                 class="block text-sm font-medium text-neutral-80 mb-2"
@@ -158,43 +173,73 @@
                 >
                   Seleccione proveedor
                 </option>
-                <option value="supra">Supra</option>
-                <option value="cobre">Cobre</option>
-                <option value="kira">Kira</option>
-                <option value="bridge">Bridge</option>
-                <option value="koywe">Koywe</option>
+                <option
+                  v-for="provider in availableProviders"
+                  :key="provider.value"
+                  :value="provider.value"
+                >
+                  {{ provider.label }}
+                </option>
               </select>
             </div>
 
             <!-- Wallet Destino -->
-            <div>
-              <label
-                for="destination-wallet"
-                class="block text-sm font-medium text-neutral-80 mb-2"
-              >
-                Wallet Destino <span class="text-carmine">*</span>
-              </label>
-              <select
-                id="destination-wallet"
-                v-model="formData.destinationWallet"
-                required
-                :disabled="!formData.provider"
-                class="w-full px-4 py-2.5 border border-neutral-40 rounded-lg focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky text-neutral-80 bg-white disabled:bg-neutral-20 disabled:cursor-not-allowed"
-              >
-                <option
-                  value=""
-                  disabled
+            <div class="space-y-4">
+              <div>
+                <label
+                  for="destination-wallet"
+                  class="block text-sm font-medium text-neutral-80 mb-2"
                 >
-                  Seleccione wallet destino
-                </option>
-                <option
-                  v-for="wallet in destinationWallets"
-                  :key="wallet.id"
-                  :value="wallet.id"
+                  Wallet Destino <span class="text-carmine">*</span>
+                </label>
+                <select
+                  id="destination-wallet"
+                  v-model="formData.destinationWallet"
+                  required
+                  :disabled="
+                    (showProviderField && !formData.provider) ||
+                    (formData.operationType === 'internal_rebalancing' && !formData.originWallet)
+                  "
+                  class="w-full px-4 py-2.5 border border-neutral-40 rounded-lg focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky text-neutral-80 bg-white disabled:bg-neutral-20 disabled:cursor-not-allowed"
                 >
-                  {{ wallet.name }} ({{ wallet.balance }})
-                </option>
-              </select>
+                  <option
+                    value=""
+                    disabled
+                  >
+                    {{
+                      formData.operationType === 'internal_rebalancing' && !formData.originWallet
+                        ? 'Seleccione primero la wallet origen'
+                        : 'Seleccione wallet destino'
+                    }}
+                  </option>
+                  <option
+                    v-for="wallet in destinationWallets"
+                    :key="wallet.id"
+                    :value="'address' in wallet ? wallet.address : wallet.id"
+                  >
+                    {{ wallet.name }}
+                    {{ 'address' in wallet ? `(${wallet.address})` : '' }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Balance Card para Wallet Destino (solo para rebalanceo interno) -->
+              <div
+                v-if="formData.operationType === 'internal_rebalancing' && selectedDestinationWalletBalance"
+                class="bg-neutral-10 rounded-lg p-4 border border-neutral-20"
+              >
+                <div class="flex justify-between items-center">
+                  <span class="text-sm font-medium text-neutral-60">Balance disponible:</span>
+                  <div class="text-right">
+                    <div class="text-lg font-bold text-neutral-80 leading-tight">
+                      {{ selectedDestinationWalletBalance.balance }} {{ formData.token }}
+                    </div>
+                    <div class="text-sm text-neutral-60 mt-0.5">
+                      ${{ selectedDestinationWalletBalance.usdValue }} USD
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -243,17 +288,28 @@
                   id="transaction-speed"
                   v-model="formData.transactionSpeed"
                   required
-                  class="w-full px-4 py-2.5 border border-neutral-40 rounded-lg focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky text-neutral-80 bg-white appearance-none pr-10"
+                  :disabled="isLoadingFee || !feeOptions || speedOptions.length === 0"
+                  class="w-full px-4 py-2.5 border border-neutral-40 rounded-lg focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky text-neutral-80 bg-white disabled:bg-neutral-20 disabled:cursor-not-allowed appearance-none pr-10"
                 >
                   <option
                     value=""
                     disabled
                   >
-                    Seleccione velocidad
+                    {{
+                      isLoadingFee
+                        ? 'Calculando fees...'
+                        : speedOptions.length === 0
+                          ? 'Complete los campos para calcular fees'
+                          : 'Seleccione velocidad'
+                    }}
                   </option>
-                  <option value="slow">Lento (5-10 min) - 10 Gwei</option>
-                  <option value="medium">Medio (2-5 min) - 20 Gwei</option>
-                  <option value="fast">Rápido (1-2 min) - 30 Gwei</option>
+                  <option
+                    v-for="option in speedOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
                 </select>
                 <svg
                   class="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-60 pointer-events-none"
@@ -272,14 +328,12 @@
             </div>
 
             <!-- Gas y Fee Info -->
-            <div class="bg-neutral-10 rounded-lg p-4 space-y-2">
+            <div class="bg-neutral-10 rounded-lg p-4 border border-neutral-20">
               <div class="flex justify-between items-center">
-                <span class="text-sm text-neutral-60">Gas estimado:</span>
-                <span class="text-sm font-medium text-neutral-80">{{ estimatedGas }}</span>
-              </div>
-              <div class="flex justify-between items-center">
-                <span class="text-sm text-neutral-60">Fee en USD:</span>
-                <span class="text-sm font-medium text-neutral-80">${{ feeInUsd.toFixed(2) }}</span>
+                <span class="text-sm font-medium text-neutral-60">Gas estimado:</span>
+                <span class="text-lg font-bold text-neutral-80">
+                  {{ estimatedGas === '-' ? '-' : estimatedGas }}
+                </span>
               </div>
             </div>
           </div>
@@ -355,8 +409,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
-import { AzkabanService, type DiagonAccountResponse } from '../../services/api';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import {
+  AzkabanService,
+  type DiagonAccountResponse,
+  type ExternalWallet,
+  type EstimateFeeResponse,
+  type FeeOption,
+} from '../../services/api';
 import { getTokenBadgeColor } from '../../utils/token-badge-colors';
 import LoadingSpinner from '../atoms/loading-spinner.vue';
 
@@ -365,6 +425,14 @@ interface Wallet {
   name: string;
   balance: string;
   token: string;
+}
+
+interface DestinationWallet {
+  id: string;
+  name: string;
+  address: string;
+  walletId: string;
+  assetId: string;
 }
 
 interface FormData {
@@ -386,13 +454,13 @@ const props = defineProps<{
 }>();
 
 const formData = ref<FormData>({
-  token: props.walletToken?.toUpperCase() || '',
+  token: '',
   operationType: '',
   originWallet: props.walletId || '',
   provider: '',
   destinationWallet: '',
   amount: '',
-  transactionSpeed: 'medium',
+  transactionSpeed: '',
   notes: '',
 });
 
@@ -402,21 +470,149 @@ const success = ref('');
 const isLoading = ref(false);
 const accounts = ref<DiagonAccountResponse[]>([]);
 const originWallets = ref<Wallet[]>([]);
-const destinationWallets = ref<Wallet[]>([]);
+const destinationWallets = ref<Array<DestinationWallet | Wallet>>([]);
 const availableTokens = ref<Array<{ symbol: string; badgeColor: string }>>([]);
+const externalWallets = ref<ExternalWallet[]>([]);
+const feeOptions = ref<EstimateFeeResponse | null>(null);
+const isLoadingFee = ref(false);
 
-const estimatedGas = computed(() => {
-  if (formData.value.transactionSpeed === 'slow') return '10 Gwei';
-  if (formData.value.transactionSpeed === 'medium') return '20 Gwei';
-  if (formData.value.transactionSpeed === 'fast') return '30 Gwei';
-  return '20 Gwei';
+const showProviderField = computed(() => {
+  return formData.value.operationType === 'prefunding_provider' || formData.value.operationType === 'b2c_funding';
 });
 
-const feeInUsd = computed(() => {
-  if (formData.value.transactionSpeed === 'slow') return 2.5;
-  if (formData.value.transactionSpeed === 'medium') return 5.0;
-  if (formData.value.transactionSpeed === 'fast') return 7.5;
-  return 5.0;
+const extractProviderFromWalletName = (walletName: string, prefix: string): string | null => {
+  if (!walletName.toUpperCase().startsWith(prefix.toUpperCase())) {
+    return null;
+  }
+
+  const providerPart = walletName.substring(prefix.length);
+  if (!providerPart) {
+    return null;
+  }
+
+  return providerPart.toLowerCase();
+};
+
+const getProviderDisplayName = (providerValue: string): string => {
+  return providerValue.toUpperCase().replace(/_/g, ' ');
+};
+
+const getUniqueProviderBase = (providerValue: string): string => {
+  const parts = providerValue.split('_');
+  return parts[0];
+};
+
+const availableProviders = computed(() => {
+  if (!externalWallets.value.length) {
+    return [];
+  }
+
+  if (formData.value.operationType === 'prefunding_provider') {
+    const providers = new Set<string>();
+    externalWallets.value.forEach((wallet) => {
+      const provider = extractProviderFromWalletName(wallet.name, 'PROVIDER_');
+      if (provider) {
+        const baseProvider = getUniqueProviderBase(provider);
+        providers.add(baseProvider);
+      }
+    });
+
+    return Array.from(providers)
+      .sort()
+      .map((provider) => ({
+        value: provider,
+        label: getProviderDisplayName(provider),
+      }));
+  }
+
+  if (formData.value.operationType === 'b2c_funding') {
+    const providers = new Set<string>();
+    externalWallets.value.forEach((wallet) => {
+      const provider = extractProviderFromWalletName(wallet.name, 'B2C_');
+      if (provider) {
+        const baseProvider = getUniqueProviderBase(provider);
+        providers.add(baseProvider);
+      }
+    });
+
+    return Array.from(providers)
+      .sort()
+      .map((provider) => ({
+        value: provider,
+        label: getProviderDisplayName(provider),
+      }));
+  }
+
+  return [];
+});
+
+const getFeeOptionFromSpeed = (speed: string): FeeOption | null => {
+  if (!feeOptions.value) return null;
+
+  const speedMap: Record<string, keyof EstimateFeeResponse> = {
+    slow: 'low',
+    medium: 'medium',
+    fast: 'high',
+  };
+
+  const apiSpeed = speedMap[speed];
+  if (!apiSpeed) return null;
+
+  return feeOptions.value[apiSpeed] || null;
+};
+
+const estimatedGas = computed(() => {
+  if (!feeOptions.value || !formData.value.transactionSpeed) {
+    return '-';
+  }
+
+  const option = getFeeOptionFromSpeed(formData.value.transactionSpeed);
+  if (option?.gasPrice) {
+    return `${option.gasPrice} Gwei`;
+  }
+
+  return '-';
+});
+
+const formatGasPrice = (gasPrice: string | undefined): string => {
+  if (!gasPrice) {
+    return '—';
+  }
+
+  const parsed = parseFloat(gasPrice);
+  if (!Number.isFinite(parsed)) {
+    return '—';
+  }
+
+  return parsed.toFixed(2);
+};
+
+const speedOptions = computed(() => {
+  if (!feeOptions.value) {
+    return [];
+  }
+
+  const options = [];
+
+  if (feeOptions.value.low) {
+    const low = feeOptions.value.low;
+    const gasPrice = formatGasPrice(low.gasPrice);
+    options.push({ value: 'slow', label: `Lento (5-10 min) - ${gasPrice} Gwei` });
+  }
+
+  if (feeOptions.value.medium) {
+    const medium = feeOptions.value.medium;
+    const gasPrice = formatGasPrice(medium.gasPrice);
+    options.push({ value: 'medium', label: `Medio (2-5 min) - ${gasPrice} Gwei` });
+  }
+
+  if (feeOptions.value.high) {
+    const high = feeOptions.value.high;
+    const gasPrice = formatGasPrice(high.gasPrice);
+    options.push({ value: 'fast', label: `Rápido (1-2 min) - ${gasPrice} Gwei` });
+  }
+
+  return options;
 });
 
 const updateOriginWallets = () => {
@@ -458,11 +654,8 @@ const updateOriginWallets = () => {
 
 const handleTokenChange = () => {
   formData.value.destinationWallet = '';
-  destinationWallets.value = [];
   updateOriginWallets();
-  if (formData.value.provider) {
-    handleProviderChange();
-  }
+  updateDestinationWallets();
 };
 
 const parseAssetId = (assetId: string): { token: string; blockchain: string } => {
@@ -547,15 +740,77 @@ const formatTokenBalance = (balance: number): string => {
   });
 };
 
-const extractProviderFromName = (name: string): string | null => {
-  const providers = ['Supra', 'Cobre', 'Kira', 'Bridge', 'Koywe'];
-  for (const provider of providers) {
-    if (name.toLowerCase().includes(provider.toLowerCase())) {
-      return provider;
-    }
+const calculateUsdValue = (balance: number, token: string): string => {
+  const tokenUpper = token.toUpperCase();
+
+  if (tokenUpper === 'USDT' || tokenUpper === 'USDC' || tokenUpper === 'DAI') {
+    return balance.toLocaleString('es-ES', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   }
-  return null;
+
+  return balance.toLocaleString('es-ES', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 };
+
+const selectedOriginWalletBalance = computed(() => {
+  if (!formData.value.originWallet || !formData.value.token) {
+    return null;
+  }
+
+  const wallet = originWallets.value.find((w) => w.id === formData.value.originWallet);
+  if (!wallet) {
+    return null;
+  }
+
+  const account = accounts.value.find((acc) => acc.id === formData.value.originWallet);
+  if (!account) {
+    return null;
+  }
+
+  const tokenUpper = formData.value.token.toUpperCase();
+  const balance = getWalletTokenBalance(account, tokenUpper);
+  const formattedBalance = formatTokenBalance(balance);
+  const usdValue = calculateUsdValue(balance, tokenUpper);
+
+  return {
+    balance: formattedBalance,
+    usdValue,
+  };
+});
+
+const selectedDestinationWalletBalance = computed(() => {
+  if (
+    !formData.value.destinationWallet ||
+    !formData.value.token ||
+    formData.value.operationType !== 'internal_rebalancing'
+  ) {
+    return null;
+  }
+
+  const wallet = destinationWallets.value.find((w) => !('address' in w) && w.id === formData.value.destinationWallet);
+  if (!wallet || !('balance' in wallet)) {
+    return null;
+  }
+
+  const account = accounts.value.find((acc) => acc.id === formData.value.destinationWallet);
+  if (!account) {
+    return null;
+  }
+
+  const tokenUpper = formData.value.token.toUpperCase();
+  const balance = getWalletTokenBalance(account, tokenUpper);
+  const formattedBalance = formatTokenBalance(balance);
+  const usdValue = calculateUsdValue(balance, tokenUpper);
+
+  return {
+    balance: formattedBalance,
+    usdValue,
+  };
+});
 
 const extractAvailableTokens = (
   accountsData: DiagonAccountResponse[],
@@ -591,12 +846,28 @@ const extractAvailableTokens = (
     });
 };
 
+const loadExternalWallets = async () => {
+  try {
+    const wallets = await AzkabanService.getExternalWallets();
+    externalWallets.value = wallets;
+
+    if (formData.value.provider) {
+      handleProviderChange();
+    }
+  } catch (err: any) {
+    console.error('[ExecuteMovementForm] Error loading external wallets:', err);
+    externalWallets.value = [];
+  }
+};
+
 const loadWallets = async () => {
   isLoading.value = true;
   error.value = '';
 
   try {
     const accountsData = await AzkabanService.getAccountsWithAssets();
+    await loadExternalWallets();
+
     accounts.value = accountsData;
 
     availableTokens.value = extractAvailableTokens(accountsData);
@@ -604,16 +875,11 @@ const loadWallets = async () => {
     const normalizedWalletToken = props.walletToken?.toUpperCase();
     if (normalizedWalletToken && availableTokens.value.some((t) => t.symbol === normalizedWalletToken)) {
       formData.value.token = normalizedWalletToken;
-    } else if (!formData.value.token && availableTokens.value.length > 0) {
-      formData.value.token = availableTokens.value[0].symbol;
-    }
-
-    if (formData.value.token) {
       updateOriginWallets();
     }
 
-    if (formData.value.provider) {
-      handleProviderChange();
+    if (formData.value.operationType) {
+      updateDestinationWallets();
     }
   } catch (err: any) {
     console.error('[ExecuteMovementForm] Error loading wallets:', err);
@@ -623,31 +889,167 @@ const loadWallets = async () => {
   }
 };
 
-const handleProviderChange = () => {
-  formData.value.destinationWallet = '';
+const getOriginAssetId = (): string | null => {
+  if (!formData.value.originWallet || !formData.value.token) {
+    return null;
+  }
 
-  if (!formData.value.provider || !formData.value.token) {
-    destinationWallets.value = [];
+  const account = accounts.value.find((acc) => acc.id === formData.value.originWallet);
+  if (!account) {
+    return null;
+  }
+
+  const tokenUpper = formData.value.token.toUpperCase();
+  for (const asset of account.assets) {
+    const { token } = parseAssetId(asset.id);
+    if (token.toUpperCase() === tokenUpper) {
+      return asset.id;
+    }
+  }
+
+  return null;
+};
+
+const getDestinationWalletId = (): string | null => {
+  if (!formData.value.destinationWallet) {
+    return null;
+  }
+
+  if (formData.value.operationType === 'internal_rebalancing') {
+    return formData.value.destinationWallet;
+  }
+
+  const destinationWallet = destinationWallets.value.find(
+    (w) => 'address' in w && w.address === formData.value.destinationWallet,
+  );
+  return destinationWallet && 'walletId' in destinationWallet ? destinationWallet.walletId : null;
+};
+
+const getDestinationType = (): 'VAULT_ACCOUNT' | 'EXTERNAL_WALLET' => {
+  return formData.value.operationType === 'internal_rebalancing' ? 'VAULT_ACCOUNT' : 'EXTERNAL_WALLET';
+};
+
+const estimateTransactionFee = async () => {
+  if (
+    !formData.value.originWallet ||
+    !formData.value.destinationWallet ||
+    !formData.value.token ||
+    !formData.value.amount ||
+    parseFloat(formData.value.amount) <= 0
+  ) {
+    feeOptions.value = null;
+    formData.value.transactionSpeed = '';
     return;
   }
 
-  const providerLower = formData.value.provider.toLowerCase();
-  const tokenUpper = formData.value.token.toUpperCase();
+  const assetId = getOriginAssetId();
+  const destinationWalletId = getDestinationWalletId();
 
-  destinationWallets.value = accounts.value
-    .filter((account) => {
-      const provider = extractProviderFromName(account.name);
-      return provider && provider.toLowerCase() === providerLower;
-    })
-    .map((account) => {
-      const balance = getWalletTokenBalance(account, tokenUpper);
-      return {
-        id: account.id,
-        name: account.name,
-        balance: `${formatTokenBalance(balance)} ${tokenUpper}`,
-        token: tokenUpper,
-      };
+  if (!assetId || !destinationWalletId) {
+    feeOptions.value = null;
+    formData.value.transactionSpeed = '';
+    return;
+  }
+
+  isLoadingFee.value = true;
+
+  try {
+    const response = await AzkabanService.estimateFee({
+      operation: 'TRANSFER',
+      source: {
+        type: 'VAULT_ACCOUNT',
+        id: formData.value.originWallet,
+      },
+      destination: {
+        type: getDestinationType(),
+        id: destinationWalletId,
+      },
+      assetId: assetId,
+      amount: String(formData.value.amount),
     });
+
+    feeOptions.value = response;
+
+    if (!response.low && !response.medium && !response.high) {
+      formData.value.transactionSpeed = '';
+    }
+  } catch (err: any) {
+    console.error('[ExecuteMovementForm] Error estimating fee:', err);
+    feeOptions.value = null;
+    formData.value.transactionSpeed = '';
+  } finally {
+    isLoadingFee.value = false;
+  }
+};
+
+const updateDestinationWallets = () => {
+  formData.value.destinationWallet = '';
+  formData.value.transactionSpeed = '';
+  feeOptions.value = null;
+
+  if (formData.value.operationType === 'internal_rebalancing') {
+    if (!formData.value.token || !formData.value.originWallet) {
+      destinationWallets.value = [];
+      return;
+    }
+
+    destinationWallets.value = originWallets.value
+      .filter((wallet) => wallet.id !== formData.value.originWallet)
+      .map((wallet) => ({
+        id: wallet.id,
+        name: wallet.name,
+        balance: wallet.balance,
+        token: wallet.token,
+      }));
+    return;
+  }
+
+  if (formData.value.operationType === 'prefunding_provider' || formData.value.operationType === 'b2c_funding') {
+    if (!formData.value.provider || !formData.value.token) {
+      destinationWallets.value = [];
+      return;
+    }
+
+    const providerValue = formData.value.provider.toLowerCase();
+    const tokenUpper = formData.value.token.toUpperCase();
+
+    const prefix = formData.value.operationType === 'prefunding_provider' ? 'PROVIDER_' : 'B2C_';
+
+    destinationWallets.value = externalWallets.value
+      .filter((wallet) => {
+        const walletProvider = extractProviderFromWalletName(wallet.name, prefix);
+        if (!walletProvider) {
+          return false;
+        }
+
+        const walletBaseProvider = getUniqueProviderBase(walletProvider);
+        return walletBaseProvider === providerValue;
+      })
+      .flatMap((wallet) => {
+        return wallet.assets
+          .filter((asset) => {
+            const { token } = parseAssetId(asset.id);
+            return token.toUpperCase() === tokenUpper;
+          })
+          .map((asset) => {
+            const nameWithoutPrefix = wallet.name.replace(new RegExp(`^${prefix}`, 'i'), '');
+            return {
+              id: `${wallet.id}-${asset.id}`,
+              name: nameWithoutPrefix.replace(/_/g, ' '),
+              address: asset.address,
+              walletId: wallet.id,
+              assetId: asset.id,
+            };
+          });
+      });
+    return;
+  }
+
+  destinationWallets.value = [];
+};
+
+const handleProviderChange = () => {
+  updateDestinationWallets();
 };
 
 const handleSubmit = async () => {
@@ -664,13 +1066,13 @@ const handleSubmit = async () => {
 
     setTimeout(() => {
       formData.value = {
-        token: props.walletToken?.toUpperCase() || '',
+        token: '',
         operationType: '',
         originWallet: props.walletId || '',
         provider: '',
         destinationWallet: '',
         amount: '',
-        transactionSpeed: 'medium',
+        transactionSpeed: '',
         notes: '',
       };
       success.value = '';
@@ -698,9 +1100,7 @@ watch(
     if (normalizedToken && availableTokens.value.some((t) => t.symbol === normalizedToken)) {
       formData.value.token = normalizedToken;
       updateOriginWallets();
-      if (formData.value.provider) {
-        handleProviderChange();
-      }
+      updateDestinationWallets();
     }
   },
 );
@@ -709,13 +1109,62 @@ watch(
   () => formData.value.token,
   () => {
     updateOriginWallets();
-    if (formData.value.provider) {
-      handleProviderChange();
+    updateDestinationWallets();
+    estimateTransactionFee();
+  },
+);
+
+watch(
+  () => formData.value.operationType,
+  () => {
+    formData.value.provider = '';
+    updateDestinationWallets();
+  },
+);
+
+watch(
+  () => formData.value.originWallet,
+  () => {
+    if (formData.value.operationType === 'internal_rebalancing') {
+      updateDestinationWallets();
     }
+    estimateTransactionFee();
+  },
+);
+
+watch(
+  () => formData.value.destinationWallet,
+  (newValue, oldValue) => {
+    if (oldValue && newValue !== oldValue) {
+      formData.value.transactionSpeed = '';
+    }
+    estimateTransactionFee();
+  },
+);
+
+let amountTimeout: ReturnType<typeof setTimeout> | null = null;
+
+watch(
+  () => formData.value.amount,
+  () => {
+    if (amountTimeout) {
+      clearTimeout(amountTimeout);
+    }
+    amountTimeout = setTimeout(() => {
+      estimateTransactionFee();
+      amountTimeout = null;
+    }, 500);
   },
 );
 
 onMounted(() => {
   loadWallets();
+});
+
+onBeforeUnmount(() => {
+  if (amountTimeout) {
+    clearTimeout(amountTimeout);
+    amountTimeout = null;
+  }
 });
 </script>

@@ -225,26 +225,6 @@ const pomeloRecipients = ref<any[]>([
   },
 ]);
 
-// B2C recipients (for future use)
-// const b2cRecipients = ref<any[]>([
-//   {
-//     id: 'b2c-cobre',
-//     name: 'Cobre',
-//     bank: 'Bancolombia',
-//     account_type: 'Corriente',
-//     type: 'company',
-//     account_number: '9876548765',
-//   },
-//   {
-//     id: 'b2c-paymentsway',
-//     name: 'Payments Way',
-//     bank: 'BBVA',
-//     account_type: 'Ahorros',
-//     type: 'company',
-//     account_number: '55554321',
-//   },
-// ]);
-
 const b2bRecipients = ref<any[]>([
   {
     id: 'b2b-wagmi',

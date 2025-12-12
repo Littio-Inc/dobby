@@ -183,19 +183,12 @@ const inferWalletType = (name: string): 'Vault' | 'OTC' | 'Proveedor' | 'Operati
   const nameLower = name.toLowerCase();
   if (nameLower.includes('vault') || nameLower.includes('treasury')) return 'Vault';
   if (nameLower.includes('otc') || nameLower.includes('trading')) return 'OTC';
-  if (
-    nameLower.includes('supra') ||
-    nameLower.includes('cobre') ||
-    nameLower.includes('kira') ||
-    nameLower.includes('bridge') ||
-    nameLower.includes('koywe')
-  )
-    return 'Proveedor';
+  if (nameLower.includes('supra') || nameLower.includes('cobre') || nameLower.includes('kira')) return 'Proveedor';
   return 'Operativa';
 };
 
 const extractProviderFromName = (name: string): string | null => {
-  const providers = ['Supra', 'Cobre', 'Kira', 'Bridge', 'Koywe'];
+  const providers = ['Supra', 'Cobre', 'Kira'];
   for (const provider of providers) {
     if (name.toLowerCase().includes(provider.toLowerCase())) {
       return provider;
