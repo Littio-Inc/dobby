@@ -215,7 +215,7 @@
                   <option
                     v-for="wallet in destinationWallets"
                     :key="wallet.id"
-                    :value="'address' in wallet ? wallet.address : wallet.id"
+                    :value="wallet.id"
                   >
                     {{ wallet.name }}
                     {{ 'address' in wallet ? `(${wallet.address})` : '' }}
@@ -336,6 +336,16 @@
                 </span>
               </div>
             </div>
+
+            <!-- Fee Error Message -->
+            <div
+              v-if="feeError"
+              class="bg-red-50 border border-red-200 rounded-lg p-3"
+            >
+              <p class="text-sm text-red-800">
+                {{ feeError }}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -405,6 +415,15 @@
         </div>
       </form>
     </div>
+
+    <!-- Movimientos Unificados Table -->
+    <div class="bg-white rounded-lg border border-neutral-20 p-6 mt-8">
+      <UnifiedMovementsTable
+        ref="movementsTableRef"
+        provider="fireblocks"
+        title="Movimientos Unificados"
+      />
+    </div>
   </div>
 </template>
 
@@ -416,9 +435,11 @@ import {
   type ExternalWallet,
   type EstimateFeeResponse,
   type FeeOption,
+  type CreateTransactionRequest,
 } from '../../services/api';
 import { getTokenBadgeColor } from '../../utils/token-badge-colors';
 import LoadingSpinner from '../atoms/loading-spinner.vue';
+import UnifiedMovementsTable from '../molecules/unified-movements-table.vue';
 
 interface Wallet {
   id: string;
@@ -475,6 +496,8 @@ const availableTokens = ref<Array<{ symbol: string; badgeColor: string }>>([]);
 const externalWallets = ref<ExternalWallet[]>([]);
 const feeOptions = ref<EstimateFeeResponse | null>(null);
 const isLoadingFee = ref(false);
+const feeError = ref<string | null>(null);
+const movementsTableRef = ref<{ refresh: () => void } | null>(null);
 
 const showProviderField = computed(() => {
   return formData.value.operationType === 'prefunding_provider' || formData.value.operationType === 'b2c_funding';
@@ -920,7 +943,7 @@ const getDestinationWalletId = (): string | null => {
   }
 
   const destinationWallet = destinationWallets.value.find(
-    (w) => 'address' in w && w.address === formData.value.destinationWallet,
+    (w) => 'address' in w && w.id === formData.value.destinationWallet,
   );
   return destinationWallet && 'walletId' in destinationWallet ? destinationWallet.walletId : null;
 };
@@ -939,6 +962,7 @@ const estimateTransactionFee = async () => {
   ) {
     feeOptions.value = null;
     formData.value.transactionSpeed = '';
+    feeError.value = null;
     return;
   }
 
@@ -948,10 +972,12 @@ const estimateTransactionFee = async () => {
   if (!assetId || !destinationWalletId) {
     feeOptions.value = null;
     formData.value.transactionSpeed = '';
+    feeError.value = null;
     return;
   }
 
   isLoadingFee.value = true;
+  feeError.value = null;
 
   try {
     const response = await AzkabanService.estimateFee({
@@ -969,6 +995,7 @@ const estimateTransactionFee = async () => {
     });
 
     feeOptions.value = response;
+    feeError.value = null;
 
     if (!response.low && !response.medium && !response.high) {
       formData.value.transactionSpeed = '';
@@ -977,6 +1004,39 @@ const estimateTransactionFee = async () => {
     console.error('[ExecuteMovementForm] Error estimating fee:', err);
     feeOptions.value = null;
     formData.value.transactionSpeed = '';
+
+    // Distinguir entre diferentes tipos de errores
+    if (err.response) {
+      const status = err.response.status;
+      const errorData = err.response.data;
+
+      if (status === 400 || status === 422) {
+        // Errores de validación
+        feeError.value =
+          errorData?.message ||
+          errorData?.detail ||
+          'Los datos proporcionados no son válidos para estimar los fees. Por favor, verifique los campos.';
+      } else if (status === 404) {
+        feeError.value = 'No se pudo encontrar la información necesaria para estimar los fees.';
+      } else if (status >= 500) {
+        // Errores del servidor
+        feeError.value = 'Error del servidor al calcular los fees. Por favor, intente nuevamente en unos momentos.';
+      } else if (status === 401 || status === 403) {
+        feeError.value = 'No tiene permisos para estimar los fees. Por favor, verifique su sesión.';
+      } else {
+        // Otros errores HTTP
+        feeError.value =
+          errorData?.message ||
+          errorData?.detail ||
+          `Error al calcular los fees (código ${status}). Por favor, intente nuevamente.`;
+      }
+    } else if (err.request) {
+      // Errores de red (sin respuesta del servidor)
+      feeError.value = 'No se pudo conectar con el servidor para calcular los fees. Verifique su conexión a internet.';
+    } else {
+      // Otros errores
+      feeError.value = err.message || 'Error al calcular los fees. Por favor, intente nuevamente.';
+    }
   } finally {
     isLoadingFee.value = false;
   }
@@ -1052,6 +1112,40 @@ const handleProviderChange = () => {
   updateDestinationWallets();
 };
 
+const getNetworkFromBlockchain = (blockchain: string): string => {
+  const networkMap: Record<string, string> = {
+    Polygon: 'polygon',
+    Ethereum: 'ethereum',
+    Bitcoin: 'bitcoin',
+  };
+  return networkMap[blockchain] || blockchain.toLowerCase();
+};
+
+const getDestinationAddress = (): string | null => {
+  if (!formData.value.destinationWallet) {
+    return null;
+  }
+
+  const destinationWallet = destinationWallets.value.find(
+    (w) => 'address' in w && w.id === formData.value.destinationWallet,
+  );
+
+  if (destinationWallet && 'address' in destinationWallet) {
+    return destinationWallet.address;
+  }
+
+  return null;
+};
+
+const mapTransactionSpeedToFeeLevel = (speed: string): 'LOW' | 'MEDIUM' | 'HIGH' => {
+  const speedMap: Record<string, 'LOW' | 'MEDIUM' | 'HIGH'> = {
+    slow: 'LOW',
+    medium: 'MEDIUM',
+    fast: 'HIGH',
+  };
+  return speedMap[speed] || 'MEDIUM';
+};
+
 const handleSubmit = async () => {
   if (isSubmitting.value) return;
 
@@ -1060,9 +1154,100 @@ const handleSubmit = async () => {
   success.value = '';
 
   try {
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    if (
+      !formData.value.originWallet ||
+      !formData.value.destinationWallet ||
+      !formData.value.token ||
+      !formData.value.amount ||
+      !formData.value.transactionSpeed
+    ) {
+      error.value = 'Por favor complete todos los campos requeridos';
+      return;
+    }
 
-    success.value = 'Movimiento ejecutado exitosamente';
+    const originAssetId = getOriginAssetId();
+    if (!originAssetId) {
+      error.value = 'No se pudo determinar el asset de origen';
+      return;
+    }
+
+    const { blockchain } = parseAssetId(originAssetId);
+    const network = getNetworkFromBlockchain(blockchain);
+
+    const transactionRequest: CreateTransactionRequest = {
+      network,
+      service: 'BLOCKCHAIN_WITHDRAWAL',
+      token: formData.value.token.toLowerCase(),
+      sourceVaultId: formData.value.originWallet,
+      feeLevel: mapTransactionSpeedToFeeLevel(formData.value.transactionSpeed),
+      amount: String(formData.value.amount),
+    };
+
+    if (formData.value.operationType === 'internal_rebalancing') {
+      transactionRequest.destinationVaultId = formData.value.destinationWallet;
+    } else {
+      const destinationAddress = getDestinationAddress();
+      if (!destinationAddress) {
+        error.value = 'No se pudo obtener la dirección de destino';
+        return;
+      }
+      transactionRequest.destinationWalletId = destinationAddress;
+    }
+
+    const response = await AzkabanService.createTransaction(transactionRequest);
+
+    // Obtener nombres de las wallets
+    const originAccount = accounts.value.find((acc) => acc.id === formData.value.originWallet);
+    const originWalletName = originAccount?.name || formData.value.originWallet;
+
+    let destinationWalletName = '';
+    if (formData.value.operationType === 'internal_rebalancing') {
+      const destinationAccount = accounts.value.find((acc) => acc.id === formData.value.destinationWallet);
+      destinationWalletName = destinationAccount?.name || formData.value.destinationWallet;
+    } else {
+      const destinationWallet = destinationWallets.value.find(
+        (w) => 'address' in w && w.id === formData.value.destinationWallet,
+      );
+      destinationWalletName = destinationWallet?.name || formData.value.destinationWallet;
+    }
+
+    // Crear fecha actual
+    const now = new Date();
+    const operationDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    const milliseconds = now.getMilliseconds().toString().padStart(3, '0');
+    const operationTime = `${hours}:${minutes}:${seconds}.${milliseconds}`; // HH:mm:ss.SSS
+
+    // Crear movimiento en backoffice
+    try {
+      await AzkabanService.createBackofficeTransaction({
+        operationDate,
+        operationTime,
+        movementType: 'transfer',
+        provider: 'fireblocks',
+        amount: parseFloat(formData.value.amount),
+        currency: formData.value.token.toUpperCase(),
+        externalTransactionId: response.id,
+        destinationAccount: destinationWalletName,
+        originAccount: originWalletName,
+        notes: formData.value.notes || undefined,
+        method: 'BLOCKCHAIN',
+        status: 'PROCESSING',
+        originProvider: originWalletName,
+      });
+    } catch (backofficeError: any) {
+      console.error('[ExecuteMovementForm] Error creating backoffice transaction:', backofficeError);
+      // No fallar la transacción principal si falla el backoffice, solo loguear el error
+    }
+
+    success.value = `Movimiento ejecutado exitosamente. ID de transacción: ${response.id}`;
+
+    // Refrescar la tabla de movimientos unificados
+    if (movementsTableRef.value) {
+      movementsTableRef.value.refresh();
+    }
 
     setTimeout(() => {
       formData.value = {
@@ -1076,9 +1261,11 @@ const handleSubmit = async () => {
         notes: '',
       };
       success.value = '';
-    }, 3000);
+    }, 5000);
   } catch (err: any) {
-    error.value = err.message || 'Error al ejecutar el movimiento. Por favor, intente nuevamente.';
+    console.error('[ExecuteMovementForm] Error creating transaction:', err);
+    error.value =
+      err.response?.data?.message || err.message || 'Error al ejecutar el movimiento. Por favor, intente nuevamente.';
   } finally {
     isSubmitting.value = false;
   }

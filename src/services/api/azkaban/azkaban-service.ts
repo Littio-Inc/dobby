@@ -7,6 +7,7 @@ const AZKABAN_ENDPOINTS = {
   GET_BACKOFFICE_TRANSACTIONS: '/v1/backoffice/transactions',
   GET_EXTERNAL_WALLETS: '/v1/vault/external-wallets',
   ESTIMATE_FEE: '/v1/vault/transactions/estimate-fee',
+  CREATE_TRANSACTION: '/v1/vault/transactions/create-transaction',
 } as const;
 
 export interface DiagonAsset {
@@ -77,9 +78,9 @@ export interface GetBackofficeTransactionsParams {
 }
 
 export interface CreateBackofficeTransactionParams {
-  operationDate: string; // YYYY-MM-DD
-  operationTime?: string; // HH:mm:ss.SSS (opcional, por defecto 00:00:00.000)
-  movementType: 'transfer_in' | 'transfer_out' | 'payment' | 'withdrawal';
+  operationDate: string;
+  operationTime?: string;
+  movementType: 'transfer_in' | 'transfer_out' | 'payment' | 'withdrawal' | 'transfer';
   provider: string;
   amount: number;
   currency: string;
@@ -87,6 +88,9 @@ export interface CreateBackofficeTransactionParams {
   destinationAccount: string;
   originAccount: string;
   notes?: string;
+  method?: string;
+  status?: string;
+  originProvider?: string;
 }
 
 export interface ExternalWalletAsset {
@@ -130,16 +134,33 @@ export interface FeeOption {
   networkFee: string;
   gasPrice: string;
   gasLimit: string;
-  baseFee: string;
-  priorityFee: string;
-  l1Fee: string;
-  maxFeePerGasDelta: string;
+  baseFee?: string;
+  priorityFee?: string;
+  l1Fee?: string;
+  maxFeePerGasDelta?: string;
 }
 
 export interface EstimateFeeResponse {
   low: FeeOption;
   medium: FeeOption;
   high: FeeOption;
+}
+
+export interface CreateTransactionRequest {
+  network: string;
+  service: 'BLOCKCHAIN_WITHDRAWAL';
+  token: string;
+  sourceVaultId: string;
+  destinationWalletId?: string;
+  destinationVaultId?: string;
+  feeLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  amount: string;
+  idempotencyKey?: string;
+}
+
+export interface CreateTransactionResponse {
+  id: string;
+  status: string;
 }
 
 /**
@@ -337,7 +358,7 @@ export class AzkabanService {
           ? 'transfer'
           : params.movementType;
 
-      const payload = {
+      const payload: any = {
         created_at: formattedDate,
         type: type,
         provider: params.provider,
@@ -347,12 +368,13 @@ export class AzkabanService {
         user_id: params.provider,
         user_id_to: params.destinationAccount,
         user_id_from: params.originAccount,
-        method: params.movementType,
+        method: params.method || params.movementType,
         reason: params.notes || '',
         occurred_at: formattedDate,
         idempotency_key: idempotencyKey,
-        status: 'COMPLETED',
+        status: params.status || 'COMPLETED',
         ...(userEmail && { actor_id: userEmail }),
+        ...(params.originProvider && { origin_provider: params.originProvider }),
       };
 
       const response = await azkabanApi.post<BackofficeTransaction>(
@@ -375,7 +397,6 @@ export class AzkabanService {
     try {
       const response = await azkabanApi.get<ExternalWalletsResponse>(AZKABAN_ENDPOINTS.GET_EXTERNAL_WALLETS);
 
-      // Si no hay wallets, data será un array vacío
       if (!Array.isArray(response.data.data)) {
         console.warn('[AzkabanService] Unexpected response format for external wallets:', response.data);
         return [];
@@ -399,6 +420,70 @@ export class AzkabanService {
       return response.data;
     } catch (error) {
       console.error('[AzkabanService] Error estimating fee:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Crea una transacción de retiro de blockchain
+   * @param params - Parámetros para crear la transacción
+   * @returns Respuesta con el ID y estado de la transacción
+   */
+  static async createTransaction(params: CreateTransactionRequest): Promise<CreateTransactionResponse> {
+    try {
+      // Generate idempotency key if not provided
+      const idempotencyKey = params.idempotencyKey || crypto.randomUUID();
+
+      // Include idempotency key in request body (consistent with createBackofficeTransaction)
+      // Note: If backend requires it as HTTP header instead, use:
+      // const requestConfig = { headers: { 'Idempotency-Key': idempotencyKey } };
+      // and pass requestConfig as third parameter to azkabanApi.post()
+      const requestBody = {
+        ...params,
+        idempotencyKey: idempotencyKey,
+      };
+
+      const response = await azkabanApi.post<CreateTransactionResponse>(
+        AZKABAN_ENDPOINTS.CREATE_TRANSACTION,
+        requestBody,
+      );
+
+      return response.data;
+    } catch (error: any) {
+      console.error('[AzkabanService] Error creating transaction:', error);
+
+      // Handle idempotency-related errors
+      if (error.response) {
+        const status = error.response.status;
+        const errorData = error.response.data;
+
+        // 409 Conflict typically indicates duplicate request (idempotency)
+        if (status === 409) {
+          const errorMessage =
+            errorData?.message ||
+            errorData?.detail ||
+            'Esta transacción ya fue procesada anteriormente. Por favor, verifique si la transacción ya existe.';
+          const idempotencyError = new Error(errorMessage);
+          (idempotencyError as any).isIdempotencyError = true;
+          (idempotencyError as any).statusCode = 409;
+          throw idempotencyError;
+        }
+
+        // 422 might also indicate duplicate or validation issues related to idempotency
+        if (status === 422) {
+          const errorMessage = errorData?.message || errorData?.detail || error.message;
+          if (
+            errorMessage?.toLowerCase().includes('duplicate') ||
+            errorMessage?.toLowerCase().includes('idempotency')
+          ) {
+            const idempotencyError = new Error(errorMessage);
+            (idempotencyError as any).isIdempotencyError = true;
+            (idempotencyError as any).statusCode = 422;
+            throw idempotencyError;
+          }
+        }
+      }
+
       throw error;
     }
   }
