@@ -405,6 +405,15 @@
         </div>
       </form>
     </div>
+
+    <!-- Movimientos Unificados Table -->
+    <div class="bg-white rounded-lg border border-neutral-20 p-6 mt-8">
+      <UnifiedMovementsTable
+        ref="movementsTableRef"
+        provider="fireblocks"
+        title="Movimientos Unificados"
+      />
+    </div>
   </div>
 </template>
 
@@ -420,6 +429,7 @@ import {
 } from '../../services/api';
 import { getTokenBadgeColor } from '../../utils/token-badge-colors';
 import LoadingSpinner from '../atoms/loading-spinner.vue';
+import UnifiedMovementsTable from '../molecules/unified-movements-table.vue';
 
 interface Wallet {
   id: string;
@@ -476,6 +486,7 @@ const availableTokens = ref<Array<{ symbol: string; badgeColor: string }>>([]);
 const externalWallets = ref<ExternalWallet[]>([]);
 const feeOptions = ref<EstimateFeeResponse | null>(null);
 const isLoadingFee = ref(false);
+const movementsTableRef = ref<{ refresh: () => void } | null>(null);
 
 const showProviderField = computed(() => {
   return formData.value.operationType === 'prefunding_provider' || formData.value.operationType === 'b2c_funding';
@@ -1132,6 +1143,11 @@ const handleSubmit = async () => {
     const response = await AzkabanService.createTransaction(transactionRequest);
 
     success.value = `Movimiento ejecutado exitosamente. ID de transacción: ${response.id}`;
+
+    // Refrescar la tabla de movimientos unificados
+    if (movementsTableRef.value) {
+      movementsTableRef.value.refresh();
+    }
 
     setTimeout(() => {
       formData.value = {
