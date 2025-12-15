@@ -78,9 +78,9 @@ export interface GetBackofficeTransactionsParams {
 }
 
 export interface CreateBackofficeTransactionParams {
-  operationDate: string; // YYYY-MM-DD
-  operationTime?: string; // HH:mm:ss.SSS (opcional, por defecto 00:00:00.000)
-  movementType: 'transfer_in' | 'transfer_out' | 'payment' | 'withdrawal';
+  operationDate: string;
+  operationTime?: string;
+  movementType: 'transfer_in' | 'transfer_out' | 'payment' | 'withdrawal' | 'transfer';
   provider: string;
   amount: number;
   currency: string;
@@ -88,6 +88,9 @@ export interface CreateBackofficeTransactionParams {
   destinationAccount: string;
   originAccount: string;
   notes?: string;
+  method?: string;
+  status?: string;
+  originProvider?: string;
 }
 
 export interface ExternalWalletAsset {
@@ -148,8 +151,8 @@ export interface CreateTransactionRequest {
   service: 'BLOCKCHAIN_WITHDRAWAL';
   token: string;
   sourceVaultId: string;
-  destinationWalletId?: string; // Para external wallets
-  destinationVaultId?: string; // Para rebalanceo interno
+  destinationWalletId?: string;
+  destinationVaultId?: string;
   feeLevel: 'LOW' | 'MEDIUM' | 'HIGH';
   amount: string;
 }
@@ -354,7 +357,7 @@ export class AzkabanService {
           ? 'transfer'
           : params.movementType;
 
-      const payload = {
+      const payload: any = {
         created_at: formattedDate,
         type: type,
         provider: params.provider,
@@ -364,12 +367,13 @@ export class AzkabanService {
         user_id: params.provider,
         user_id_to: params.destinationAccount,
         user_id_from: params.originAccount,
-        method: params.movementType,
+        method: params.method || params.movementType,
         reason: params.notes || '',
         occurred_at: formattedDate,
         idempotency_key: idempotencyKey,
-        status: 'COMPLETED',
+        status: params.status || 'COMPLETED',
         ...(userEmail && { actor_id: userEmail }),
+        ...(params.originProvider && { origin_provider: params.originProvider }),
       };
 
       const response = await azkabanApi.post<BackofficeTransaction>(
@@ -392,7 +396,6 @@ export class AzkabanService {
     try {
       const response = await azkabanApi.get<ExternalWalletsResponse>(AZKABAN_ENDPOINTS.GET_EXTERNAL_WALLETS);
 
-      // Si no hay wallets, data será un array vacío
       if (!Array.isArray(response.data.data)) {
         console.warn('[AzkabanService] Unexpected response format for external wallets:', response.data);
         return [];
@@ -427,10 +430,7 @@ export class AzkabanService {
    */
   static async createTransaction(params: CreateTransactionRequest): Promise<CreateTransactionResponse> {
     try {
-      const response = await azkabanApi.post<CreateTransactionResponse>(
-        AZKABAN_ENDPOINTS.CREATE_TRANSACTION,
-        params,
-      );
+      const response = await azkabanApi.post<CreateTransactionResponse>(AZKABAN_ENDPOINTS.CREATE_TRANSACTION, params);
       return response.data;
     } catch (error) {
       console.error('[AzkabanService] Error creating transaction:', error);
