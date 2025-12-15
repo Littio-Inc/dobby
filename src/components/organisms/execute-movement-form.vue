@@ -336,6 +336,16 @@
                 </span>
               </div>
             </div>
+
+            <!-- Fee Error Message -->
+            <div
+              v-if="feeError"
+              class="bg-red-50 border border-red-200 rounded-lg p-3"
+            >
+              <p class="text-sm text-red-800">
+                {{ feeError }}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -486,6 +496,7 @@ const availableTokens = ref<Array<{ symbol: string; badgeColor: string }>>([]);
 const externalWallets = ref<ExternalWallet[]>([]);
 const feeOptions = ref<EstimateFeeResponse | null>(null);
 const isLoadingFee = ref(false);
+const feeError = ref<string | null>(null);
 const movementsTableRef = ref<{ refresh: () => void } | null>(null);
 
 const showProviderField = computed(() => {
@@ -951,6 +962,7 @@ const estimateTransactionFee = async () => {
   ) {
     feeOptions.value = null;
     formData.value.transactionSpeed = '';
+    feeError.value = null;
     return;
   }
 
@@ -960,10 +972,12 @@ const estimateTransactionFee = async () => {
   if (!assetId || !destinationWalletId) {
     feeOptions.value = null;
     formData.value.transactionSpeed = '';
+    feeError.value = null;
     return;
   }
 
   isLoadingFee.value = true;
+  feeError.value = null;
 
   try {
     const response = await AzkabanService.estimateFee({
@@ -981,6 +995,7 @@ const estimateTransactionFee = async () => {
     });
 
     feeOptions.value = response;
+    feeError.value = null;
 
     if (!response.low && !response.medium && !response.high) {
       formData.value.transactionSpeed = '';
@@ -989,6 +1004,39 @@ const estimateTransactionFee = async () => {
     console.error('[ExecuteMovementForm] Error estimating fee:', err);
     feeOptions.value = null;
     formData.value.transactionSpeed = '';
+
+    // Distinguir entre diferentes tipos de errores
+    if (err.response) {
+      const status = err.response.status;
+      const errorData = err.response.data;
+
+      if (status === 400 || status === 422) {
+        // Errores de validación
+        feeError.value =
+          errorData?.message ||
+          errorData?.detail ||
+          'Los datos proporcionados no son válidos para estimar los fees. Por favor, verifique los campos.';
+      } else if (status === 404) {
+        feeError.value = 'No se pudo encontrar la información necesaria para estimar los fees.';
+      } else if (status >= 500) {
+        // Errores del servidor
+        feeError.value = 'Error del servidor al calcular los fees. Por favor, intente nuevamente en unos momentos.';
+      } else if (status === 401 || status === 403) {
+        feeError.value = 'No tiene permisos para estimar los fees. Por favor, verifique su sesión.';
+      } else {
+        // Otros errores HTTP
+        feeError.value =
+          errorData?.message ||
+          errorData?.detail ||
+          `Error al calcular los fees (código ${status}). Por favor, intente nuevamente.`;
+      }
+    } else if (err.request) {
+      // Errores de red (sin respuesta del servidor)
+      feeError.value = 'No se pudo conectar con el servidor para calcular los fees. Verifique su conexión a internet.';
+    } else {
+      // Otros errores
+      feeError.value = err.message || 'Error al calcular los fees. Por favor, intente nuevamente.';
+    }
   } finally {
     isLoadingFee.value = false;
   }

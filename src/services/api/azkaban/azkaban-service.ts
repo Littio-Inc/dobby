@@ -134,10 +134,10 @@ export interface FeeOption {
   networkFee: string;
   gasPrice: string;
   gasLimit: string;
-  baseFee: string;
-  priorityFee: string;
-  l1Fee: string;
-  maxFeePerGasDelta: string;
+  baseFee?: string;
+  priorityFee?: string;
+  l1Fee?: string;
+  maxFeePerGasDelta?: string;
 }
 
 export interface EstimateFeeResponse {
@@ -155,6 +155,7 @@ export interface CreateTransactionRequest {
   destinationVaultId?: string;
   feeLevel: 'LOW' | 'MEDIUM' | 'HIGH';
   amount: string;
+  idempotencyKey?: string;
 }
 
 export interface CreateTransactionResponse {
@@ -430,10 +431,59 @@ export class AzkabanService {
    */
   static async createTransaction(params: CreateTransactionRequest): Promise<CreateTransactionResponse> {
     try {
-      const response = await azkabanApi.post<CreateTransactionResponse>(AZKABAN_ENDPOINTS.CREATE_TRANSACTION, params);
+      // Generate idempotency key if not provided
+      const idempotencyKey = params.idempotencyKey || crypto.randomUUID();
+
+      // Include idempotency key in request body (consistent with createBackofficeTransaction)
+      // Note: If backend requires it as HTTP header instead, use:
+      // const requestConfig = { headers: { 'Idempotency-Key': idempotencyKey } };
+      // and pass requestConfig as third parameter to azkabanApi.post()
+      const requestBody = {
+        ...params,
+        idempotencyKey: idempotencyKey,
+      };
+
+      const response = await azkabanApi.post<CreateTransactionResponse>(
+        AZKABAN_ENDPOINTS.CREATE_TRANSACTION,
+        requestBody,
+      );
+
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AzkabanService] Error creating transaction:', error);
+
+      // Handle idempotency-related errors
+      if (error.response) {
+        const status = error.response.status;
+        const errorData = error.response.data;
+
+        // 409 Conflict typically indicates duplicate request (idempotency)
+        if (status === 409) {
+          const errorMessage =
+            errorData?.message ||
+            errorData?.detail ||
+            'Esta transacción ya fue procesada anteriormente. Por favor, verifique si la transacción ya existe.';
+          const idempotencyError = new Error(errorMessage);
+          (idempotencyError as any).isIdempotencyError = true;
+          (idempotencyError as any).statusCode = 409;
+          throw idempotencyError;
+        }
+
+        // 422 might also indicate duplicate or validation issues related to idempotency
+        if (status === 422) {
+          const errorMessage = errorData?.message || errorData?.detail || error.message;
+          if (
+            errorMessage?.toLowerCase().includes('duplicate') ||
+            errorMessage?.toLowerCase().includes('idempotency')
+          ) {
+            const idempotencyError = new Error(errorMessage);
+            (idempotencyError as any).isIdempotencyError = true;
+            (idempotencyError as any).statusCode = 422;
+            throw idempotencyError;
+          }
+        }
+      }
+
       throw error;
     }
   }
