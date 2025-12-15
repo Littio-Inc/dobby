@@ -7,6 +7,7 @@ const AZKABAN_ENDPOINTS = {
   GET_BACKOFFICE_TRANSACTIONS: '/v1/backoffice/transactions',
   GET_EXTERNAL_WALLETS: '/v1/vault/external-wallets',
   ESTIMATE_FEE: '/v1/vault/transactions/estimate-fee',
+  CREATE_TRANSACTION: '/v1/vault/transactions/create-transaction',
 } as const;
 
 export interface DiagonAsset {
@@ -140,6 +141,22 @@ export interface EstimateFeeResponse {
   low: FeeOption;
   medium: FeeOption;
   high: FeeOption;
+}
+
+export interface CreateTransactionRequest {
+  network: string;
+  service: 'BLOCKCHAIN_WITHDRAWAL';
+  token: string;
+  sourceVaultId: string;
+  destinationWalletId?: string; // Para external wallets
+  destinationVaultId?: string; // Para rebalanceo interno
+  feeLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  amount: string;
+}
+
+export interface CreateTransactionResponse {
+  id: string;
+  status: string;
 }
 
 /**
@@ -399,6 +416,24 @@ export class AzkabanService {
       return response.data;
     } catch (error) {
       console.error('[AzkabanService] Error estimating fee:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Crea una transacción de retiro de blockchain
+   * @param params - Parámetros para crear la transacción
+   * @returns Respuesta con el ID y estado de la transacción
+   */
+  static async createTransaction(params: CreateTransactionRequest): Promise<CreateTransactionResponse> {
+    try {
+      const response = await azkabanApi.post<CreateTransactionResponse>(
+        AZKABAN_ENDPOINTS.CREATE_TRANSACTION,
+        params,
+      );
+      return response.data;
+    } catch (error) {
+      console.error('[AzkabanService] Error creating transaction:', error);
       throw error;
     }
   }

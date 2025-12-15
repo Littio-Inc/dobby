@@ -215,7 +215,7 @@
                   <option
                     v-for="wallet in destinationWallets"
                     :key="wallet.id"
-                    :value="'address' in wallet ? wallet.address : wallet.id"
+                    :value="wallet.id"
                   >
                     {{ wallet.name }}
                     {{ 'address' in wallet ? `(${wallet.address})` : '' }}
@@ -416,6 +416,7 @@ import {
   type ExternalWallet,
   type EstimateFeeResponse,
   type FeeOption,
+  type CreateTransactionRequest,
 } from '../../services/api';
 import { getTokenBadgeColor } from '../../utils/token-badge-colors';
 import LoadingSpinner from '../atoms/loading-spinner.vue';
@@ -920,7 +921,7 @@ const getDestinationWalletId = (): string | null => {
   }
 
   const destinationWallet = destinationWallets.value.find(
-    (w) => 'address' in w && w.address === formData.value.destinationWallet,
+    (w) => 'address' in w && w.id === formData.value.destinationWallet,
   );
   return destinationWallet && 'walletId' in destinationWallet ? destinationWallet.walletId : null;
 };
@@ -1052,6 +1053,40 @@ const handleProviderChange = () => {
   updateDestinationWallets();
 };
 
+const getNetworkFromBlockchain = (blockchain: string): string => {
+  const networkMap: Record<string, string> = {
+    Polygon: 'polygon',
+    Ethereum: 'ethereum',
+    Bitcoin: 'bitcoin',
+  };
+  return networkMap[blockchain] || blockchain.toLowerCase();
+};
+
+const getDestinationAddress = (): string | null => {
+  if (!formData.value.destinationWallet) {
+    return null;
+  }
+
+  const destinationWallet = destinationWallets.value.find(
+    (w) => 'address' in w && w.id === formData.value.destinationWallet,
+  );
+
+  if (destinationWallet && 'address' in destinationWallet) {
+    return destinationWallet.address;
+  }
+
+  return null;
+};
+
+const mapTransactionSpeedToFeeLevel = (speed: string): 'LOW' | 'MEDIUM' | 'HIGH' => {
+  const speedMap: Record<string, 'LOW' | 'MEDIUM' | 'HIGH'> = {
+    slow: 'LOW',
+    medium: 'MEDIUM',
+    fast: 'HIGH',
+  };
+  return speedMap[speed] || 'MEDIUM';
+};
+
 const handleSubmit = async () => {
   if (isSubmitting.value) return;
 
@@ -1060,9 +1095,43 @@ const handleSubmit = async () => {
   success.value = '';
 
   try {
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    if (!formData.value.originWallet || !formData.value.destinationWallet || !formData.value.token || !formData.value.amount || !formData.value.transactionSpeed) {
+      error.value = 'Por favor complete todos los campos requeridos';
+      return;
+    }
 
-    success.value = 'Movimiento ejecutado exitosamente';
+    const originAssetId = getOriginAssetId();
+    if (!originAssetId) {
+      error.value = 'No se pudo determinar el asset de origen';
+      return;
+    }
+
+    const { blockchain } = parseAssetId(originAssetId);
+    const network = getNetworkFromBlockchain(blockchain);
+
+    const transactionRequest: CreateTransactionRequest = {
+      network,
+      service: 'BLOCKCHAIN_WITHDRAWAL',
+      token: formData.value.token.toLowerCase(),
+      sourceVaultId: formData.value.originWallet,
+      feeLevel: mapTransactionSpeedToFeeLevel(formData.value.transactionSpeed),
+      amount: String(formData.value.amount),
+    };
+
+    if (formData.value.operationType === 'internal_rebalancing') {
+      transactionRequest.destinationVaultId = formData.value.destinationWallet;
+    } else {
+      const destinationAddress = getDestinationAddress();
+      if (!destinationAddress) {
+        error.value = 'No se pudo obtener la dirección de destino';
+        return;
+      }
+      transactionRequest.destinationWalletId = destinationAddress;
+    }
+
+    const response = await AzkabanService.createTransaction(transactionRequest);
+
+    success.value = `Movimiento ejecutado exitosamente. ID de transacción: ${response.id}`;
 
     setTimeout(() => {
       formData.value = {
@@ -1076,9 +1145,10 @@ const handleSubmit = async () => {
         notes: '',
       };
       success.value = '';
-    }, 3000);
+    }, 5000);
   } catch (err: any) {
-    error.value = err.message || 'Error al ejecutar el movimiento. Por favor, intente nuevamente.';
+    console.error('[ExecuteMovementForm] Error creating transaction:', err);
+    error.value = err.response?.data?.message || err.message || 'Error al ejecutar el movimiento. Por favor, intente nuevamente.';
   } finally {
     isSubmitting.value = false;
   }
