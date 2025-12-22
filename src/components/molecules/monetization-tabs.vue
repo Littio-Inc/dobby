@@ -54,7 +54,7 @@ const handleKeydown = (event: KeyboardEvent, currentIndex: number) => {
       event.preventDefault();
       break;
     default:
-      return; // No hacer nada para otras teclas
+      return;
   }
 
   emit('update:activeTab', props.tabs[newIndex].value);

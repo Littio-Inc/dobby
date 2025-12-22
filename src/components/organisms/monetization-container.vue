@@ -50,9 +50,7 @@
     </div>
 
     <!-- Monetización No Apificados Tab -->
-    <NonAppliedMonetizationTab
-      v-if="activeMainTab === 'no-apificados'"
-    />
+    <NonAppliedMonetizationTab v-if="activeMainTab === 'no-apificados'" />
 
     <!-- Error Message -->
     <div
@@ -78,10 +76,8 @@ defineProps<{
   lang: string;
 }>();
 
-// Main tabs: Monetización Apificados / Monetización No Apificados
 const activeMainTab = ref<'apificados' | 'no-apificados'>('apificados');
 
-// Sub-tabs for Apificados: Pomelo, B2B
 const activeSubTab = ref<'pomelo' | 'b2b'>('pomelo');
 
 const error = ref('');
@@ -200,17 +196,18 @@ const pomeloQuotes = ref<Quote[]>([
   },
 ]);
 
-const b2cQuotes = ref<Quote[]>([
-  {
-    amount: '',
-    from: 'USDT',
-    to: 'MXN',
-    calculatedAmount: '-',
-    rate: '18,50',
-    spread: '22bp',
-    provider: 'Cobre',
-  },
-]);
+// B2C quotes - reservado para uso futuro
+// const b2cQuotes = ref<Quote[]>([
+//   {
+//     amount: '',
+//     from: 'USDT',
+//     to: 'MXN',
+//     calculatedAmount: '-',
+//     rate: '18,50',
+//     spread: '22bp',
+//     provider: 'Cobre',
+//   },
+// ]);
 
 const b2bQuotes = ref<Quote[]>([
   {
