@@ -19,7 +19,7 @@
     <div class="bg-white rounded-lg border border-neutral-20 p-8">
       <form
         class="space-y-8"
-        @submit.prevent="() => handleSubmit(false)"
+        @submit.prevent="handleSubmit"
       >
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <!-- Left Column -->
@@ -51,12 +51,13 @@
                   >
                     Seleccionar proveedor
                   </option>
-                  <option value="bancolombia">Bancolombia</option>
-                  <option value="bbva">BBVA</option>
-                  <option value="zulu">Zulu</option>
-                  <option value="davivienda">Davivienda</option>
-                  <option value="banco-de-bogota">Banco de Bogotá</option>
-                  <option value="nequi">Nequi</option>
+                  <option
+                    v-for="provider in providers"
+                    :key="provider.value"
+                    :value="provider.value"
+                  >
+                    {{ provider.label }}
+                  </option>
                 </select>
                 <svg
                   class="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-60 pointer-events-none"
@@ -136,10 +137,7 @@
                     ? 'border-carmine focus:ring-carmine focus:border-carmine'
                     : 'border-neutral-40 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky',
                 ]"
-                @input="
-                  calculateFinalAmount();
-                  fieldErrors.rate = false;
-                "
+                @input="fieldErrors.rate = false"
               />
             </div>
 
@@ -171,7 +169,6 @@
                   ]"
                   @click="
                     formData.initialCurrency = currency;
-                    calculateFinalAmount();
                     fieldErrors.initialCurrency = false;
                   "
                 >
@@ -208,7 +205,6 @@
                   ]"
                   @click="
                     formData.finalCurrency = currency;
-                    calculateFinalAmount();
                     fieldErrors.finalCurrency = false;
                   "
                 >
@@ -239,10 +235,7 @@
                     ? 'border-carmine focus:ring-carmine focus:border-carmine'
                     : 'border-neutral-40 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky',
                 ]"
-                @input="
-                  calculateFinalAmount();
-                  fieldErrors.initialAmount = false;
-                "
+                @input="fieldErrors.initialAmount = false"
               />
             </div>
 
@@ -579,7 +572,7 @@
             <button
               type="button"
               class="px-6 py-2.5 border border-neutral-40 rounded-lg text-neutral-80 font-medium hover:bg-neutral-20 transition-colors"
-              @click="handleValidate"
+              @click="() => handleValidate(false)"
             >
               Validar
             </button>
@@ -606,7 +599,7 @@
           class="bg-carmine-light border border-carmine rounded-lg p-4"
         >
           <p class="text-carmine font-medium">
-            {{ error }}
+            {{ error.message }}
           </p>
         </div>
       </form>
@@ -615,9 +608,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 
-const showFileUpload = ref(false);
+interface Props {
+  enableFileUpload?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  enableFileUpload: false,
+});
+
+const showFileUpload = ref(props.enableFileUpload);
+
+const enableFileUploadFeature = () => {
+  showFileUpload.value = true;
+};
+
+defineExpose({
+  enableFileUploadFeature,
+});
+
+interface FormError {
+  code: string;
+  message: string;
+}
 
 interface FormData {
   provider: string;
@@ -638,6 +652,15 @@ interface FormData {
 }
 
 const currencies = ['USD', 'COP', 'EUR', 'MXN', 'BRL', 'ARS'];
+
+const providers = [
+  { value: 'bancolombia', label: 'Bancolombia' },
+  { value: 'bbva', label: 'BBVA' },
+  { value: 'zulu', label: 'Zulu' },
+  { value: 'davivienda', label: 'Davivienda' },
+  { value: 'banco-de-bogota', label: 'Banco de Bogotá' },
+  { value: 'nequi', label: 'Nequi' },
+];
 
 const statuses = [
   { value: 'pending', label: 'Pending' },
@@ -666,13 +689,12 @@ const formData = ref<FormData>({
 });
 
 const isSubmitting = ref(false);
-const error = ref('');
+const error = ref<FormError | null>(null);
 const success = ref('');
 const selectedFile = ref<File | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const fieldErrors = ref<Record<string, boolean>>({});
 
-// Calcular monto final automáticamente
 const calculatedFinalAmount = computed(() => {
   const rate = parseFloat(formData.value.rate);
   const initialAmount = parseFloat(formData.value.initialAmount);
@@ -688,9 +710,6 @@ const calculatedFinalAmount = computed(() => {
   });
 });
 
-const calculateFinalAmount = () => {};
-
-// Fecha/hora máxima permitida (fecha actual)
 const maxDateTime = computed(() => {
   const now = new Date();
   const year = now.getFullYear();
@@ -701,7 +720,6 @@ const maxDateTime = computed(() => {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 });
 
-// Validar que la fecha de creación no sea futura
 const validateCreationDate = () => {
   if (!formData.value.creationDate) {
     fieldErrors.value.creationDate = false;
@@ -713,12 +731,14 @@ const validateCreationDate = () => {
 
   if (selectedDate > now) {
     fieldErrors.value.creationDate = true;
-    error.value = 'La fecha de creación no puede ser futura. Por favor, seleccione una fecha y hora válida.';
+    error.value = {
+      code: 'CREATION_DATE_INVALID',
+      message: 'La fecha de creación no puede ser futura. Por favor, seleccione una fecha y hora válida.',
+    };
   } else {
     fieldErrors.value.creationDate = false;
-    // Limpiar el error si se corrige
-    if (error.value.includes('fecha de creación')) {
-      error.value = '';
+    if (error.value?.code === 'CREATION_DATE_INVALID') {
+      error.value = null;
     }
   }
 };
@@ -754,19 +774,23 @@ const handleFileSelect = (event: Event) => {
   const target = event.target as HTMLInputElement;
   const file = target.files?.[0];
   if (file) {
-    // Validar tipo de archivo
-    const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    const validTypes = ['application/pdf', 'image/jpeg', 'image/png'];
     if (!validTypes.includes(file.type)) {
-      error.value = 'Por favor, seleccione un archivo PDF, JPG o PNG válido.';
+      error.value = {
+        code: 'INVALID_FILE_TYPE',
+        message: 'Por favor, seleccione un archivo PDF, JPG o PNG válido.',
+      };
       return;
     }
-    // Validar tamaño (máximo 10MB)
     if (file.size > 10 * 1024 * 1024) {
-      error.value = 'El archivo no puede ser mayor a 10MB.';
+      error.value = {
+        code: 'FILE_TOO_LARGE',
+        message: 'El archivo no puede ser mayor a 10MB.',
+      };
       return;
     }
     selectedFile.value = file;
-    error.value = '';
+    error.value = null;
   }
 };
 
@@ -792,20 +816,20 @@ const handleClear = () => {
   if (fileInputRef.value) {
     fileInputRef.value.value = '';
   }
-  error.value = '';
+  error.value = null;
   success.value = '';
   fieldErrors.value = {};
 };
 
-const handleValidate = () => {
-  error.value = '';
-  success.value = '';
-  // Limpiar errores previos
+const handleValidate = async (suppressSuccess = false) => {
+  error.value = null;
+  if (!suppressSuccess) {
+    success.value = '';
+  }
   fieldErrors.value = {};
 
   let hasErrors = false;
 
-  // Validar todos los campos y marcar los que tienen errores
   if (!formData.value.provider) {
     fieldErrors.value.provider = true;
     hasErrors = true;
@@ -819,7 +843,10 @@ const handleValidate = () => {
     if (selectedDate > now) {
       fieldErrors.value.creationDate = true;
       hasErrors = true;
-      error.value = 'La fecha de creación no puede ser futura. Por favor, seleccione una fecha y hora válida.';
+      error.value = {
+        code: 'CREATION_DATE_INVALID',
+        message: 'La fecha de creación no puede ser futura. Por favor, seleccione una fecha y hora válida.',
+      };
     }
   }
   if (!formData.value.rate || parseFloat(formData.value.rate) <= 0) {
@@ -868,17 +895,23 @@ const handleValidate = () => {
   }
 
   if (hasErrors) {
-    error.value = 'Por favor, complete todos los campos requeridos marcados en rojo.';
-    // Hacer scroll al primer campo con error
+    error.value = {
+      code: 'VALIDATION_ERROR',
+      message: 'Por favor, complete todos los campos requeridos marcados en rojo.',
+    };
+    // Esperar a que Vue actualice el DOM antes de buscar el elemento
+    await nextTick();
     const firstErrorField = document.querySelector('.border-carmine');
     if (firstErrorField) {
       firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   } else {
-    success.value = 'Formulario validado correctamente.';
-    setTimeout(() => {
-      success.value = '';
-    }, 3000);
+    if (!suppressSuccess) {
+      success.value = 'Formulario validado correctamente.';
+      setTimeout(() => {
+        success.value = '';
+      }, 3000);
+    }
   }
 };
 
@@ -886,28 +919,26 @@ const handleSaveAndDuplicate = async () => {
   await handleSubmit(true);
 };
 
-const handleSubmit = async (duplicate: boolean = false) => {
+const handleSubmit = async (eventOrDuplicate?: Event | boolean, duplicateParam: boolean = false) => {
+  const duplicate = typeof eventOrDuplicate === 'boolean' ? eventOrDuplicate : duplicateParam;
+
   if (isSubmitting.value) return;
 
-  // Validar antes de enviar
-  handleValidate();
-  if (error.value) {
+  await handleValidate(true); // Suprimir mensaje de éxito cuando se valida desde submit
+  if (error.value?.code === 'VALIDATION_ERROR' || error.value?.code === 'CREATION_DATE_INVALID') {
     return;
   }
 
   isSubmitting.value = true;
-  error.value = '';
+  error.value = null;
   success.value = '';
 
   try {
-    // Aquí iría la lógica para enviar los datos al backend
-    // Por ahora solo simulamos el guardado
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     success.value = 'Monetización registrada exitosamente.';
 
     if (duplicate) {
-      // Mantener los datos y limpiar solo algunos campos
       formData.value.transactionId = '';
       formData.value.transactionHash = '';
       formData.value.internalNotes = '';
@@ -922,14 +953,24 @@ const handleSubmit = async (duplicate: boolean = false) => {
     setTimeout(() => {
       success.value = '';
     }, 5000);
-  } catch (err: any) {
-    error.value = err.message || 'Error al guardar la monetización. Por favor, intente nuevamente.';
+  } catch (err: unknown) {
+    let errorMessage = 'Error al guardar la monetización. Por favor, intente nuevamente.';
+
+    if (err instanceof Error) {
+      errorMessage = err.message;
+    } else if (typeof err === 'string') {
+      errorMessage = err;
+    }
+
+    error.value = {
+      code: 'SAVE_ERROR',
+      message: errorMessage,
+    };
   } finally {
     isSubmitting.value = false;
   }
 };
 
-// Establecer fecha actual por defecto
 onMounted(() => {
   const now = new Date();
   const year = now.getFullYear();
@@ -942,7 +983,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Ocultar iconos nativos del navegador para datetime-local */
 .datetime-input::-webkit-calendar-picker-indicator {
   display: none;
   -webkit-appearance: none;
