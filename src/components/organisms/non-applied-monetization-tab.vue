@@ -5,6 +5,16 @@
       <h1 class="text-3xl font-bold text-neutral-80">Registro Manual - Proveedor no API</h1>
     </div>
 
+    <!-- Error Message -->
+    <div
+      v-if="error"
+      class="bg-carmine-light border border-carmine rounded-lg p-4"
+    >
+      <p class="text-carmine font-medium">
+        {{ error.message }}
+      </p>
+    </div>
+
     <!-- Success Message -->
     <div
       v-if="success"
@@ -592,16 +602,6 @@
             </button>
           </div>
         </div>
-
-        <!-- Error Message -->
-        <div
-          v-if="error"
-          class="bg-carmine-light border border-carmine rounded-lg p-4"
-        >
-          <p class="text-carmine font-medium">
-            {{ error.message }}
-          </p>
-        </div>
       </form>
     </div>
   </div>
@@ -695,6 +695,15 @@ const selectedFile = ref<File | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const fieldErrors = ref<Record<string, boolean>>({});
 
+const formatDateTimeForInput = (date: Date = new Date()): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
 const calculatedFinalAmount = computed(() => {
   const rate = parseFloat(formData.value.rate);
   const initialAmount = parseFloat(formData.value.initialAmount);
@@ -711,13 +720,7 @@ const calculatedFinalAmount = computed(() => {
 });
 
 const maxDateTime = computed(() => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+  return formatDateTimeForInput(new Date());
 });
 
 const validateCreationDate = () => {
@@ -972,13 +975,7 @@ const handleSubmit = async (eventOrDuplicate?: Event | boolean, duplicateParam: 
 };
 
 onMounted(() => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  formData.value.creationDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+  formData.value.creationDate = formatDateTimeForInput(new Date());
 });
 </script>
 
