@@ -6,34 +6,52 @@
       <p class="text-base text-neutral-60">Gestión de operaciones FX y movimientos de fondos</p>
     </div>
 
-    <!-- Tabs: Pomelo, B2C -->
+    <!-- Main Tabs: Monetización Apificados / Monetización No Apificados -->
     <MonetizationTabs
-      :active-tab="activeAccountType"
-      :tabs="tabs"
-      @update:active-tab="handleTabChange"
+      :active-tab="activeMainTab"
+      :tabs="mainTabs"
+      @update:active-tab="handleMainTabChange"
     />
 
-    <!-- Tab Content -->
-    <PomeloTab
-      v-if="activeAccountType === 'pomelo'"
-      :quotes="pomeloQuotes"
-      :recipients="pomeloRecipients"
-      :available-providers="pomeloProviders"
-      :usdc-balance="pomeloUSDC"
-      :usdt-balance="pomeloUSDT"
-      @monetize="handleMonetize"
-      @update:quotes="pomeloQuotes = $event"
-    />
+    <!-- Content based on main tab -->
+    <div
+      v-if="activeMainTab === 'apificados'"
+      class="space-y-6"
+    >
+      <!-- Sub-tabs for Apificados: Pomelo, B2B -->
+      <MonetizationTabs
+        :active-tab="activeSubTab"
+        :tabs="apificadosSubTabs"
+        @update:active-tab="handleSubTabChange"
+      />
 
-    <B2BTab
-      v-if="activeAccountType === 'b2b'"
-      :quotes="b2bQuotes"
-      :recipients="b2bRecipients"
-      :available-providers="b2bProviders"
-      :usdc-balance="b2bUSDC"
-      :usdt-balance="b2bUSDT"
-      @monetize="handleMonetize"
-      @update:quotes="b2bQuotes = $event"
+      <!-- Sub-tab Content -->
+      <PomeloTab
+        v-if="activeSubTab === 'pomelo'"
+        :quotes="pomeloQuotes"
+        :recipients="pomeloRecipients"
+        :available-providers="pomeloProviders"
+        :usdc-balance="pomeloUSDC"
+        :usdt-balance="pomeloUSDT"
+        @monetize="handleMonetize"
+        @update:quotes="pomeloQuotes = $event"
+      />
+
+      <B2BTab
+        v-if="activeSubTab === 'b2b'"
+        :quotes="b2bQuotes"
+        :recipients="b2bRecipients"
+        :available-providers="b2bProviders"
+        :usdc-balance="b2bUSDC"
+        :usdt-balance="b2bUSDT"
+        @monetize="handleMonetize"
+        @update:quotes="b2bQuotes = $event"
+      />
+    </div>
+
+    <!-- Monetización No Apificados Tab -->
+    <NonAppliedMonetizationTab
+      v-if="activeMainTab === 'no-apificados'"
     />
 
     <!-- Error Message -->
@@ -54,11 +72,18 @@ import { getBalances, WALLET_IDS, type BalanceResponse } from '../../services';
 import MonetizationTabs from '../molecules/monetization-tabs.vue';
 import PomeloTab from './pomelo-tab.vue';
 import B2BTab from './b2b-tab.vue';
+import NonAppliedMonetizationTab from './non-applied-monetization-tab.vue';
 
 defineProps<{
   lang: string;
 }>();
-const activeAccountType = ref<'pomelo' | 'b2c' | 'b2b'>('pomelo');
+
+// Main tabs: Monetización Apificados / Monetización No Apificados
+const activeMainTab = ref<'apificados' | 'no-apificados'>('apificados');
+
+// Sub-tabs for Apificados: Pomelo, B2B
+const activeSubTab = ref<'pomelo' | 'b2b'>('pomelo');
+
 const error = ref('');
 const isLoadingBalances = ref(false);
 
@@ -118,7 +143,14 @@ onMounted(() => {
   loadBalances();
 });
 
-const tabs = [
+// Main tabs configuration
+const mainTabs = [
+  { value: 'apificados', label: 'Monetización Apificados' },
+  { value: 'no-apificados', label: 'Monetización No Apificados' },
+];
+
+// Sub-tabs for Apificados
+const apificadosSubTabs = [
   { value: 'pomelo', label: 'Pomelo' },
   { value: 'b2b', label: 'B2B' },
 ];
@@ -272,15 +304,18 @@ const b2bProviders = computed(() => [
   { value: 'kira', label: 'Kira', disabled: false },
 ]);
 
-const handleTabChange = (tab: string) => {
-  activeAccountType.value = tab as 'pomelo' | 'b2c' | 'b2b';
-  // Reset quotes when switching tabs
-  const quotes =
-    activeAccountType.value === 'pomelo'
-      ? pomeloQuotes.value
-      : activeAccountType.value === 'b2c'
-        ? b2cQuotes.value
-        : b2bQuotes.value;
+const handleMainTabChange = (tab: string) => {
+  activeMainTab.value = tab as 'apificados' | 'no-apificados';
+  // Reset sub-tab when switching main tabs
+  if (activeMainTab.value === 'apificados') {
+    activeSubTab.value = 'pomelo';
+  }
+};
+
+const handleSubTabChange = (tab: string) => {
+  activeSubTab.value = tab as 'pomelo' | 'b2b';
+  // Reset quotes when switching sub-tabs
+  const quotes = activeSubTab.value === 'pomelo' ? pomeloQuotes.value : b2bQuotes.value;
   quotes.forEach((q) => {
     q.amount = '';
     q.calculatedAmount = '-';
