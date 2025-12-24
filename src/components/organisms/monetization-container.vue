@@ -33,6 +33,7 @@
         :available-providers="pomeloProviders"
         :usdc-balance="pomeloUSDC"
         :usdt-balance="pomeloUSDT"
+        :usd-balance="cobreUSDBalance"
         @monetize="handleMonetize"
         @update:quotes="pomeloQuotes = $event"
       />
@@ -44,6 +45,7 @@
         :available-providers="b2bProviders"
         :usdc-balance="b2bUSDC"
         :usdt-balance="b2bUSDT"
+        :usd-balance="cobreB2BUSDBalance"
         @monetize="handleMonetize"
         @update:quotes="b2bQuotes = $event"
       />
@@ -66,7 +68,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { getBalances, WALLET_IDS, type BalanceResponse } from '../../services';
+import { getBalances, WALLET_IDS, Provider, type BalanceResponse } from '../../services';
 import MonetizationTabs from '../molecules/monetization-tabs.vue';
 import PomeloTab from './pomelo-tab.vue';
 import B2BTab from './b2b-tab.vue';
@@ -86,6 +88,8 @@ const isLoadingBalances = ref(false);
 // Balance data
 const pomeloBalances = ref<BalanceResponse | null>(null);
 const b2bBalances = ref<BalanceResponse | null>(null);
+const cobreBalances = ref<BalanceResponse | null>(null); // Cobre balance for Pomelo (transfer)
+const cobreB2BBalances = ref<BalanceResponse | null>(null); // Cobre balance for B2B (pay)
 
 // Individual Pomelo token balances
 const pomeloUSDC = computed(() => {
@@ -98,6 +102,26 @@ const pomeloUSDT = computed(() => {
   if (!pomeloBalances.value || !pomeloBalances.value.balances) return 0;
   const usdt = pomeloBalances.value.balances.find((b) => b.token === 'USDT');
   return usdt ? parseFloat(usdt.amount || '0') : 0;
+});
+
+// Cobre USD balance for Pomelo (transfer)
+// Note: Cobre uses the same global balance for both account types
+const cobreUSDBalance = computed(() => {
+  // Use cobreBalances (transfer) or cobreB2BBalances (pay) - both should be the same
+  const balanceSource = cobreBalances.value || cobreB2BBalances.value;
+  if (!balanceSource || !balanceSource.balances) return 0;
+  const usd = balanceSource.balances.find((b) => b.token === 'USD');
+  return usd ? parseFloat(usd.amount || '0') : 0;
+});
+
+// Cobre USD balance for B2B (pay)
+// Note: Cobre uses the same global balance for both account types
+const cobreB2BUSDBalance = computed(() => {
+  // Use cobreB2BBalances (pay) or cobreBalances (transfer) as fallback - both should be the same
+  const balanceSource = cobreB2BBalances.value || cobreBalances.value;
+  if (!balanceSource || !balanceSource.balances) return 0;
+  const usd = balanceSource.balances.find((b) => b.token === 'USD');
+  return usd ? parseFloat(usd.amount || '0') : 0;
 });
 
 // Individual B2B token balances
@@ -118,14 +142,20 @@ const loadBalances = async () => {
   isLoadingBalances.value = true;
   error.value = '';
   try {
+    // Cobre uses the same balance for both account types, so we only need one call
     const balances = await getBalances([
-      { account: 'transfer', walletId: WALLET_IDS.TRANSFER }, // Pomelo
-      { account: 'pay', walletId: WALLET_IDS.PAY }, // B2B
+      { account: 'transfer', walletId: WALLET_IDS.TRANSFER, provider: Provider.KIRA }, // Pomelo - Kira
+      { account: 'pay', walletId: WALLET_IDS.PAY, provider: Provider.KIRA }, // B2B - Kira
+      { account: 'transfer', walletId: WALLET_IDS.TRANSFER, provider: Provider.COBRE }, // Cobre USD balance (same for both accounts)
     ]);
 
     // Handle null values (failed requests)
     pomeloBalances.value = balances[0] || null;
     b2bBalances.value = balances[1] || null;
+    // Cobre balance is the same for both Pomelo and B2B (uses global balance)
+    const cobreBalance = balances[2] || null;
+    cobreBalances.value = cobreBalance; // Cobre balance for Pomelo (transfer)
+    cobreB2BBalances.value = cobreBalance; // Cobre balance for B2B (pay) - same as Pomelo
   } catch (err: any) {
     const errorMessage =
       err.response?.data?.error?.message || err.response?.data?.detail || err.message || 'Error al cargar balances';
@@ -169,20 +199,20 @@ const pomeloQuotes = ref<Quote[]>([
     from: 'USDC', // Default to USDC
     to: 'COP',
     calculatedAmount: '-',
-    rate: '4.005,00',
-    spread: '15bp',
+    rate: '-',
+    spread: '-',
     provider: 'Supra',
     disabled: true,
   },
   {
     amount: '',
-    from: 'USDC', // Default to USDC
-    to: 'BRL',
+    from: 'USD', // Cobre uses USD
+    to: 'COP',
     calculatedAmount: '-',
-    rate: '5,20',
-    spread: '20bp',
+    rate: '-',
+    spread: '-',
     provider: 'Cobre',
-    disabled: true,
+    disabled: false,
   },
   {
     amount: '',
@@ -203,8 +233,8 @@ const pomeloQuotes = ref<Quote[]>([
 //     from: 'USDT',
 //     to: 'MXN',
 //     calculatedAmount: '-',
-//     rate: '18,50',
-//     spread: '22bp',
+//     rate: '-',
+//     spread: '-',
 //     provider: 'Cobre',
 //   },
 // ]);
@@ -216,19 +246,19 @@ const b2bQuotes = ref<Quote[]>([
     to: 'COP',
     calculatedAmount: '-',
     rate: '-', // Will be populated after quote
-    spread: '17bp',
+    spread: '-',
     provider: 'Supra',
     disabled: true,
   },
   {
     amount: '',
-    from: 'USDC', // Default to USDC
+    from: 'USD', // Cobre uses USD (same as Pomelo)
     to: 'COP',
     calculatedAmount: '-',
     rate: '-', // Will be populated after quote
-    spread: '25bp',
+    spread: '-',
     provider: 'Cobre',
-    disabled: true,
+    disabled: false, // Enable Cobre for B2B
   },
   {
     amount: '',
@@ -283,9 +313,9 @@ const b2bRecipients = ref<any[]>([
 
 // Providers based on account type
 const pomeloProviders = computed(() => [
-  { value: 'supra', label: 'Supra', disabled: false },
-  { value: 'cobre', label: 'Cobre', disabled: true },
-  { value: 'kira', label: 'Kira', disabled: true },
+  { value: 'supra', label: 'Supra', disabled: true },
+  { value: 'cobre', label: 'Cobre', disabled: false },
+  { value: 'kira', label: 'Kira', disabled: false },
 ]);
 
 // B2C providers (for future use)

@@ -2,6 +2,12 @@
  * TypeScript types for Monetization API
  */
 
+export enum Provider {
+  KIRA = 'kira',
+  COBRE = 'cobre',
+  SUPRA = 'supra',
+}
+
 export interface Balance {
   token: string;
   amount: string;
@@ -17,10 +23,11 @@ export interface BalanceResponse {
 export interface GetBalanceParams {
   account: 'transfer' | 'pay';
   walletId: string;
+  provider?: Provider;
 }
 
 export interface PayoutRequest {
-  recipient_id: string;
+  recipient_id: string; // UUID of the recipient (id from Recipient)
   wallet_id: string;
   reference: string;
   base_currency: string;
@@ -29,6 +36,8 @@ export interface PayoutRequest {
   quote_id: string;
   quote: QuoteResponse;
   token: string;
+  provider: Provider;
+  user_id?: string; // Optional, will be set by backend
 }
 
 export interface PayoutResponse {
@@ -58,6 +67,7 @@ export interface QuoteRequest {
   amount: number;
   base_currency: string;
   quote_currency: string;
+  provider: Provider;
 }
 
 export interface QuoteResponse {
@@ -75,10 +85,12 @@ export interface QuoteResponse {
   expiration_ts_utc: string;
   network: string | null;
   network_fee: number | null;
+  spread?: number | null; // Spread in basis points
 }
 
 export interface Recipient {
-  recipient_id: string;
+  id?: string; // UUID primary key (preferred)
+  recipient_id?: string; // Legacy field, kept for compatibility (same as id)
   type: string;
   company_name: string | null;
   first_name: string | null;

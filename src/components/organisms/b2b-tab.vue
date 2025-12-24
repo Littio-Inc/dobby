@@ -4,9 +4,11 @@
       :quotes="quotes"
       :usdc-balance="usdcBalance"
       :usdt-balance="usdtBalance"
+      :usd-balance="usdBalance"
       :selected-provider="selectedProvider"
       @update:quote="handleQuoteUpdate"
       @quote="handleQuote"
+      @refresh="handleRefresh"
       @select:provider="handleProviderSelect"
     />
 
@@ -43,7 +45,9 @@ import { ref, computed, nextTick } from 'vue';
 import QuotesTable from '../molecules/quotes-table.vue';
 import ProviderRecipientCard from '../molecules/provider-recipient-card.vue';
 import DialogModal from '../atoms/dialog-modal.vue';
-import { getQuote, getRecipients, createPayout, USER_IDS, WALLET_IDS, type Recipient } from '../../services';
+import { getQuote, getRecipients, createPayout, USER_IDS, WALLET_IDS, Provider, type Recipient } from '../../services';
+import { $userId } from '../../stores/auth-store';
+import { useStore } from '@nanostores/vue';
 
 interface Quote {
   amount: string;
@@ -61,6 +65,7 @@ const props = defineProps<{
   availableProviders: Array<{ value: string; label: string; disabled: boolean }>;
   usdcBalance?: number;
   usdtBalance?: number;
+  usdBalance?: number; // USD balance for Cobre
 }>();
 
 const emit = defineEmits<{
@@ -73,6 +78,16 @@ const selectedRecipient = ref('');
 const isProcessing = ref(false);
 const savedQuote = ref<any>(null);
 const isLoadingRecipients = ref(false);
+
+// Helper function to convert string to Provider enum
+const stringToProvider = (providerStr: string): Provider => {
+  const normalized = (providerStr || '').toLowerCase();
+  if (normalized === 'kira') return Provider.KIRA;
+  if (normalized === 'cobre') return Provider.COBRE;
+  if (normalized === 'supra') return Provider.SUPRA;
+  // Default to KIRA if unknown
+  return Provider.KIRA;
+};
 
 // Dialog state
 const dialog = ref({
@@ -134,9 +149,6 @@ const canMonetize = computed(() => {
   // Must have recipient selected
   if (!selectedRecipient.value) return false;
 
-  // Must have a saved quote
-  if (!savedQuote.value) return false;
-
   // Must have a selected quote with amount
   const selectedQuote = props.quotes.find((q) => q.provider.toLowerCase() === selectedProvider.value);
   if (!selectedQuote) return false;
@@ -152,6 +164,18 @@ const canMonetize = computed(() => {
   } catch {
     return false;
   }
+
+  // For Cobre, we don't need a saved quote (it has fixed rate)
+  if (selectedProvider.value === 'cobre') {
+    // Must have calculated amount (from automatic calculation)
+    if (!selectedQuote.calculatedAmount || selectedQuote.calculatedAmount === '-') return false;
+    // Must have a valid rate
+    if (!selectedQuote.rate || selectedQuote.rate === '-') return false;
+    return true;
+  }
+
+  // For other providers (Kira), must have a saved quote
+  if (!savedQuote.value) return false;
 
   // Must have calculated amount (from quote)
   if (!selectedQuote.calculatedAmount || selectedQuote.calculatedAmount === '-') return false;
@@ -175,16 +199,17 @@ const loadRecipients = async () => {
 
   isLoadingRecipients.value = true;
   try {
-    const userId = USER_IDS.PAY; // B2B uses pay account
-    const response = await getRecipients('pay', userId);
+    const response = await getRecipients('pay', selectedProvider.value);
 
     if (import.meta.env.DEV) {
     }
 
     localRecipients.value = response.recipients.map((r) => {
+      // Use id if available (UUID), otherwise fallback to recipient_id for compatibility
+      const recipientId = r.id || r.recipient_id || '';
       const mapped = {
-        id: r.recipient_id, // Use recipient_id as id for dropdown
-        recipient_id: r.recipient_id,
+        id: recipientId, // Use id (UUID) as primary identifier
+        recipient_id: recipientId, // Keep for compatibility
         company_name: r.company_name ?? null,
         first_name: r.first_name ?? null,
         middle_name: r.middle_name ?? null,
@@ -215,19 +240,94 @@ const loadRecipients = async () => {
   }
 };
 
+// Helper function to update quote with calculated amount
+const updateQuoteWithValue = (index: number, quote: Quote, updatedQuotes: Quote[]) => {
+  let updatedQuote = { ...quote };
+
+  if (!quote.amount) {
+    updatedQuote.calculatedAmount = '-';
+    // Preserve disabled property
+    updatedQuote.disabled = quote.disabled;
+    updatedQuotes[index] = updatedQuote;
+    emit('update:quotes', updatedQuotes);
+    return;
+  }
+
+  try {
+    const cleanAmount = quote.amount.replace(/\./g, '').replace(',', '.');
+    const amount = parseFloat(cleanAmount);
+    if (isNaN(amount) || amount <= 0) {
+      updatedQuote.calculatedAmount = '-';
+      // Preserve disabled property
+      updatedQuote.disabled = quote.disabled;
+      updatedQuotes[index] = updatedQuote;
+      emit('update:quotes', updatedQuotes);
+      return;
+    }
+
+    // For Cobre, use the fixed rate if available
+    const cleanRate = quote.rate.replace(/\./g, '').replace(',', '.');
+    const rate = parseFloat(cleanRate);
+    if (!isNaN(rate) && rate > 0) {
+      const calculated = amount * rate;
+      // Format all currencies with 2 decimals
+      updatedQuote.calculatedAmount = calculated.toLocaleString('es-CO', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    } else {
+      updatedQuote.calculatedAmount = '-';
+    }
+  } catch {
+    updatedQuote.calculatedAmount = '-';
+  }
+
+  // Preserve disabled property
+  updatedQuote.disabled = quote.disabled;
+
+  // Emit update to parent
+  updatedQuotes[index] = updatedQuote;
+  emit('update:quotes', updatedQuotes);
+};
+
 const handleQuoteUpdate = (index: number, quote: Quote) => {
+  const currentQuote = props.quotes[index];
+
+  // Always preserve disabled property from currentQuote (don't allow it to be overridden)
+  // This ensures that quotes that are enabled stay enabled
+  const preservedDisabled = currentQuote.disabled !== undefined ? currentQuote.disabled : false;
+
+  // Create updated quote with preserved disabled property
+  const updatedQuote = { ...currentQuote, ...quote, disabled: preservedDisabled };
+  const updatedQuotes = [...props.quotes];
+  updatedQuotes[index] = updatedQuote;
+
+  // For Cobre, always calculate automatically when amount changes
+  if (quote.provider === 'Cobre' && quote.amount) {
+    // Calculate using the updated quote
+    updateQuoteWithValue(index, updatedQuote, updatedQuotes);
+    return;
+  }
+
   // Don't call updateQuote if we already have a calculatedAmount from a quote API
   // This prevents overwriting the calculatedAmount from the API response
-  const currentQuote = props.quotes[index];
   if (currentQuote.calculatedAmount && currentQuote.calculatedAmount !== '-') {
     // If we already have a calculated amount (from quote API), just update the quote object
-    const updatedQuotes = [...props.quotes];
-    updatedQuotes[index] = { ...currentQuote, ...quote };
     emit('update:quotes', updatedQuotes);
   } else {
     // Otherwise, use the updateQuote logic for manual calculation
-    Object.assign(props.quotes[index], quote);
-    updateQuote(index);
+    updateQuoteWithValue(index, updatedQuote, updatedQuotes);
+  }
+};
+
+const handleRefresh = async (index: number, quote: Quote) => {
+  // For Cobre, refresh means getting a new quote from API
+  if (quote.provider === 'Cobre') {
+    if (!quote.amount) {
+      showDialog('Monto requerido', 'Por favor ingresa un monto para cotizar', 'info');
+      return;
+    }
+    await handleQuote(index, quote);
   }
 };
 
@@ -301,8 +401,30 @@ const handleQuote = async (index: number, quote: Quote) => {
   // Validate balance for selected currency BEFORE making the request
   const usdcBalance = props.usdcBalance ?? 0;
   const usdtBalance = props.usdtBalance ?? 0;
+  const usdBalance = props.usdBalance ?? 0; // USD balance for Cobre
 
-  if (quote.from === 'USDC') {
+  // Check if provider is Cobre and currency is USD
+  const isCobreUSD = quote.provider.toLowerCase() === 'cobre' && quote.from === 'USD';
+
+  if (quote.from === 'USD') {
+    // For Cobre, use USD balance specifically; for others, use USD balance or USDC as fallback
+    const balance = isCobreUSD ? usdBalance : usdBalance > 0 ? usdBalance : usdcBalance;
+
+    if (amount > balance) {
+      showDialog(
+        'Saldo insuficiente',
+        `El monto a cotizar (${amount.toLocaleString('es-CO', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} USD) es mayor al saldo disponible (${balance.toLocaleString('es-CO', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} USD)`,
+        'error',
+      );
+      return;
+    }
+  } else if (quote.from === 'USDC') {
     if (amount > usdcBalance) {
       showDialog(
         'Saldo insuficiente',
@@ -336,17 +458,21 @@ const handleQuote = async (index: number, quote: Quote) => {
 
   try {
     // Call quote API - always send USD to backend
+    // Use quote.provider if available, otherwise use selectedProvider
+    const providerStr = quote.provider?.toLowerCase() || selectedProvider.value || 'kira';
     const quoteResponse = await getQuote('pay', {
       amount,
       base_currency: 'USD', // Siempre enviar USD al backend
       quote_currency: quote.to,
+      provider: stringToProvider(providerStr), // Use provider from quote or selected provider
     });
 
     // Guardar el quote en una variable
     savedQuote.value = quoteResponse;
 
-    // Format balam_rate as number with thousand separators
-    const formattedRate = quoteResponse.balam_rate.toLocaleString('es-CO', {
+    // Format rate from quote response (use rate if available, otherwise balam_rate)
+    const rateValue = quoteResponse.rate || quoteResponse.balam_rate;
+    const formattedRate = rateValue.toLocaleString('es-CO', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
@@ -357,13 +483,24 @@ const handleQuote = async (index: number, quote: Quote) => {
       maximumFractionDigits: 2,
     });
 
+    // Format spread from quote response (in basis points)
+    let formattedSpread = '-';
+    if (quoteResponse.spread !== null && quoteResponse.spread !== undefined) {
+      // Round to nearest integer and format as "Xbp"
+      const spreadBp = Math.round(quoteResponse.spread);
+      formattedSpread = `${spreadBp}bp`;
+    }
+
     // Crear una copia actualizada de las quotes
     const updatedQuotes = [...props.quotes];
+    const currentQuote = updatedQuotes[index];
     updatedQuotes[index] = {
-      ...updatedQuotes[index],
+      ...currentQuote,
       rate: formattedRate,
       calculatedAmount: formattedAmount,
-      spread: updatedQuotes[index].spread || '-',
+      spread: formattedSpread,
+      // Preserve disabled property
+      disabled: currentQuote.disabled,
     };
 
     // Emitir el evento para actualizar las quotes
@@ -377,37 +514,6 @@ const handleQuote = async (index: number, quote: Quote) => {
       error.response?.data?.error?.message || error.message || 'Error al obtener la cotización',
       'error',
     );
-  }
-};
-
-const updateQuote = (index: number) => {
-  const quote = props.quotes[index];
-  if (!quote.amount) {
-    quote.calculatedAmount = '-';
-    return;
-  }
-
-  try {
-    const cleanAmount = quote.amount.replace(/\./g, '').replace(',', '.');
-    const amount = parseFloat(cleanAmount);
-    if (isNaN(amount) || amount <= 0) {
-      quote.calculatedAmount = '-';
-      return;
-    }
-
-    const cleanRate = quote.rate.replace(/\./g, '').replace(',', '.');
-    const rate = parseFloat(cleanRate);
-    if (!isNaN(rate) && rate > 0) {
-      const calculated = amount * rate;
-      quote.calculatedAmount = calculated.toLocaleString('es-CO', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      });
-    } else {
-      quote.calculatedAmount = '-';
-    }
-  } catch {
-    quote.calculatedAmount = '-';
   }
 };
 
@@ -433,13 +539,42 @@ const getRecipientDisplayName = (recipientId: string): string => {
   return displayName;
 };
 
-const handleMonetize = () => {
+const handleMonetize = async () => {
   if (!canMonetize.value) return;
   const selectedQuote = props.quotes.find((q) => q.provider.toLowerCase() === selectedProvider.value);
   if (!selectedQuote) return;
 
-  // Validate that we have a saved quote
-  if (!savedQuote.value) {
+  // For Cobre, get quote from API if we don't have one
+  if (selectedProvider.value === 'cobre' && !savedQuote.value) {
+    try {
+      isProcessing.value = true;
+      const cleanAmount = selectedQuote.amount.replace(/\./g, '').replace(',', '.');
+      const amount = parseFloat(cleanAmount);
+      const quoteResponse = await getQuote('pay', {
+        amount,
+        base_currency: 'USD',
+        quote_currency: selectedQuote.to,
+        provider: stringToProvider(selectedProvider.value),
+      });
+      savedQuote.value = quoteResponse;
+    } catch (error: any) {
+      isProcessing.value = false;
+      const errorMessage =
+        error.response?.data?.detail?.error?.message ||
+        error.response?.data?.error?.message ||
+        error.response?.data?.detail?.message ||
+        error.response?.data?.detail ||
+        error.message ||
+        'Error al obtener la cotización';
+      showDialog('Error', errorMessage, 'error');
+      return;
+    } finally {
+      isProcessing.value = false;
+    }
+  }
+
+  // Validate that we have a saved quote (for non-Cobre providers)
+  if (selectedProvider.value !== 'cobre' && !savedQuote.value) {
     showDialog('Error', 'Por favor, primero cotiza el monto antes de monetizar', 'error');
     return;
   }
@@ -482,9 +617,31 @@ const handleMonetize = () => {
   const confirmationMessage = `Por favor, confirma los siguientes detalles del pago:\n\n💰 Monto: ${fromAmount} ${selectedQuote.from} → ${toAmount} ${selectedQuote.to}\n📊 Tasa: ${rate}\n👤 Destinatario: ${recipientName}\n\n¿Deseas continuar con el pago?`;
 
   // Prepare payout data for later execution
-  const token = selectedQuote.from === 'USDC' ? 'USDC' : selectedQuote.from === 'USDT' ? 'USDT' : 'USDC';
+  // For Cobre (USD), use USDC token; for others, use the same currency
+  const token =
+    selectedQuote.from === 'USD'
+      ? 'USDC'
+      : selectedQuote.from === 'USDC'
+        ? 'USDC'
+        : selectedQuote.from === 'USDT'
+          ? 'USDT'
+          : 'USDC';
   const walletId = WALLET_IDS.PAY; // B2B uses pay wallet
   const reference = `payout-${Date.now()}`;
+
+  // Get current user ID from auth store
+  const currentUserId = useStore($userId);
+
+  // Determine user_id based on provider
+  let userId: string | undefined;
+  if (selectedProvider.value.toLowerCase() === 'kira') {
+    // For Kira, use Kira user_id from environment variables
+    userId = USER_IDS.PAY;
+  } else if (currentUserId.value) {
+    // For other providers (Cobre, Supra), use user_id from database (obtained from login)
+    userId = currentUserId.value;
+  }
+  // If no user_id available, Azkaban will obtain it from database
 
   pendingPayoutData.value = {
     recipient_id: selectedRecipient.value,
@@ -496,6 +653,8 @@ const handleMonetize = () => {
     quote_id: savedQuote.value.quote_id,
     quote: savedQuote.value,
     token: token,
+    provider: stringToProvider(selectedProvider.value),
+    user_id: userId, // Optional: Kira uses env var, others will be set by Azkaban
   };
 
   // Show confirmation dialog
@@ -532,13 +691,18 @@ const executePayout = async (payoutData: any) => {
 
     // Reset form
     selectedRecipient.value = '';
-    const updatedQuotes = [...props.quotes];
-    updatedQuotes.forEach((q) => {
+    const updatedQuotes = props.quotes.map((q) => {
       if (q.provider.toLowerCase() === selectedProvider.value) {
-        q.amount = '';
-        q.calculatedAmount = '-';
-        q.rate = '-';
+        return {
+          ...q,
+          amount: '',
+          calculatedAmount: '-',
+          rate: '-',
+          // Preserve disabled property
+          disabled: q.disabled,
+        };
       }
+      return q;
     });
     emit('update:quotes', updatedQuotes);
     savedQuote.value = null;
