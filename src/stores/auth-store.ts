@@ -77,6 +77,7 @@ export const $error = atom<string>('');
 export const $idToken = atom<string | null>(null);
 export const $otpVerified = atom<boolean>(initialOtpVerified);
 export const $otpSessionId = atom<string | null>(initialOtpSessionId);
+export const $userId = atom<string | null>(null); // User ID from database
 
 // Track if auth has been initialized to avoid multiple listeners
 let authInitialized = false;
@@ -140,6 +141,12 @@ export const initializeAuth = () => {
 
                   const syncResponse = await azkabanApi.post('/v1/users/sync');
                   console.log('[Auth] User synced to database:', syncResponse.data);
+
+                  // Store user_id from database if available
+                  if (syncResponse.data && syncResponse.data.id) {
+                    $userId.set(syncResponse.data.id);
+                    console.log('[Auth] User ID from sync:', syncResponse.data.id);
+                  }
 
                   // The sync response includes the role, use it directly
                   if (syncResponse.data && syncResponse.data.role) {
@@ -239,6 +246,7 @@ export const initializeAuth = () => {
               $isAuthenticated.set(false);
               $user.set(null);
               $idToken.set(null);
+              $userId.set(null);
               $otpVerified.set(false);
               $otpSessionId.set(null);
               clearStoredOtp();
@@ -263,6 +271,7 @@ export const initializeAuth = () => {
           $isAuthenticated.set(false);
           $user.set(null);
           $idToken.set(null);
+          $userId.set(null);
         } finally {
           // Always set loading to false after checking
           $isLoading.set(false);
@@ -277,6 +286,7 @@ export const initializeAuth = () => {
         $isAuthenticated.set(false);
         $user.set(null);
         $idToken.set(null);
+        $userId.set(null);
       },
     );
 
@@ -414,6 +424,7 @@ export const logout = async () => {
     $isAuthenticated.set(false);
     $user.set(null);
     $idToken.set(null);
+    $userId.set(null);
     $otpVerified.set(false);
     $otpSessionId.set(null);
     clearStoredOtp();

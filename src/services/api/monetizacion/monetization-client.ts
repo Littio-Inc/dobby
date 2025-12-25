@@ -16,12 +16,14 @@ import type {
 
 /**
  * Get balance for a specific account and wallet
- * @param params - Account type and wallet ID
+ * @param params - Account type, wallet ID, and optional provider
  * @returns Balance response with available balances
  */
 export async function getBalance(params: GetBalanceParams): Promise<BalanceResponse> {
-  const { account, walletId } = params;
-  const response = await azkabanApi.get<BalanceResponse>(`/v1/payouts/account/${account}/wallets/${walletId}/balances`);
+  const { account, walletId, provider } = params;
+  const url = `/v1/payouts/account/${account}/wallets/${walletId}/balances`;
+  const params_obj = provider ? { provider } : {};
+  const response = await azkabanApi.get<BalanceResponse>(url, { params: params_obj });
   return response.data;
 }
 
@@ -46,9 +48,10 @@ export async function getBalances(params: GetBalanceParams[]): Promise<(BalanceR
  * @returns Quote response with rate and calculated amount
  */
 export async function getQuote(account: 'transfer' | 'pay', quoteParams: QuoteRequest): Promise<QuoteResponse> {
-  const { amount, base_currency, quote_currency } = quoteParams;
+  const { amount, base_currency, quote_currency, provider } = quoteParams;
+  // Provider enum value is already a string (e.g., 'kira', 'cobre', 'supra')
   const response = await azkabanApi.get<QuoteResponse>(
-    `/v1/payouts/account/${account}/quote?amount=${amount}&base_currency=${base_currency}&quote_currency=${quote_currency}`,
+    `/v1/payouts/account/${account}/quote?amount=${amount}&base_currency=${base_currency}&quote_currency=${quote_currency}&provider=${provider}`,
   );
   return response.data;
 }
@@ -56,13 +59,28 @@ export async function getQuote(account: 'transfer' | 'pay', quoteParams: QuoteRe
 /**
  * Get recipients for a specific account and user
  * @param account - Account type (transfer for Pomelo, pay for B2B)
- * @param userId - User ID
+ * @param provider - Provider name (kira, cobre, supra)
  * @returns Recipients response with list of recipients
  */
-export async function getRecipients(account: 'transfer' | 'pay', userId: string): Promise<RecipientsResponse> {
-  const response = await azkabanApi.get<RecipientsResponse>(
-    `/v1/payouts/account/${account}/recipient?user_id=${userId}`,
-  );
+export async function getRecipients(account: 'transfer' | 'pay', provider: string): Promise<RecipientsResponse> {
+  // For Kira, use Kira user_id from environment variables
+  // For other providers, let Azkaban handle user_id from database
+  const encodedAccount = encodeURIComponent(account);
+  const basePath = `/v1/payouts/account/${encodedAccount}/recipient`;
+
+  const params = new URLSearchParams();
+  params.set('provider', provider.toLowerCase());
+
+  if (provider.toLowerCase() === 'kira') {
+    // Use Kira user_id from environment variables
+    const kiraUserId = account === 'transfer' ? USER_IDS.TRANSFER : USER_IDS.PAY;
+    if (kiraUserId) {
+      params.set('user_id', kiraUserId);
+    }
+  }
+
+  const url = `${basePath}?${params.toString()}`;
+  const response = await azkabanApi.get<RecipientsResponse>(url);
   return response.data;
 }
 

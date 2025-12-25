@@ -30,24 +30,21 @@ azkabanApi.interceptors.request.use(
   },
 );
 
-// Response interceptor: Handle errors and refresh token
-const handleAuthError = async (error: AxiosError, apiInstance: typeof azkabanApi) => {
+// Response interceptor: Handle errors
+// Disabled automatic retry to prevent infinite loops
+// 401 errors should be handled by the calling code (e.g., redirect to login)
+const handleAuthError = async (error: AxiosError) => {
+  // Log 401 errors but don't retry automatically to avoid infinite loops
   if (error.response?.status === 401) {
-    const { login } = await import('../auth-store');
-    const newToken = await getIdToken();
-    if (newToken && error.config) {
-      error.config.headers.Authorization = `Bearer ${newToken}`;
-      return apiInstance.request(error.config);
-    } else {
-      await login();
-    }
+    console.warn('[API-Client] 401 Unauthorized - authentication required');
+    // Don't retry - let the calling code handle the error
   }
   return Promise.reject(error);
 };
 
 azkabanApi.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError) => handleAuthError(error, azkabanApi),
+  async (error: AxiosError) => handleAuthError(error),
 );
 
 // Default export for backward compatibility (points to Azkaban)

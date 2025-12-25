@@ -24,9 +24,9 @@
           <p class="text-sm text-neutral-60 mb-2">Destinatario</p>
           <div class="flex items-center gap-4">
             <select
-              :model-value="selectedRecipient"
+              :model-value="selectedRecipient || ''"
               class="flex-1 px-4 py-2.5 border border-neutral-40 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky/20 focus:border-littio-secondary-sky appearance-none cursor-pointer"
-              @change="$emit('update:selectedRecipient', ($event.target as HTMLSelectElement).value)"
+              @change="$emit('update:selectedRecipient', ($event.target as HTMLSelectElement).value || '')"
             >
               <option value="">Seleccionar destinatario</option>
               <option
