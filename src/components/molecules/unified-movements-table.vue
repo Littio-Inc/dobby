@@ -313,6 +313,7 @@ import LoadingSpinner from '../atoms/loading-spinner.vue';
 interface Props {
   provider?: string;
   excludeProvider?: string;
+  movementType?: string;
   title?: string;
   showFees?: boolean;
   showHash?: boolean;
@@ -321,6 +322,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   provider: undefined,
   excludeProvider: undefined,
+  movementType: undefined,
   title: 'Movimientos Unificados',
   showFees: true,
   showHash: false,
@@ -348,7 +350,7 @@ const loadTransactions = async (page: number = 1) => {
   transactionsError.value = null;
 
   try {
-    const params: { provider?: string; exclude_provider?: string; page: number; limit: number } = {
+    const params: { provider?: string; exclude_provider?: string; movement_type?: string; page: number; limit: number } = {
       page,
       limit: limit.value,
     };
@@ -359,6 +361,10 @@ const loadTransactions = async (page: number = 1) => {
 
     if (props.excludeProvider) {
       params.exclude_provider = props.excludeProvider;
+    }
+
+    if (props.movementType) {
+      params.movement_type = props.movementType;
     }
 
     const response = await AzkabanService.getBackofficeTransactions(params);

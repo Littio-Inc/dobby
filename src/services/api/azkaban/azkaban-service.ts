@@ -73,6 +73,7 @@ export interface BackofficeTransactionsResponse {
 export interface GetBackofficeTransactionsParams {
   provider?: string;
   exclude_provider?: string;
+  movement_type?: string;
   page?: number;
   limit?: number;
 }
@@ -91,6 +92,7 @@ export interface CreateBackofficeTransactionParams {
   method?: string;
   status?: string;
   originProvider?: string;
+  movement_type?: string;
 }
 
 export interface ExternalWalletAsset {
@@ -302,6 +304,10 @@ export class AzkabanService {
         queryParams.append('exclude_provider', params.exclude_provider);
       }
 
+      if (params.movement_type) {
+        queryParams.append('movement_type', params.movement_type);
+      }
+
       if (params.page !== undefined) {
         queryParams.append('page', params.page.toString());
       }
@@ -375,6 +381,7 @@ export class AzkabanService {
         status: params.status || 'COMPLETED',
         ...(userEmail && { actor_id: userEmail }),
         ...(params.originProvider && { origin_provider: params.originProvider }),
+        ...(params.movement_type && { movement_type: params.movement_type }),
       };
 
       const response = await azkabanApi.post<BackofficeTransaction>(

@@ -604,11 +604,22 @@
         </div>
       </form>
     </div>
+
+    <!-- Historial de Transacciones Section -->
+    <div class="space-y-6">
+      <UnifiedMovementsTable
+        exclude-provider="kira,cobre"
+        movement-type="monetization"
+        title="Historial de Transacciones"
+        :show-fees="false"
+      />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue';
+import UnifiedMovementsTable from '../molecules/unified-movements-table.vue';
 
 interface Props {
   enableFileUpload?: boolean;
