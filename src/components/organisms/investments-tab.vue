@@ -206,21 +206,13 @@
         </div>
       </div>
 
+      <!-- Movimientos Unificados Section -->
       <UnifiedMovementsTable
         provider="open_trade"
         movement-type="internal"
       />
     </div>
 
-    <div
-      v-if="activeTab === 'history'"
-      class="space-y-4"
-    >
-      <UnifiedMovementsTable
-        provider="open_trade"
-        movement-type="internal"
-      />
-    </div>
   </div>
 </template>
 
