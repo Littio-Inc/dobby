@@ -10,7 +10,19 @@
       </div>
     </div>
 
-    <!-- Metrics Cards Grid -->
+    <!-- Sub-tabs for Investments -->
+    <BackOfficeTabs
+      :active-tab="activeTab"
+      :tabs="tabs"
+      @update:active-tab="handleTabChange"
+    />
+
+    <!-- Content based on active tab -->
+    <div
+      v-if="activeTab === 'vaults'"
+      class="space-y-6"
+    >
+      <!-- Metrics Cards Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <!-- Portafolio Balance Card -->
       <div class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4">
@@ -93,127 +105,160 @@
       </div>
     </div>
 
-    <!-- Vaults Disponibles Section -->
-    <div class="space-y-4">
-      <h3 class="text-xl font-bold text-neutral-80">Vaults Disponibles</h3>
+      <!-- Vaults Disponibles Section -->
+      <div class="space-y-4">
+        <h3 class="text-xl font-bold text-neutral-80">Vaults Disponibles</h3>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div
-          v-for="vault in vaults"
-          :key="vault.id"
-          class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4"
-        >
-          <!-- Vault Title -->
-          <div class="space-y-1">
-            <h4 class="text-lg font-bold text-neutral-80">{{ vault.title }}</h4>
-            <p class="text-xs text-neutral-60">{{ vault.category }}</p>
-          </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div
+            v-for="vault in vaults"
+            :key="vault.id"
+            class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4"
+          >
+            <!-- Vault Title -->
+            <div class="space-y-1">
+              <h4 class="text-lg font-bold text-neutral-80">{{ vault.title }}</h4>
+              <p class="text-xs text-neutral-60">{{ vault.category }}</p>
+            </div>
 
-          <!-- Tags -->
-          <div class="flex flex-wrap gap-2">
-            <span
-              v-for="tag in vault.tags"
-              :key="tag"
-              class="px-2.5 py-1 text-xs font-medium rounded-full bg-neutral-10 text-neutral-70 border border-neutral-20"
-            >
-              {{ tag }}
-            </span>
-          </div>
-
-          <!-- APY -->
-          <div class="space-y-1">
-            <p class="text-xs text-neutral-60">{{ vault.apyLabel }}</p>
-            <p class="text-xl font-bold text-neutral-80">{{ vault.apy }}</p>
-          </div>
-
-          <!-- Token del Vault -->
-          <div class="space-y-1">
-            <p class="text-xs text-neutral-60">Token del Vault</p>
-            <p class="text-base font-semibold text-neutral-80">{{ vault.vaultToken }}</p>
-          </div>
-
-          <!-- My Principal Earning Interest -->
-          <div class="space-y-1">
-            <p class="text-xs text-neutral-60">My Principal Earning Interest</p>
-            <p class="text-base font-semibold text-neutral-80">{{ vault.principalEarning }}</p>
-          </div>
-
-          <!-- Tokens en Vault -->
-          <div class="space-y-1">
-            <p class="text-xs text-neutral-60">Tokens en Vault</p>
-            <p class="text-base font-semibold text-neutral-80">{{ vault.tokensInVault }}</p>
-          </div>
-
-          <!-- Action Buttons -->
-          <div class="flex gap-2 pt-2">
-            <button
-              disabled
-              class="flex-1 px-4 py-2 bg-littio-secondary-sky text-white rounded-lg font-medium hover:bg-littio-secondary-sky/90 transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              @click="handleInvest(vault.id)"
-            >
-              <svg
-                class="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <!-- Tags -->
+            <div class="flex flex-wrap gap-2">
+              <span
+                v-for="tag in vault.tags"
+                :key="tag"
+                class="px-2.5 py-1 text-xs font-medium rounded-full bg-neutral-10 text-neutral-70 border border-neutral-20"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M5 10l7-7m0 0l7 7m-7-7v18"
-                />
-              </svg>
-              Invertir
-            </button>
-            <button
-              disabled
-              class="flex-1 px-4 py-2 border border-neutral-40 bg-white text-neutral-80 rounded-lg font-medium hover:bg-neutral-20/20 transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              @click="handleDivest(vault.id)"
-            >
-              <svg
-                class="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+                {{ tag }}
+              </span>
+            </div>
+
+            <!-- APY -->
+            <div class="space-y-1">
+              <p class="text-xs text-neutral-60">{{ vault.apyLabel }}</p>
+              <p class="text-xl font-bold text-neutral-80">{{ vault.apy }}</p>
+            </div>
+
+            <!-- Token del Vault -->
+            <div class="space-y-1">
+              <p class="text-xs text-neutral-60">Token del Vault</p>
+              <p class="text-base font-semibold text-neutral-80">{{ vault.vaultToken }}</p>
+            </div>
+
+            <!-- My Principal Earning Interest -->
+            <div class="space-y-1">
+              <p class="text-xs text-neutral-60">My Principal Earning Interest</p>
+              <p class="text-base font-semibold text-neutral-80">{{ vault.principalEarning }}</p>
+            </div>
+
+            <!-- Tokens en Vault -->
+            <div class="space-y-1">
+              <p class="text-xs text-neutral-60">Tokens en Vault</p>
+              <p class="text-base font-semibold text-neutral-80">{{ vault.tokensInVault }}</p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-2 pt-2">
+              <button
+                disabled
+                class="flex-1 px-4 py-2 bg-littio-secondary-sky text-white rounded-lg font-medium hover:bg-littio-secondary-sky/90 transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                @click="handleInvest(vault.id)"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                />
-              </svg>
-              Desinvertir
-            </button>
-            <button
-              class="px-3 py-2 border border-neutral-40 bg-white text-neutral-80 rounded-lg hover:bg-neutral-20/20 transition-colors flex items-center justify-center"
-              @click="handleViewDetails(vault.id)"
-            >
-              <svg
-                class="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M5 10l7-7m0 0l7 7m-7-7v18"
+                  />
+                </svg>
+                Invertir
+              </button>
+              <button
+                disabled
+                class="flex-1 px-4 py-2 border border-neutral-40 bg-white text-neutral-80 rounded-lg font-medium hover:bg-neutral-20/20 transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                @click="handleDivest(vault.id)"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                />
-              </svg>
-            </button>
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                  />
+                </svg>
+                Desinvertir
+              </button>
+              <button
+                class="px-3 py-2 border border-neutral-40 bg-white text-neutral-80 rounded-lg hover:bg-neutral-20/20 transition-colors flex items-center justify-center"
+                @click="handleViewDetails(vault.id)"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      <!-- Movimientos Unificados Section -->
+      <UnifiedMovementsTable
+        provider="open_trade"
+        movement-type="internal"
+      />
+    </div>
+
+    <!-- Historial de Operaciones Tab -->
+    <div
+      v-if="activeTab === 'history'"
+      class="space-y-4"
+    >
+      <UnifiedMovementsTable
+        provider="open_trade"
+        movement-type="internal"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
+import BackOfficeTabs from '../molecules/back-office-tabs.vue';
+import UnifiedMovementsTable from '../molecules/unified-movements-table.vue';
+
 // Investments tab - OpenTrade
 // TODO: Replace hardcoded data with API data when endpoints are integrated
+
+const activeTab = ref<'vaults' | 'history'>('vaults');
+
+const tabs = [
+  { value: 'vaults', label: 'Vaults Disponibles' },
+  { value: 'history', label: 'Historial de Operaciones' },
+];
+
+const handleTabChange = (tab: string) => {
+  activeTab.value = tab as 'vaults' | 'history';
+};
 
 interface Vault {
   id: string;
