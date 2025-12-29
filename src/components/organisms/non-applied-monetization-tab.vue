@@ -962,7 +962,14 @@ const handleSubmit = async (eventOrDuplicate?: Event | boolean, duplicateParam: 
 
     const destinationAccount = `${formData.value.destinationBank} - ${formData.value.accountHolder} - ${formData.value.accountType} - ${formData.value.accountNumber}`;
 
-    const movementType = formData.value.operationType as 'transfer_in' | 'transfer_out' | 'payment' | 'withdrawal' | 'transfer' | 'swap_in' | 'swap_out';
+    const movementType = formData.value.operationType as
+      | 'transfer_in'
+      | 'transfer_out'
+      | 'payment'
+      | 'withdrawal'
+      | 'transfer'
+      | 'swap_in'
+      | 'swap_out';
 
     const status = formData.value.status.toUpperCase();
 

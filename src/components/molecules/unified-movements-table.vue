@@ -350,7 +350,13 @@ const loadTransactions = async (page: number = 1) => {
   transactionsError.value = null;
 
   try {
-    const params: { provider?: string; exclude_provider?: string; movement_type?: string; page: number; limit: number } = {
+    const params: {
+      provider?: string;
+      exclude_provider?: string;
+      movement_type?: string;
+      page: number;
+      limit: number;
+    } = {
       page,
       limit: limit.value,
     };
