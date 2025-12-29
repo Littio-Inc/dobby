@@ -39,9 +39,7 @@
         :wallet-token="selectedWalletToken"
       />
 
-      <InvestmentsTab
-        v-if="activeSubTab === 'investments'"
-      />
+      <InvestmentsTab v-if="activeSubTab === 'investments'" />
     </div>
 
     <NonAppliedMovementsTab v-if="activeMainTab === 'non-applied'" />

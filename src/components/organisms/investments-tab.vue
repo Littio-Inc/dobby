@@ -4,7 +4,9 @@
     <div class="flex items-start justify-between gap-4 pb-4 border-b border-neutral-20">
       <div class="space-y-1">
         <h2 class="text-2xl font-bold text-neutral-80 mb-1">Inversiones OpenTrade</h2>
-        <p class="text-sm text-neutral-60">Gestiona inversiones en vaults de OpenTrade de forma controlada y trazable.</p>
+        <p class="text-sm text-neutral-60">
+          Gestiona inversiones en vaults de OpenTrade de forma controlada y trazable.
+        </p>
       </div>
     </div>
 
@@ -14,8 +16,18 @@
       <div class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4">
         <div class="flex items-center gap-2">
           <div class="w-5 h-5 text-neutral-60">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+            <svg
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+              ></path>
             </svg>
           </div>
           <p class="text-sm text-neutral-60">Portafolio Balance</p>
@@ -34,8 +46,18 @@
       <div class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4">
         <div class="flex items-center gap-2">
           <div class="w-5 h-5 text-neutral-60">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+            <svg
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+              ></path>
             </svg>
           </div>
           <p class="text-sm text-neutral-60">APY Promedio</p>
@@ -49,8 +71,18 @@
       <div class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4">
         <div class="flex items-center gap-2">
           <div class="w-5 h-5 text-neutral-60">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+            <svg
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+              ></path>
             </svg>
           </div>
           <p class="text-sm text-neutral-60">Vaults Activos</p>
@@ -115,7 +147,8 @@
           <!-- Action Buttons -->
           <div class="flex gap-2 pt-2">
             <button
-              class="flex-1 px-4 py-2 bg-littio-secondary-sky text-white rounded-lg font-medium hover:bg-littio-secondary-sky/90 transition-colors flex items-center justify-center gap-2 text-sm"
+              disabled
+              class="flex-1 px-4 py-2 bg-littio-secondary-sky text-white rounded-lg font-medium hover:bg-littio-secondary-sky/90 transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               @click="handleInvest(vault.id)"
             >
               <svg
@@ -134,7 +167,8 @@
               Invertir
             </button>
             <button
-              class="flex-1 px-4 py-2 border border-neutral-40 bg-white text-neutral-80 rounded-lg font-medium hover:bg-neutral-20/20 transition-colors flex items-center justify-center gap-2 text-sm"
+              disabled
+              class="flex-1 px-4 py-2 border border-neutral-40 bg-white text-neutral-80 rounded-lg font-medium hover:bg-neutral-20/20 transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               @click="handleDivest(vault.id)"
             >
               <svg
@@ -299,4 +333,3 @@ const handleViewDetails = (vaultId: string) => {
   console.log('View details for vault:', vaultId);
 };
 </script>
-
