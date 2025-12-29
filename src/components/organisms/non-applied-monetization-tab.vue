@@ -982,7 +982,7 @@ const handleSubmit = async (eventOrDuplicate?: Event | boolean, duplicateParam: 
       movement_type: 'monetization',
     });
 
-    success.value = 'Monetización registrada exitosamente.';
+    success.value = `Monetización registrada exitosamente. ID: ${response.id}`;
 
     if (duplicate) {
       formData.value.transactionId = '';
