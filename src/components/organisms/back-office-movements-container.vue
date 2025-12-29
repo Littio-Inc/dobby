@@ -38,6 +38,10 @@
         :wallet-balance="selectedWalletBalance"
         :wallet-token="selectedWalletToken"
       />
+
+      <InvestmentsTab
+        v-if="activeSubTab === 'investments'"
+      />
     </div>
 
     <NonAppliedMovementsTab v-if="activeMainTab === 'non-applied'" />
@@ -50,6 +54,7 @@ import BackOfficeTabs from '../molecules/back-office-tabs.vue';
 import FireblocksDashboardTab from './fireblocks-dashboard-tab.vue';
 import MoveFundsTab from './move-funds-tab.vue';
 import NonAppliedMovementsTab from './non-applied-movements-tab.vue';
+import InvestmentsTab from './investments-tab.vue';
 
 defineProps<{
   lang: string;
@@ -64,11 +69,12 @@ const mainTabs = [
 ];
 
 // Sub-tabs for Applied Movements
-const activeSubTab = ref<'dashboard' | 'move-funds'>('dashboard');
+const activeSubTab = ref<'dashboard' | 'move-funds' | 'investments'>('dashboard');
 
 const appliedSubTabs = [
   { value: 'dashboard', label: 'Dashboard' },
   { value: 'move-funds', label: 'Mover fondos' },
+  { value: 'investments', label: 'Inversiones' },
 ];
 
 // Move funds state
@@ -86,7 +92,7 @@ const handleMainTabChange = (tab: string) => {
 };
 
 const handleSubTabChange = (tab: string) => {
-  activeSubTab.value = tab as 'dashboard' | 'move-funds';
+  activeSubTab.value = tab as 'dashboard' | 'move-funds' | 'investments';
 };
 
 const handleMoveFunds = (payload: { walletId: string; walletName: string; balance: string; token: string | null }) => {
