@@ -9,16 +9,7 @@
       </div>
     </div>
 
-    <BackOfficeTabs
-      :active-tab="activeTab"
-      :tabs="tabs"
-      @update:active-tab="handleTabChange"
-    />
-
-    <div
-      v-if="activeTab === 'vaults'"
-      class="space-y-6"
-    >
+    <div class="space-y-6">
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4">
           <div class="flex items-center gap-2">
@@ -212,25 +203,11 @@
         movement-type="internal"
       />
     </div>
-
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import BackOfficeTabs from '../molecules/back-office-tabs.vue';
 import UnifiedMovementsTable from '../molecules/unified-movements-table.vue';
-
-const activeTab = ref<'vaults' | 'history'>('vaults');
-
-const tabs = [
-  { value: 'vaults', label: 'Vaults Disponibles' },
-  { value: 'history', label: 'Historial de Operaciones' },
-];
-
-const handleTabChange = (tab: string) => {
-  activeTab.value = tab as 'vaults' | 'history';
-};
 
 interface Vault {
   id: string;
