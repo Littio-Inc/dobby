@@ -1,6 +1,5 @@
 <template>
   <div class="space-y-6">
-    <!-- Header Section -->
     <div class="flex items-start justify-between gap-4 pb-4 border-b border-neutral-20">
       <div class="space-y-1">
         <h2 class="text-2xl font-bold text-neutral-80 mb-1">Inversiones OpenTrade</h2>
@@ -10,21 +9,17 @@
       </div>
     </div>
 
-    <!-- Sub-tabs for Investments -->
     <BackOfficeTabs
       :active-tab="activeTab"
       :tabs="tabs"
       @update:active-tab="handleTabChange"
     />
 
-    <!-- Content based on active tab -->
     <div
       v-if="activeTab === 'vaults'"
       class="space-y-6"
     >
-      <!-- Metrics Cards Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <!-- Portafolio Balance Card -->
       <div class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4">
         <div class="flex items-center gap-2">
           <div class="w-5 h-5 text-neutral-60">
@@ -54,7 +49,6 @@
         </div>
       </div>
 
-      <!-- APY Promedio Card -->
       <div class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4">
         <div class="flex items-center gap-2">
           <div class="w-5 h-5 text-neutral-60">
@@ -79,7 +73,6 @@
         </div>
       </div>
 
-      <!-- Vaults Activos Card -->
       <div class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4">
         <div class="flex items-center gap-2">
           <div class="w-5 h-5 text-neutral-60">
@@ -105,7 +98,6 @@
       </div>
     </div>
 
-      <!-- Vaults Disponibles Section -->
       <div class="space-y-4">
         <h3 class="text-xl font-bold text-neutral-80">Vaults Disponibles</h3>
 
@@ -115,13 +107,11 @@
             :key="vault.id"
             class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4"
           >
-            <!-- Vault Title -->
             <div class="space-y-1">
               <h4 class="text-lg font-bold text-neutral-80">{{ vault.title }}</h4>
               <p class="text-xs text-neutral-60">{{ vault.category }}</p>
             </div>
 
-            <!-- Tags -->
             <div class="flex flex-wrap gap-2">
               <span
                 v-for="tag in vault.tags"
@@ -132,31 +122,26 @@
               </span>
             </div>
 
-            <!-- APY -->
             <div class="space-y-1">
               <p class="text-xs text-neutral-60">{{ vault.apyLabel }}</p>
               <p class="text-xl font-bold text-neutral-80">{{ vault.apy }}</p>
             </div>
 
-            <!-- Token del Vault -->
             <div class="space-y-1">
               <p class="text-xs text-neutral-60">Token del Vault</p>
               <p class="text-base font-semibold text-neutral-80">{{ vault.vaultToken }}</p>
             </div>
 
-            <!-- My Principal Earning Interest -->
             <div class="space-y-1">
               <p class="text-xs text-neutral-60">My Principal Earning Interest</p>
               <p class="text-base font-semibold text-neutral-80">{{ vault.principalEarning }}</p>
             </div>
 
-            <!-- Tokens en Vault -->
             <div class="space-y-1">
               <p class="text-xs text-neutral-60">Tokens en Vault</p>
               <p class="text-base font-semibold text-neutral-80">{{ vault.tokensInVault }}</p>
             </div>
 
-            <!-- Action Buttons -->
             <div class="flex gap-2 pt-2">
               <button
                 disabled
@@ -221,14 +206,12 @@
         </div>
       </div>
 
-      <!-- Movimientos Unificados Section -->
       <UnifiedMovementsTable
         provider="open_trade"
         movement-type="internal"
       />
     </div>
 
-    <!-- Historial de Operaciones Tab -->
     <div
       v-if="activeTab === 'history'"
       class="space-y-4"
@@ -245,9 +228,6 @@
 import { ref } from 'vue';
 import BackOfficeTabs from '../molecules/back-office-tabs.vue';
 import UnifiedMovementsTable from '../molecules/unified-movements-table.vue';
-
-// Investments tab - OpenTrade
-// TODO: Replace hardcoded data with API data when endpoints are integrated
 
 const activeTab = ref<'vaults' | 'history'>('vaults');
 
@@ -364,17 +344,14 @@ const vaults: Vault[] = [
 ];
 
 const handleInvest = (vaultId: string) => {
-  // TODO: Implement invest functionality
   console.log('Invest in vault:', vaultId);
 };
 
 const handleDivest = (vaultId: string) => {
-  // TODO: Implement divest functionality
   console.log('Divest from vault:', vaultId);
 };
 
 const handleViewDetails = (vaultId: string) => {
-  // TODO: Implement view details functionality
   console.log('View details for vault:', vaultId);
 };
 </script>
