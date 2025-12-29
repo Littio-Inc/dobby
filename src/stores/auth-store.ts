@@ -101,6 +101,22 @@ export const initializeAuth = () => {
     $isLoading.set(true);
     console.log('[Auth] Loading state set to true, waiting for auth state...');
 
+    // Restore OTP state from localStorage immediately before Firebase auth state changes
+    // This ensures the state is available as early as possible
+    // NOTE: We don't set $isAuthenticated here because we need to wait for the user
+    // to be confirmed by Firebase first
+    const storedOtpUserUid = getStoredOtpUserUid();
+    const storedOtpVerified = getStoredOtpVerified();
+    const storedOtpSessionId = getStoredOtpSessionId();
+
+    if (storedOtpVerified && storedOtpUserUid) {
+      console.log('[Auth] Restoring OTP state from localStorage on init');
+      $otpVerified.set(true);
+      if (storedOtpSessionId) {
+        $otpSessionId.set(storedOtpSessionId);
+      }
+    }
+
     // onAuthStateChanged fires immediately with current user (or null)
     // This ensures we get the auth state right away
     const unsubscribe = onAuthStateChanged(
@@ -170,6 +186,12 @@ export const initializeAuth = () => {
                 } catch (syncError: any) {
                   console.error('[Auth] Error syncing user to database:', syncError);
                   // Don't block authentication if sync fails
+                  // But still set authenticated if OTP is verified
+                  const currentOtpVerified = $otpVerified.get();
+                  if (currentOtpVerified) {
+                    console.log('[Auth] Sync failed but OTP verified, setting authenticated to true');
+                    $isAuthenticated.set(true);
+                  }
                 }
               } catch (tokenError: any) {
                 console.error('Error getting ID token:', tokenError);
@@ -204,39 +226,33 @@ export const initializeAuth = () => {
                 $otpSessionId.set(null);
                 $isAuthenticated.set(false);
                 clearStoredOtp();
-              } else if (currentUserId === user.uid) {
-                // Same user - preserve OTP state
+              } else {
+                // User didn't change or this is first time setting user
+                // If OTP is verified, user should be authenticated
+                // IMPORTANT: Set authenticated state based on OTP verification
+                // This must happen regardless of whether it's the same user or first time
                 if (finalOtpVerified) {
-                  // OTP already verified, keep everything verified
-                  console.log('[Auth] Same user with verified OTP, keeping verification');
+                  // OTP is verified - user should be authenticated
+                  console.log('[Auth] OTP verified, setting authenticated to true', {
+                    currentUserId,
+                    userUid: user.uid,
+                    userChanged,
+                    finalOtpVerified,
+                    isOtpVerifiedBefore: isOtpVerified,
+                  });
                   $isAuthenticated.set(true);
                   // Persist state
                   setStoredOtpVerified(true, user.uid);
-                  // Don't reset anything - preserve OTP state
                 } else {
-                  // Same user but OTP not verified yet
-                  console.log('[Auth] Same user but OTP not verified yet');
+                  // OTP not verified yet
+                  console.log('[Auth] OTP not verified yet, setting authenticated to false', {
+                    currentUserId,
+                    userUid: user.uid,
+                    userChanged,
+                    finalOtpVerified,
+                  });
                   $isAuthenticated.set(false);
                   // Don't reset OTP state here - it may be in progress
-                }
-              } else if (!currentUserId) {
-                // First time setting user in this session
-                // BUT: If OTP is already verified (from localStorage), don't reset it!
-                // This happens when navigating to dashboard after OTP verification
-                if (finalOtpVerified) {
-                  // OTP already verified, keep it verified
-                  console.log('[Auth] First time setting user but OTP already verified, keeping verification');
-                  $isAuthenticated.set(true);
-                  // Persist state
-                  setStoredOtpVerified(true, user.uid);
-                  // Don't reset anything - preserve OTP state
-                } else {
-                  // First time setting user and OTP not verified, reset OTP
-                  console.log('[Auth] First time setting user, resetting OTP');
-                  $otpVerified.set(false);
-                  $isAuthenticated.set(false);
-                  clearStoredOtp();
-                  // Don't reset session_id here - it will be set when OTP is requested
                 }
               }
             } else {
@@ -275,7 +291,22 @@ export const initializeAuth = () => {
         } finally {
           // Always set loading to false after checking
           $isLoading.set(false);
-          console.log('[Auth] Loading state set to false');
+
+          // Final check: if OTP is verified and we have a user, ensure authenticated is true
+          const finalUser = $user.get();
+          const finalOtpVerified = $otpVerified.get();
+          const finalAuthenticated = $isAuthenticated.get();
+
+          if (finalUser && finalOtpVerified && !finalAuthenticated) {
+            console.log('[Auth] Final check: OTP verified but not authenticated, fixing state');
+            $isAuthenticated.set(true);
+          }
+
+          console.log('[Auth] Loading state set to false', {
+            hasUser: !!finalUser,
+            otpVerified: finalOtpVerified,
+            authenticated: $isAuthenticated.get(),
+          });
         }
       },
       (error) => {

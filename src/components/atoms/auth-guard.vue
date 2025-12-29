@@ -26,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch } from 'vue';
+import { onMounted, onUnmounted, watch, ref } from 'vue';
 import { useStore } from '@nanostores/vue';
 import { $isAuthenticated, $isLoading, $otpVerified, initializeAuth } from '../../stores/auth-store';
 import { goTo, Route } from '../../routes/routes';
@@ -36,8 +36,25 @@ const isLoading = useStore($isLoading);
 const otpVerified = useStore($otpVerified);
 
 let timeoutId: ReturnType<typeof setTimeout> | null = null;
+let redirectTimeoutId: ReturnType<typeof setTimeout> | null = null;
+const isRedirecting = ref(false);
+const hasCheckedOnce = ref(false);
 
 const redirectToLogin = () => {
+  // Prevent multiple redirects
+  if (isRedirecting.value) {
+    console.log('[AuthGuard] Already redirecting, skipping');
+    return;
+  }
+
+  // Check if we're already on the login page
+  if (window.location.pathname.includes('/login')) {
+    console.log('[AuthGuard] Already on login page, skipping redirect');
+    return;
+  }
+
+  isRedirecting.value = true;
+  console.log('[AuthGuard] Redirecting to login');
   goTo(Route.LOGIN);
 };
 
@@ -54,22 +71,22 @@ onMounted(() => {
     return;
   }
 
-  // Set a timeout to redirect if still loading after 3 seconds
+  // Set a timeout to redirect if still loading after 5 seconds
   // This prevents infinite loading if Firebase has issues
   timeoutId = setTimeout(() => {
-    if (isLoading.value) {
-      console.warn('Auth check taking too long, redirecting to login');
-      redirectToLogin();
-    } else if (!isAuthenticated.value || !otpVerified.value) {
-      console.warn('Not authenticated or OTP not verified, redirecting to login');
+    if (isLoading.value && !hasCheckedOnce.value) {
+      console.warn('[AuthGuard] Auth check taking too long, redirecting to login');
       redirectToLogin();
     }
-  }, 5000); // Increased timeout to allow Firebase state to fully initialize
+  }, 5000);
 });
 
 onUnmounted(() => {
   if (timeoutId) {
     clearTimeout(timeoutId);
+  }
+  if (redirectTimeoutId) {
+    clearTimeout(redirectTimeoutId);
   }
 });
 
@@ -78,24 +95,64 @@ watch(
   [isLoading, isAuthenticated, otpVerified],
   ([loading, authenticated, verified]) => {
     console.log('[AuthGuard] State changed:', { loading, authenticated, verified });
+
+    // Clear any pending redirect timeout
+    if (redirectTimeoutId) {
+      clearTimeout(redirectTimeoutId);
+      redirectTimeoutId = null;
+    }
+
+    // Only check after loading is complete
     if (!loading) {
-      // Only redirect if BOTH conditions are false after a delay
-      // This allows time for Firebase state to stabilize
-      // IMPORTANT: Give more time for OTP state to be preserved from previous session
-      setTimeout(() => {
+      hasCheckedOnce.value = true;
+
+      // Give Firebase and localStorage time to fully stabilize
+      // This is especially important in local development where state restoration might be slower
+      redirectTimeoutId = setTimeout(() => {
         const currentAuth = isAuthenticated.value;
         const currentOtp = otpVerified.value;
-        console.log('[AuthGuard] Checking state after delay:', { currentAuth, currentOtp });
+        const currentLoading = isLoading.value;
+        const currentPath = window.location.pathname;
 
-        if (!currentAuth || !currentOtp) {
-          console.log('[AuthGuard] Redirecting to login - not authenticated or OTP not verified');
-          redirectToLogin();
-        } else {
-          console.log('[AuthGuard] User authenticated and OTP verified, allowing access');
+        console.log('[AuthGuard] Final state check:', {
+          currentAuth,
+          currentOtp,
+          currentLoading,
+          pathname: currentPath,
+          isRedirecting: isRedirecting.value,
+        });
+
+        // Skip if already redirecting
+        if (isRedirecting.value) {
+          console.log('[AuthGuard] Already redirecting, skipping check');
+          return;
         }
-      }, 1200); // Increased delay to allow Firebase state to fully stabilize and OTP state to be preserved
+
+        // Skip if already on login page
+        if (currentPath.includes('/login')) {
+          console.log('[AuthGuard] Already on login page, no redirect needed');
+          return;
+        }
+
+        // Only redirect if we're sure the user is not authenticated
+        // Don't redirect if we're still loading
+        if (!currentLoading) {
+          if (!currentAuth || !currentOtp) {
+            console.log('[AuthGuard] Redirecting to login - not authenticated or OTP not verified', {
+              authenticated: currentAuth,
+              otpVerified: currentOtp,
+            });
+            redirectToLogin();
+          } else {
+            console.log('[AuthGuard] User authenticated and OTP verified, allowing access');
+            isRedirecting.value = false; // Reset redirect flag if user is authenticated
+          }
+        } else {
+          console.log('[AuthGuard] Still loading, waiting...');
+        }
+      }, 2000); // Increased delay for local development stability
     }
   },
-  { immediate: true },
+  { immediate: false }, // Changed to false to avoid immediate execution before state is ready
 );
 </script>

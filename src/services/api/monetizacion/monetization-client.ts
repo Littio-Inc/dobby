@@ -7,12 +7,14 @@ import { azkabanApi } from '../../../stores/common/api-client';
 import type {
   BalanceResponse,
   GetBalanceParams,
+  PayoutHistoryResponse,
   PayoutRequest,
   PayoutResponse,
   QuoteRequest,
   QuoteResponse,
   RecipientsResponse,
 } from './types';
+import { mapProviderIdToEnum } from './types';
 
 /**
  * Get balance for a specific account and wallet
@@ -93,6 +95,39 @@ export async function getRecipients(account: 'transfer' | 'pay', provider: strin
 export async function createPayout(account: 'transfer' | 'pay', payoutData: PayoutRequest): Promise<PayoutResponse> {
   const response = await azkabanApi.post<PayoutResponse>(`/v1/payouts/account/${account}/payout`, payoutData);
   return response.data;
+}
+
+/**
+ * Get payout history
+ * @param account - Account type (transfer for Pomelo, pay for B2B)
+ * @returns Payout history response with list of payouts
+ */
+export async function getPayoutHistory(account: 'transfer' | 'pay'): Promise<PayoutHistoryResponse> {
+  // API returns provider as numeric ID, but we need to convert to Provider enum
+  interface RawPayoutHistoryItem {
+    provider: number;
+    [key: string]: unknown;
+  }
+
+  interface RawPayoutHistoryResponse {
+    status: string;
+    message: string;
+    data: RawPayoutHistoryItem[];
+    count?: number;
+  }
+
+  const response = await azkabanApi.get<RawPayoutHistoryResponse>(`/v1/payouts/account/${account}/payout`);
+
+  // Convert numeric provider IDs to Provider enum
+  const convertedData = response.data.data.map((item) => ({
+    ...item,
+    provider: mapProviderIdToEnum(item.provider),
+  }));
+
+  return {
+    ...response.data,
+    data: convertedData,
+  };
 }
 
 /**
