@@ -116,3 +116,47 @@ export interface RecipientsResponse {
   recipients: Recipient[];
   total: number;
 }
+
+export interface PayoutHistoryItem {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  initial_currency: string;
+  final_currency: string;
+  initial_amount: string;
+  final_amount: string;
+  rate: string;
+  status: string;
+  user_id: string;
+  provider: Provider;
+  provider_external_id: string | null;
+  provider_response: Record<string, unknown> | null;
+  provider_webhook: Record<string, unknown> | null;
+  additional_data: Record<string, unknown> | null;
+}
+
+/**
+ * Maps numeric provider IDs from API to Provider enum values.
+ * @param providerId - Numeric provider ID from API (1=Kira, 2=Cobre, 3=Supra)
+ * @returns Provider enum value
+ * @throws Error if providerId is not recognized
+ */
+export function mapProviderIdToEnum(providerId: number): Provider {
+  const providerMap: Record<number, Provider> = {
+    1: Provider.KIRA,
+    2: Provider.COBRE,
+    3: Provider.SUPRA,
+  };
+
+  const provider = providerMap[providerId];
+  if (!provider) {
+    throw new Error(`Unknown provider ID: ${providerId}`);
+  }
+  return provider;
+}
+
+export interface PayoutHistoryResponse {
+  status: string;
+  message: string;
+  data: PayoutHistoryItem[];
+}

@@ -49,6 +49,9 @@
         @monetize="handleMonetize"
         @update:quotes="b2bQuotes = $event"
       />
+
+      <!-- Historial de Transacciones - Card debajo de monetización -->
+      <PayoutHistoryTab :account="currentAccount" />
     </div>
 
     <!-- Monetización No Apificados Tab -->
@@ -73,6 +76,7 @@ import MonetizationTabs from '../molecules/monetization-tabs.vue';
 import PomeloTab from './pomelo-tab.vue';
 import B2BTab from './b2b-tab.vue';
 import NonAppliedMonetizationTab from './non-applied-monetization-tab.vue';
+import PayoutHistoryTab from './payout-history-tab.vue';
 
 defineProps<{
   lang: string;
@@ -81,6 +85,12 @@ defineProps<{
 const activeMainTab = ref<'apificados' | 'no-apificados'>('apificados');
 
 const activeSubTab = ref<'pomelo' | 'b2b'>('pomelo');
+
+const currentAccount = computed(() => {
+  // Determine account type based on sub-tab
+  // Pomelo uses 'transfer', B2B uses 'pay'
+  return activeSubTab.value === 'pomelo' ? 'transfer' : 'pay';
+});
 
 const error = ref('');
 const isLoadingBalances = ref(false);
