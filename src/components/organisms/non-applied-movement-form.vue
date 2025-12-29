@@ -340,8 +340,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { AzkabanService } from '../../services/api/azkaban';
+
+interface Props {
+  context?: 'back-office' | 'monetization';
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  context: 'back-office',
+});
 
 interface FormData {
   operationDate: string;
@@ -354,6 +362,10 @@ interface FormData {
   amount: string;
   externalTransactionId: string;
 }
+
+const movementTypeValue = computed(() => {
+  return props.context === 'monetization' ? 'monetization' : 'internal';
+});
 
 const formData = ref<FormData>({
   operationDate: '',
@@ -429,21 +441,18 @@ const handleSubmit = async () => {
       destinationAccount: formData.value.destinationAccount,
       originAccount: formData.value.originAccount,
       notes: formData.value.notes,
+      movement_type: movementTypeValue.value,
     });
 
     success.value = 'Movimiento registrado exitosamente';
     transactionId.value = response.id;
 
-    // Limpiar solo el formulario, mantener el mensaje de éxito visible
     clearForm();
 
-    // Emitir evento para refrescar la tabla
     emit('movement-created');
 
-    // Hacer scroll hacia arriba para mostrar el mensaje de éxito
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err: any) {
-    // Logging seguro: solo información no sensible y condicional al entorno
     if (import.meta.env.DEV) {
       console.error('Error al registrar movimiento:', {
         message: err.message,
@@ -451,7 +460,6 @@ const handleSubmit = async () => {
         stack: err.stack,
       });
     } else {
-      // En producción, solo loguear mensaje básico sin datos sensibles
       console.error('Error al registrar movimiento:', err.message || 'Error desconocido');
     }
 

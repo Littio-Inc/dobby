@@ -421,6 +421,7 @@
       <UnifiedMovementsTable
         ref="movementsTableRef"
         provider="fireblocks"
+        movement-type="internal"
         title="Movimientos Unificados"
       />
     </div>
@@ -1236,6 +1237,7 @@ const handleSubmit = async () => {
         method: 'BLOCKCHAIN',
         status: 'PROCESSING',
         originProvider: originWalletName,
+        movement_type: 'internal',
       });
     } catch (backofficeError: any) {
       console.error('[ExecuteMovementForm] Error creating backoffice transaction:', backofficeError);

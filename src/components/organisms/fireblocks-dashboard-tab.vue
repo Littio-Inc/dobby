@@ -85,7 +85,10 @@
     </div>
 
     <!-- Movimientos Unificados Section -->
-    <UnifiedMovementsTable provider="fireblocks" />
+    <UnifiedMovementsTable
+      provider="fireblocks"
+      movement-type="internal"
+    />
   </div>
 </template>
 
