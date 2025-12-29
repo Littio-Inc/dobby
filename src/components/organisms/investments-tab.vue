@@ -19,84 +19,84 @@
       v-if="activeTab === 'vaults'"
       class="space-y-6"
     >
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4">
-        <div class="flex items-center gap-2">
-          <div class="w-5 h-5 text-neutral-60">
-            <svg
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-              ></path>
-            </svg>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4">
+          <div class="flex items-center gap-2">
+            <div class="w-5 h-5 text-neutral-60">
+              <svg
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                ></path>
+              </svg>
+            </div>
+            <p class="text-sm text-neutral-60">Portafolio Balance</p>
           </div>
-          <p class="text-sm text-neutral-60">Portafolio Balance</p>
+          <div class="space-y-2">
+            <p class="text-2xl font-bold text-neutral-80">
+              $3.125.000 <span class="text-base font-normal text-neutral-60">USDC</span>
+            </p>
+            <p class="text-2xl font-bold text-neutral-80">
+              €430.000 <span class="text-base font-normal text-neutral-60">EURC</span>
+            </p>
+          </div>
         </div>
-        <div class="space-y-2">
-          <p class="text-2xl font-bold text-neutral-80">
-            $3.125.000 <span class="text-base font-normal text-neutral-60">USDC</span>
-          </p>
-          <p class="text-2xl font-bold text-neutral-80">
-            €430.000 <span class="text-base font-normal text-neutral-60">EURC</span>
-          </p>
-        </div>
-      </div>
 
-      <div class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4">
-        <div class="flex items-center gap-2">
-          <div class="w-5 h-5 text-neutral-60">
-            <svg
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-              ></path>
-            </svg>
+        <div class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4">
+          <div class="flex items-center gap-2">
+            <div class="w-5 h-5 text-neutral-60">
+              <svg
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                ></path>
+              </svg>
+            </div>
+            <p class="text-sm text-neutral-60">APY Promedio</p>
           </div>
-          <p class="text-sm text-neutral-60">APY Promedio</p>
+          <div class="space-y-1">
+            <p class="text-3xl font-bold text-green-600">3.28%</p>
+          </div>
         </div>
-        <div class="space-y-1">
-          <p class="text-3xl font-bold text-green-600">3.28%</p>
-        </div>
-      </div>
 
-      <div class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4">
-        <div class="flex items-center gap-2">
-          <div class="w-5 h-5 text-neutral-60">
-            <svg
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
-              ></path>
-            </svg>
+        <div class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4">
+          <div class="flex items-center gap-2">
+            <div class="w-5 h-5 text-neutral-60">
+              <svg
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+                ></path>
+              </svg>
+            </div>
+            <p class="text-sm text-neutral-60">Vaults Activos</p>
           </div>
-          <p class="text-sm text-neutral-60">Vaults Activos</p>
-        </div>
-        <div class="space-y-1">
-          <p class="text-3xl font-bold text-neutral-80">8</p>
+          <div class="space-y-1">
+            <p class="text-3xl font-bold text-neutral-80">8</p>
+          </div>
         </div>
       </div>
-    </div>
 
       <div class="space-y-4">
         <h3 class="text-xl font-bold text-neutral-80">Vaults Disponibles</h3>
