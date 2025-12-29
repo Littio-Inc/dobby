@@ -81,7 +81,7 @@ export interface GetBackofficeTransactionsParams {
 export interface CreateBackofficeTransactionParams {
   operationDate: string;
   operationTime?: string;
-  movementType: 'transfer_in' | 'transfer_out' | 'payment' | 'withdrawal' | 'transfer';
+  movementType: 'transfer_in' | 'transfer_out' | 'payment' | 'withdrawal' | 'transfer' | 'swap_in' | 'swap_out';
   provider: string;
   amount: number;
   currency: string;
@@ -362,7 +362,9 @@ export class AzkabanService {
       const type =
         params.movementType === 'transfer_in' || params.movementType === 'transfer_out'
           ? 'transfer'
-          : params.movementType;
+          : params.movementType === 'swap_in' || params.movementType === 'swap_out'
+            ? params.movementType
+            : params.movementType;
 
       const payload: any = {
         created_at: formattedDate,

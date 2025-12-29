@@ -620,6 +620,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue';
 import UnifiedMovementsTable from '../molecules/unified-movements-table.vue';
+import { AzkabanService } from '../../services/api';
 
 interface Props {
   enableFileUpload?: boolean;
@@ -913,7 +914,6 @@ const handleValidate = async (suppressSuccess = false) => {
       code: 'VALIDATION_ERROR',
       message: 'Por favor, complete todos los campos requeridos marcados en rojo.',
     };
-    // Esperar a que Vue actualice el DOM antes de buscar el elemento
     await nextTick();
     const firstErrorField = document.querySelector('.border-carmine');
     if (firstErrorField) {
@@ -938,7 +938,7 @@ const handleSubmit = async (eventOrDuplicate?: Event | boolean, duplicateParam: 
 
   if (isSubmitting.value) return;
 
-  await handleValidate(true); // Suprimir mensaje de éxito cuando se valida desde submit
+  await handleValidate(true);
   if (error.value?.code === 'VALIDATION_ERROR' || error.value?.code === 'CREATION_DATE_INVALID') {
     return;
   }
@@ -948,7 +948,39 @@ const handleSubmit = async (eventOrDuplicate?: Event | boolean, duplicateParam: 
   success.value = '';
 
   try {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const creationDateTime = new Date(formData.value.creationDate);
+    const operationDate = creationDateTime.toISOString().split('T')[0];
+    const hours = String(creationDateTime.getHours()).padStart(2, '0');
+    const minutes = String(creationDateTime.getMinutes()).padStart(2, '0');
+    const seconds = String(creationDateTime.getSeconds()).padStart(2, '0');
+    const operationTime = `${hours}:${minutes}:${seconds}.000`;
+
+    const parsedAmount = parseFloat(formData.value.initialAmount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      throw new Error('El monto inicial debe ser un número válido mayor a cero.');
+    }
+
+    const destinationAccount = `${formData.value.destinationBank} - ${formData.value.accountHolder} - ${formData.value.accountType} - ${formData.value.accountNumber}`;
+
+    const movementType = formData.value.operationType as 'transfer_in' | 'transfer_out' | 'payment' | 'withdrawal' | 'transfer' | 'swap_in' | 'swap_out';
+
+    const status = formData.value.status.toUpperCase();
+
+    const response = await AzkabanService.createBackofficeTransaction({
+      operationDate: operationDate,
+      operationTime: operationTime,
+      movementType: movementType,
+      provider: formData.value.provider,
+      amount: parsedAmount,
+      currency: formData.value.initialCurrency,
+      externalTransactionId: formData.value.transactionId,
+      destinationAccount: destinationAccount,
+      originAccount: formData.value.provider,
+      notes: formData.value.internalNotes || undefined,
+      method: formData.value.operationType,
+      status: status,
+      movement_type: 'monetization',
+    });
 
     success.value = 'Monetización registrada exitosamente.';
 
@@ -967,10 +999,16 @@ const handleSubmit = async (eventOrDuplicate?: Event | boolean, duplicateParam: 
     setTimeout(() => {
       success.value = '';
     }, 5000);
-  } catch (err: unknown) {
+  } catch (err: any) {
     let errorMessage = 'Error al guardar la monetización. Por favor, intente nuevamente.';
 
-    if (err instanceof Error) {
+    if (err.response?.data?.detail) {
+      errorMessage = err.response.data.detail;
+    } else if (err.response?.data?.message) {
+      errorMessage = err.response.data.message;
+    } else if (err.message && !err.message.includes('status code')) {
+      errorMessage = err.message;
+    } else if (err instanceof Error) {
       errorMessage = err.message;
     } else if (typeof err === 'string') {
       errorMessage = err;
