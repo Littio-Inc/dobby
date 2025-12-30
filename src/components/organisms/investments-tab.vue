@@ -10,6 +10,12 @@
     </div>
 
     <div class="space-y-6">
+      <LoadingSpinner
+        v-if="isLoading"
+        message="Cargando información de inversiones..."
+      />
+
+      <template v-else>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4">
           <div class="flex items-center gap-2">
@@ -32,10 +38,10 @@
           </div>
           <div class="space-y-2">
             <p class="text-2xl font-bold text-neutral-80">
-              $3.125.000 <span class="text-base font-normal text-neutral-60">USDC</span>
+                ${{ formatNumber(portfolioBalanceUSDC) }} <span class="text-base font-normal text-neutral-60">USDC</span>
             </p>
             <p class="text-2xl font-bold text-neutral-80">
-              €430.000 <span class="text-base font-normal text-neutral-60">EURC</span>
+                €{{ formatNumber(portfolioBalanceEURC) }} <span class="text-base font-normal text-neutral-60">EURC</span>
             </p>
           </div>
         </div>
@@ -60,7 +66,12 @@
             <p class="text-sm text-neutral-60">APY Promedio</p>
           </div>
           <div class="space-y-1">
-            <p class="text-3xl font-bold text-green-600">3.28%</p>
+              <template v-if="averageAPY !== null">
+                <p class="text-3xl font-bold text-green-600">{{ averageAPY.toFixed(2) }}%</p>
+              </template>
+              <template v-else>
+                <p class="text-3xl font-bold text-green-600">-</p>
+              </template>
           </div>
         </div>
 
@@ -84,7 +95,7 @@
             <p class="text-sm text-neutral-60">Vaults Activos</p>
           </div>
           <div class="space-y-1">
-            <p class="text-3xl font-bold text-neutral-80">8</p>
+              <p class="text-3xl font-bold text-neutral-80">{{ activeVaultsCount }}</p>
           </div>
         </div>
       </div>
@@ -92,7 +103,11 @@
       <div class="space-y-4">
         <h3 class="text-xl font-bold text-neutral-80">Vaults Disponibles</h3>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div v-if="vaults.length === 0" class="text-center py-8 text-neutral-60">
+            No hay vaults disponibles
+          </div>
+
+          <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div
             v-for="vault in vaults"
             :key="vault.id"
@@ -115,7 +130,10 @@
 
             <div class="space-y-1">
               <p class="text-xs text-neutral-60">{{ vault.apyLabel }}</p>
-              <p class="text-xl font-bold text-neutral-80">{{ vault.apy }}</p>
+              <p class="text-xl font-bold text-neutral-80">
+                <template v-if="vault.apy === 'Variable'">-</template>
+                <template v-else>{{ vault.apy }}</template>
+              </p>
             </div>
 
             <div class="space-y-1">
@@ -175,8 +193,9 @@
                 Desinvertir
               </button>
               <button
+                v-if="getExplorerUrl(vault.chainConfigName, vault.poolAddr)"
                 class="px-3 py-2 border border-neutral-40 bg-white text-neutral-80 rounded-lg hover:bg-neutral-20/20 transition-colors flex items-center justify-center"
-                @click="handleViewDetails(vault.id)"
+                @click="handleViewOnExplorer(vault.chainConfigName, vault.poolAddr)"
               >
                 <svg
                   class="w-4 h-4"
@@ -202,12 +221,16 @@
         provider="open_trade"
         movement-type="internal"
       />
+      </template>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, computed, onMounted } from 'vue';
 import UnifiedMovementsTable from '../molecules/unified-movements-table.vue';
+import LoadingSpinner from '../atoms/loading-spinner.vue';
+import { AzkabanService, type OpentradeVault, type OpentradeVaultOverviewResponse, type OpentradeVaultAccountResponse } from '../../services/api/azkaban';
 
 interface Vault {
   id: string;
@@ -219,98 +242,267 @@ interface Vault {
   vaultToken: string;
   principalEarning: string;
   tokensInVault: string;
+  poolAddr: string;
+  liquidityAssetAddr: string;
+  chainConfigName: string;
 }
 
-const vaults: Vault[] = [
-  {
-    id: '1',
-    title: 'Flexible Term USDC Vault AVAX',
-    category: 'Money Market / Liquidity',
-    tags: ['USDC', 'Avalanche', 'v4.0', 'Flexible'],
-    apy: '3.55%',
+const vaults = ref<Vault[]>([]);
+const isLoading = ref(true);
+const portfolioBalanceUSDC = ref(0);
+const portfolioBalanceEURC = ref(0);
+const averageAPY = ref<number | null>(null);
+const activeVaultsCount = ref(0);
+
+// Función para formatear números grandes
+const formatNumber = (value: number | string): string => {
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(num)) return '0';
+  
+  if (num >= 1000000) {
+    return (num / 1000000).toLocaleString('es-ES', {
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
+    }) + 'M';
+  }
+  
+  return num.toLocaleString('es-ES', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+// Función para convertir puntos base a porcentaje
+const basisPointsToPercentage = (basisPoints: string): number => {
+  const bp = parseFloat(basisPoints);
+  if (isNaN(bp)) return 0;
+  return bp / 100; // 1500 basis points = 15.00%
+};
+
+// Función para formatear balance de asset
+const formatAssetBalance = (balance: string, decimals: number = 6): string => {
+  const num = parseFloat(balance);
+  if (isNaN(num) || num === 0) return '0.00';
+  
+  // Si el balance viene en wei o unidades más pequeñas, dividir por 10^decimals
+  // Asumimos que los balances ya vienen en unidades normales
+  return num.toLocaleString('es-ES', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+// Función para obtener el símbolo de la moneda desde el token symbol
+const getCurrencySymbol = (tokenSymbol: string): string => {
+  const upper = tokenSymbol.toUpperCase();
+  if (upper.includes('USDC') || upper.includes('MUSDC')) return 'USDC';
+  if (upper.includes('EURC') || upper.includes('MEURC')) return 'EURC';
+  return tokenSymbol;
+};
+
+// Función para obtener tags del vault
+const getVaultTags = (vault: OpentradeVault): string[] => {
+  const tags: string[] = [];
+  
+  // Agregar token de liquidez
+  const currency = getCurrencySymbol(vault.liquidity_token_symbol);
+  tags.push(currency);
+  
+  // Agregar chain name
+  tags.push(vault.chain_config_name.replace('Sandbox', ''));
+  
+  // Agregar versión del contrato si está disponible
+  if (vault.contract_name) {
+    tags.push(vault.contract_name);
+  }
+  
+  // Agregar tipo de pool
+  if (vault.pool_type === 2) {
+    tags.push('Dynamic');
+  }
+  
+  return tags;
+};
+
+// Función para obtener la categoría del vault
+const getVaultCategory = (vault: OpentradeVault): string => {
+  const name = vault.display_name.toLowerCase();
+  if (name.includes('money market')) return 'Tokenized Money Market Fund';
+  if (name.includes('corporate bond') || name.includes('bond')) return 'Fixed Income Strategy';
+  if (name.includes('dynamic')) return 'Money Market / Liquidity';
+  return 'Liquidity Vault';
+};
+
+// Función para obtener el APY correcto del overview
+// Prioriza interest_rate (APY fijo) sobre indicative_interest_rate (APY indicativo)
+const getAPYFromOverview = (overview: OpentradeVaultOverviewResponse): { apy: string; apyLabel: string } => {
+  // Primero intentar con interest_rate (APY fijo)
+  const interestRate = basisPointsToPercentage(overview.vault_overview_cto.interest_rate);
+  if (interestRate > 0) {
+    return {
+      apy: `${interestRate.toFixed(2)}%`,
+    apyLabel: 'APY',
+    };
+  }
+  
+  // Si no hay interest_rate, usar indicative_interest_rate (APY indicativo)
+  const indicativeRate = basisPointsToPercentage(overview.vault_overview_cto.indicative_interest_rate);
+  if (indicativeRate > 0) {
+    return {
+      apy: `${indicativeRate.toFixed(2)}%`,
     apyLabel: 'Indicative APY',
-    vaultToken: 'FTUSDC',
-    principalEarning: '125,000.00 USDC',
-    tokensInVault: '125.000 FTUSDC',
-  },
-  {
-    id: '2',
-    title: 'Franklin Templeton Benji MMF Vault',
-    category: 'Tokenized Money Market Fund',
-    tags: ['USDC', 'Avalanche', 'v5.0', 'Flexible'],
-    apy: '3.35%',
-    apyLabel: 'Indicative APY',
-    vaultToken: 'BENJI',
-    principalEarning: '250,000.00 USDC',
-    tokensInVault: '250.000 BENJI',
-  },
-  {
-    id: '3',
-    title: 'USDC Liquidity Vault 1',
-    category: 'Liquidity Vault',
-    tags: ['USDC', 'Avalanche', 'v5.0', 'Flexible'],
+    };
+  }
+  
+  // Si ninguno está disponible, retornar Variable
+  return {
     apy: 'Variable',
     apyLabel: 'APY',
-    vaultToken: 'USDCLV1',
-    principalEarning: '1,500,000.00 USDC',
-    tokensInVault: '1.500.000 USDCLV1',
-  },
-  {
-    id: '4',
-    title: 'USDC Liquidity Vault 2',
-    category: 'Liquidity Vault',
-    tags: ['USDC', 'Avalanche', 'v5.0', 'Flexible'],
-    apy: 'Variable',
-    apyLabel: 'APY',
-    vaultToken: 'USDCLV2',
-    principalEarning: '0.00 USDC',
-    tokensInVault: '0.00 USDCLV2',
-  },
-  {
-    id: '5',
-    title: 'USDC Money Market Fund (Fidelity) V5 Vault',
-    category: 'Tokenized Money Market Fund',
-    tags: ['USDC', 'Avalanche', 'v5.0', 'Flexible'],
-    apy: '3.55%',
-    apyLabel: 'Indicative APY',
-    vaultToken: 'FMMF',
-    principalEarning: '500,000.00 USDC',
-    tokensInVault: '500.000 FMMF',
-  },
-  {
-    id: '6',
-    title: 'Diversified Fixed Income Strategy',
-    category: 'Fixed Income Strategy',
-    tags: ['USDC', 'Avalanche', 'v5.0', 'Flexible'],
-    apy: '4.22%',
-    apyLabel: 'Indicative APY',
-    vaultToken: 'XDFIS',
-    principalEarning: '750,000.00 USDC',
-    tokensInVault: '750.000 XDFIS',
-  },
-  {
-    id: '7',
-    title: 'EURC Liquidity Vault 1',
-    category: 'Liquidity Vault',
-    tags: ['EURC', 'Avalanche', 'v5.0', 'Flexible'],
-    apy: 'Variable',
-    apyLabel: 'APY',
-    vaultToken: 'EURCLV1',
-    principalEarning: '350,000.00 EURC',
-    tokensInVault: '350.000 EURCLV1',
-  },
-  {
-    id: '8',
-    title: 'Flexible Term EURC Vault (AVAX)',
-    category: 'Money Market / Liquidity',
-    tags: ['EURC', 'Avalanche', 'v4.0', 'Flexible'],
-    apy: '1.73%',
-    apyLabel: 'APY',
-    vaultToken: 'FTEURC',
-    principalEarning: '80,000.00 EURC',
-    tokensInVault: '80.000 FTEURC',
-  },
-];
+  };
+};
+
+// Función para obtener la URL del explorador de blockchain basada en chain_config_name
+const getExplorerUrl = (chainConfigName: string, poolAddr: string): string | null => {
+  // Remover "Sandbox" del nombre si está presente (para producción)
+  const chainName = chainConfigName.replace('Sandbox', '').toLowerCase();
+  
+  if (chainName.includes('fuji')) {
+    // Avalanche Fuji testnet
+    return `https://testnet.snowtrace.io/address/${poolAddr}`;
+  } else if (chainName.includes('sepolia')) {
+    // Ethereum Sepolia testnet
+    return `https://sepolia.etherscan.io/address/${poolAddr}`;
+  }
+  
+  // Si no coincide con ninguna chain conocida, retornar null
+  return null;
+};
+
+const loadVaultsData = async () => {
+  try {
+    isLoading.value = true;
+    
+    // 1. Obtener lista de vaults
+    const vaultsList = await AzkabanService.getOpentradeVaults();
+    activeVaultsCount.value = vaultsList.length;
+    
+    // 2. Obtener overview de cada vault para calcular APY promedio
+    const apyPromises = vaultsList.map(async (vault) => {
+      try {
+        const overview = await AzkabanService.getOpentradeVaultOverview(vault.pool_addr);
+        // Priorizar interest_rate, si no está disponible usar indicative_interest_rate
+        const interestRate = basisPointsToPercentage(overview.vault_overview_cto.interest_rate);
+        if (interestRate > 0) {
+          return interestRate;
+        }
+        const indicativeRate = basisPointsToPercentage(overview.vault_overview_cto.indicative_interest_rate);
+        if (indicativeRate > 0) {
+          return indicativeRate;
+        }
+        return null;
+      } catch (error) {
+        console.warn(`[InvestmentsTab] Error fetching overview for vault ${vault.pool_addr}:`, error);
+        return null;
+      }
+    });
+    
+    const apyValues = (await Promise.all(apyPromises)).filter((apy): apy is number => apy !== null);
+    
+    if (apyValues.length > 0) {
+      const sum = apyValues.reduce((acc, val) => acc + val, 0);
+      averageAPY.value = sum / apyValues.length;
+    }
+    
+    // 3. Obtener información de cuenta para cada vault y calcular balances
+    let totalUSDC = 0;
+    let totalEURC = 0;
+    
+    const vaultDataPromises = vaultsList.map(async (vault) => {
+      try {
+        // Usar liquidity_asset_addr como account_addr
+        const accountData = await AzkabanService.getOpentradeVaultAccount(
+          vault.pool_addr,
+          vault.liquidity_asset_addr,
+        );
+        
+        const currency = getCurrencySymbol(vault.liquidity_token_symbol);
+        const assetBalance = parseFloat(accountData.vault_account_cto.current_asset_value || '0');
+        
+        if (currency === 'USDC') {
+          totalUSDC += assetBalance;
+        } else if (currency === 'EURC') {
+          totalEURC += assetBalance;
+        }
+        
+        // Obtener APY del overview
+        let apy = 'Variable';
+        let apyLabel = 'APY';
+        try {
+          const overview = await AzkabanService.getOpentradeVaultOverview(vault.pool_addr);
+          const apyData = getAPYFromOverview(overview);
+          apy = apyData.apy;
+          apyLabel = apyData.apyLabel;
+        } catch (error) {
+          console.warn(`[InvestmentsTab] Error fetching APY for vault ${vault.pool_addr}:`, error);
+        }
+        
+        return {
+          id: vault.pool_addr,
+          title: vault.display_name,
+          category: getVaultCategory(vault),
+          tags: getVaultTags(vault),
+          apy,
+          apyLabel,
+          vaultToken: vault.symbol,
+          principalEarning: `${formatAssetBalance(accountData.vault_account_cto.principal_earning_interest)} ${currency}`,
+          tokensInVault: `${formatAssetBalance(accountData.vault_account_cto.token_balance)} ${vault.symbol}`,
+          poolAddr: vault.pool_addr,
+          liquidityAssetAddr: vault.liquidity_asset_addr,
+          chainConfigName: vault.chain_config_name,
+        };
+      } catch (error) {
+        console.warn(`[InvestmentsTab] Error fetching account data for vault ${vault.pool_addr}:`, error);
+        
+        // Retornar datos básicos si falla la obtención de cuenta
+        let apy = 'Variable';
+        let apyLabel = 'APY';
+        try {
+          const overview = await AzkabanService.getOpentradeVaultOverview(vault.pool_addr);
+          const apyData = getAPYFromOverview(overview);
+          apy = apyData.apy;
+          apyLabel = apyData.apyLabel;
+        } catch (err) {
+          // Ignorar error de overview
+        }
+        
+        return {
+          id: vault.pool_addr,
+          title: vault.display_name,
+          category: getVaultCategory(vault),
+          tags: getVaultTags(vault),
+          apy,
+          apyLabel,
+          vaultToken: vault.symbol,
+          principalEarning: `0.00 ${getCurrencySymbol(vault.liquidity_token_symbol)}`,
+          tokensInVault: `0.00 ${vault.symbol}`,
+          poolAddr: vault.pool_addr,
+          liquidityAssetAddr: vault.liquidity_asset_addr,
+          chainConfigName: vault.chain_config_name,
+        };
+      }
+    });
+    
+    vaults.value = await Promise.all(vaultDataPromises);
+    
+    portfolioBalanceUSDC.value = totalUSDC;
+    portfolioBalanceEURC.value = totalEURC;
+    
+  } catch (error) {
+    console.error('[InvestmentsTab] Error loading vaults data:', error);
+  } finally {
+    isLoading.value = false;
+  }
+};
 
 const handleInvest = (vaultId: string) => {
   console.log('Invest in vault:', vaultId);
@@ -320,7 +512,14 @@ const handleDivest = (vaultId: string) => {
   console.log('Divest from vault:', vaultId);
 };
 
-const handleViewDetails = (vaultId: string) => {
-  console.log('View details for vault:', vaultId);
+const handleViewOnExplorer = (chainConfigName: string, poolAddr: string) => {
+  const explorerUrl = getExplorerUrl(chainConfigName, poolAddr);
+  if (explorerUrl) {
+    window.open(explorerUrl, '_blank', 'noopener,noreferrer');
+  }
 };
+
+onMounted(() => {
+  loadVaultsData();
+});
 </script>
