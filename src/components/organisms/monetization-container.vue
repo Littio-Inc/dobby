@@ -34,6 +34,7 @@
         :usdc-balance="pomeloUSDC"
         :usdt-balance="pomeloUSDT"
         :usd-balance="cobreUSDBalance"
+        :supra-usd-balance="supraUSDBalance"
         @monetize="handleMonetize"
         @update:quotes="pomeloQuotes = $event"
       />
@@ -46,6 +47,7 @@
         :usdc-balance="b2bUSDC"
         :usdt-balance="b2bUSDT"
         :usd-balance="cobreB2BUSDBalance"
+        :supra-usd-balance="supraB2BUSDBalance"
         @monetize="handleMonetize"
         @update:quotes="b2bQuotes = $event"
       />
@@ -100,6 +102,8 @@ const pomeloBalances = ref<BalanceResponse | null>(null);
 const b2bBalances = ref<BalanceResponse | null>(null);
 const cobreBalances = ref<BalanceResponse | null>(null); // Cobre balance for Pomelo (transfer)
 const cobreB2BBalances = ref<BalanceResponse | null>(null); // Cobre balance for B2B (pay)
+const supraBalances = ref<BalanceResponse | null>(null); // Supra balance for Pomelo (transfer)
+const supraB2BBalances = ref<BalanceResponse | null>(null); // Supra balance for B2B (pay)
 
 // Individual Pomelo token balances
 const pomeloUSDC = computed(() => {
@@ -134,6 +138,26 @@ const cobreB2BUSDBalance = computed(() => {
   return usd ? parseFloat(usd.amount || '0') : 0;
 });
 
+// Supra USD balance for Pomelo (transfer)
+// Note: Supra uses the same global balance for both account types
+const supraUSDBalance = computed(() => {
+  // Use supraBalances (transfer) or supraB2BBalances (pay) - both should be the same
+  const balanceSource = supraBalances.value || supraB2BBalances.value;
+  if (!balanceSource || !balanceSource.balances) return 0;
+  const usd = balanceSource.balances.find((b) => b.token === 'USD');
+  return usd ? parseFloat(usd.amount || '0') : 0;
+});
+
+// Supra USD balance for B2B (pay)
+// Note: Supra uses the same global balance for both account types
+const supraB2BUSDBalance = computed(() => {
+  // Use supraB2BBalances (pay) or supraBalances (transfer) as fallback - both should be the same
+  const balanceSource = supraB2BBalances.value || supraBalances.value;
+  if (!balanceSource || !balanceSource.balances) return 0;
+  const usd = balanceSource.balances.find((b) => b.token === 'USD');
+  return usd ? parseFloat(usd.amount || '0') : 0;
+});
+
 // Individual B2B token balances
 const b2bUSDC = computed(() => {
   if (!b2bBalances.value || !b2bBalances.value.balances) return 0;
@@ -152,11 +176,12 @@ const loadBalances = async () => {
   isLoadingBalances.value = true;
   error.value = '';
   try {
-    // Cobre uses the same balance for both account types, so we only need one call
+    // Cobre and Supra use the same balance for both account types, so we only need one call each
     const balances = await getBalances([
       { account: 'transfer', walletId: WALLET_IDS.TRANSFER, provider: Provider.KIRA }, // Pomelo - Kira
       { account: 'pay', walletId: WALLET_IDS.PAY, provider: Provider.KIRA }, // B2B - Kira
       { account: 'transfer', walletId: WALLET_IDS.TRANSFER, provider: Provider.COBRE }, // Cobre USD balance (same for both accounts)
+      { account: 'transfer', walletId: WALLET_IDS.TRANSFER, provider: Provider.SUPRA }, // Supra USD balance (same for both accounts)
     ]);
 
     // Handle null values (failed requests)
@@ -166,6 +191,10 @@ const loadBalances = async () => {
     const cobreBalance = balances[2] || null;
     cobreBalances.value = cobreBalance; // Cobre balance for Pomelo (transfer)
     cobreB2BBalances.value = cobreBalance; // Cobre balance for B2B (pay) - same as Pomelo
+    // Supra balance is the same for both Pomelo and B2B (uses global balance)
+    const supraBalance = balances[3] || null;
+    supraBalances.value = supraBalance; // Supra balance for Pomelo (transfer)
+    supraB2BBalances.value = supraBalance; // Supra balance for B2B (pay) - same as Pomelo
   } catch (err: any) {
     const errorMessage =
       err.response?.data?.error?.message || err.response?.data?.detail || err.message || 'Error al cargar balances';
@@ -206,13 +235,13 @@ interface Quote {
 const pomeloQuotes = ref<Quote[]>([
   {
     amount: '',
-    from: 'USDC', // Default to USDC
+    from: 'USD', // Supra uses USD (same as Cobre)
     to: 'COP',
     calculatedAmount: '-',
     rate: '-',
     spread: '-',
     provider: 'Supra',
-    disabled: true,
+    disabled: false,
   },
   {
     amount: '',
@@ -252,13 +281,13 @@ const pomeloQuotes = ref<Quote[]>([
 const b2bQuotes = ref<Quote[]>([
   {
     amount: '',
-    from: 'USDC', // Default to USDC
+    from: 'USD', // Supra uses USD (same as Cobre)
     to: 'COP',
     calculatedAmount: '-',
     rate: '-', // Will be populated after quote
     spread: '-',
     provider: 'Supra',
-    disabled: true,
+    disabled: false, // Enable Supra for B2B
   },
   {
     amount: '',
@@ -323,7 +352,7 @@ const b2bRecipients = ref<any[]>([
 
 // Providers based on account type
 const pomeloProviders = computed(() => [
-  { value: 'supra', label: 'Supra', disabled: true },
+  { value: 'supra', label: 'Supra', disabled: false },
   { value: 'cobre', label: 'Cobre', disabled: false },
   { value: 'kira', label: 'Kira', disabled: false },
 ]);

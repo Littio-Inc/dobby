@@ -86,6 +86,9 @@ export interface QuoteResponse {
   network: string | null;
   network_fee: number | null;
   spread?: number | null; // Spread in basis points
+  // Supra-specific fields
+  supra_quote_id?: string; // Real Supra quote ID
+  exchange_confirmation_token?: string; // Required for Supra exchange_convert
 }
 
 export interface Recipient {
