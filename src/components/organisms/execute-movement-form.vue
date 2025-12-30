@@ -1006,7 +1006,6 @@ const estimateTransactionFee = async () => {
     feeOptions.value = null;
     formData.value.transactionSpeed = '';
 
-
     if (err.response) {
       const status = err.response.status;
       const errorData = err.response.data;
