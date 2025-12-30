@@ -1232,12 +1232,15 @@ const handleSubmit = async () => {
 
     try {
       if (isInternalTransfer) {
-        const transferInResponse = await AzkabanService.createBackofficeTransaction({
+        const transferId = crypto.randomUUID();
+
+        await AzkabanService.createBackofficeTransaction({
           ...commonParams,
           movementType: 'transfer_in',
           destinationAccount: originWalletName,
           originAccount: destinationWalletName,
           originProvider: destinationWalletName,
+          transfer_id: transferId,
         });
 
         await AzkabanService.createBackofficeTransaction({
@@ -1246,7 +1249,7 @@ const handleSubmit = async () => {
           destinationAccount: destinationWalletName,
           originAccount: originWalletName,
           originProvider: originWalletName,
-          transfer_id: transferInResponse.id,
+          transfer_id: transferId,
         });
       } else if (isWithdrawal) {
         await AzkabanService.createBackofficeTransaction({
