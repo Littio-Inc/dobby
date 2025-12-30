@@ -287,6 +287,21 @@ const basisPointsToPercentage = (basisPoints: string): number => {
   return bp / 100;
 };
 
+/**
+ * Obtiene el número de decimales para un token basándose en su símbolo
+ * @param tokenSymbol - Símbolo del token (ej: 'USDC', 'EURC')
+ * @returns Número de decimales del token (default: 6 para stablecoins comunes)
+ */
+const getTokenDecimals = (tokenSymbol: string): number => {
+  const upper = tokenSymbol.toUpperCase();
+  // USDC y EURC típicamente usan 6 decimales
+  if (upper.includes('USDC') || upper.includes('MUSDC')) return 6;
+  if (upper.includes('EURC') || upper.includes('MEURC')) return 6;
+  // Por defecto, asumimos 6 decimales para tokens no especificados
+  // Esto puede necesitar ajustarse cuando se agreguen nuevos tokens con diferentes decimales
+  return 6;
+};
+
 const formatAssetBalance = (balance: string, _decimals: number = 6): string => {
   const num = parseFloat(balance);
   if (isNaN(num) || num === 0) return '0.00';
@@ -373,25 +388,38 @@ const loadVaultsData = async () => {
     const vaultsList = await AzkabanService.getOpentradeVaults();
     activeVaultsCount.value = vaultsList.length;
 
-    const apyPromises = vaultsList.map(async (vault) => {
+    // Fetch all vault overviews once
+    const overviewPromises = vaultsList.map(async (vault) => {
       try {
         const overview = await AzkabanService.getOpentradeVaultOverview(vault.pool_addr);
-        const interestRate = basisPointsToPercentage(overview.vault_overview_cto.interest_rate);
-        if (interestRate > 0) {
-          return interestRate;
-        }
-        const indicativeRate = basisPointsToPercentage(overview.vault_overview_cto.indicative_interest_rate);
-        if (indicativeRate > 0) {
-          return indicativeRate;
-        }
-        return null;
+        return { poolAddr: vault.pool_addr, overview };
       } catch (error) {
         console.warn(`[InvestmentsTab] Error fetching overview for vault ${vault.pool_addr}:`, error);
-        return null;
+        return { poolAddr: vault.pool_addr, overview: null };
       }
     });
 
-    const apyValues = (await Promise.all(apyPromises)).filter((apy): apy is number => apy !== null);
+    const overviewResults = await Promise.all(overviewPromises);
+    const overviewsMap = new Map<string, OpentradeVaultOverviewResponse | null>();
+    overviewResults.forEach(({ poolAddr, overview }) => {
+      overviewsMap.set(poolAddr, overview);
+    });
+
+    // Calculate average APY using the overviewsMap
+    const apyValues: number[] = [];
+    overviewsMap.forEach((overview) => {
+      if (overview) {
+        const interestRate = basisPointsToPercentage(overview.vault_overview_cto.interest_rate);
+        if (interestRate > 0) {
+          apyValues.push(interestRate);
+        } else {
+          const indicativeRate = basisPointsToPercentage(overview.vault_overview_cto.indicative_interest_rate);
+          if (indicativeRate > 0) {
+            apyValues.push(indicativeRate);
+          }
+        }
+      }
+    });
 
     if (apyValues.length > 0) {
       const sum = apyValues.reduce((acc, val) => acc + val, 0);
@@ -403,11 +431,16 @@ const loadVaultsData = async () => {
 
     const vaultDataPromises = vaultsList.map(async (vault) => {
       try {
+        // Note: Using liquidity_asset_addr as accountAddr parameter.
+        // The OpentradeVault type doesn't have an account_addr field, but the API
+        // endpoint expects an account address. Verify with API documentation if this is correct.
         const accountData = await AzkabanService.getOpentradeVaultAccount(vault.pool_addr, vault.liquidity_asset_addr);
 
         const currency = getCurrencySymbol(vault.liquidity_token_symbol);
+        const tokenDecimals = getTokenDecimals(vault.liquidity_token_symbol);
+        const divisor = Math.pow(10, tokenDecimals);
         const rawValue = accountData.vault_account_cto.current_asset_value || '0';
-        const assetBalance = parseFloat(rawValue) / 1000000;
+        const assetBalance = parseFloat(rawValue) / divisor;
 
         if (currency === 'USDC') {
           totalUSDC += assetBalance;
@@ -415,15 +448,14 @@ const loadVaultsData = async () => {
           totalEURC += assetBalance;
         }
 
+        // Use overviewsMap instead of making another service call
         let apy = 'Variable';
         let apyLabel = 'APY';
-        try {
-          const overview = await AzkabanService.getOpentradeVaultOverview(vault.pool_addr);
+        const overview = overviewsMap.get(vault.pool_addr);
+        if (overview) {
           const apyData = getAPYFromOverview(overview);
           apy = apyData.apy;
           apyLabel = apyData.apyLabel;
-        } catch (error) {
-          console.warn(`[InvestmentsTab] Error fetching APY for vault ${vault.pool_addr}:`, error);
         }
 
         return {
@@ -434,8 +466,8 @@ const loadVaultsData = async () => {
           apy,
           apyLabel,
           vaultToken: vault.symbol,
-          principalEarning: `${formatAssetBalance(accountData.vault_account_cto.principal_earning_interest)} ${currency}`,
-          tokensInVault: `${formatAssetBalance(accountData.vault_account_cto.token_balance)} ${vault.symbol}`,
+          principalEarning: `${formatAssetBalance(accountData.vault_account_cto.principal_earning_interest, tokenDecimals)} ${currency}`,
+          tokensInVault: `${formatAssetBalance(accountData.vault_account_cto.token_balance, tokenDecimals)} ${vault.symbol}`,
           poolAddr: vault.pool_addr,
           liquidityAssetAddr: vault.liquidity_asset_addr,
           chainConfigName: vault.chain_config_name,
@@ -443,14 +475,17 @@ const loadVaultsData = async () => {
       } catch (error) {
         console.warn(`[InvestmentsTab] Error fetching account data for vault ${vault.pool_addr}:`, error);
 
+        // Use overviewsMap instead of making another service call
         let apy = 'Variable';
         let apyLabel = 'APY';
-        try {
-          const overview = await AzkabanService.getOpentradeVaultOverview(vault.pool_addr);
+        const overview = overviewsMap.get(vault.pool_addr);
+        if (overview) {
           const apyData = getAPYFromOverview(overview);
           apy = apyData.apy;
           apyLabel = apyData.apyLabel;
-        } catch {}
+        }
+
+        const currency = getCurrencySymbol(vault.liquidity_token_symbol);
 
         return {
           id: vault.pool_addr,
@@ -460,7 +495,7 @@ const loadVaultsData = async () => {
           apy,
           apyLabel,
           vaultToken: vault.symbol,
-          principalEarning: `0.00 ${getCurrencySymbol(vault.liquidity_token_symbol)}`,
+          principalEarning: `0.00 ${currency}`,
           tokensInVault: `0.00 ${vault.symbol}`,
           poolAddr: vault.pool_addr,
           liquidityAssetAddr: vault.liquidity_asset_addr,
