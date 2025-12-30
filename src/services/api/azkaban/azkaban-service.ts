@@ -687,10 +687,7 @@ export class AzkabanService {
    * @param accountAddr - Dirección de la cuenta
    * @returns Respuesta con la información de la cuenta del vault
    */
-  static async getOpentradeVaultAccount(
-    poolAddr: string,
-    accountAddr: string,
-  ): Promise<OpentradeVaultAccountResponse> {
+  static async getOpentradeVaultAccount(poolAddr: string, accountAddr: string): Promise<OpentradeVaultAccountResponse> {
     try {
       const response = await azkabanApi.get<OpentradeVaultAccountResponse>(
         `${AZKABAN_ENDPOINTS.GET_OPENTRADE_VAULT_ACCOUNT}/${poolAddr}/${accountAddr}`,
