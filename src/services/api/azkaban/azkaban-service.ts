@@ -96,6 +96,7 @@ export interface CreateBackofficeTransactionParams {
   status?: string;
   originProvider?: string;
   movement_type?: string;
+  transfer_id?: string;
 }
 
 export interface ExternalWalletAsset {
@@ -548,6 +549,7 @@ export class AzkabanService {
         ...(userEmail && { actor_id: userEmail }),
         ...(params.originProvider && { origin_provider: params.originProvider }),
         ...(params.movement_type && { movement_type: params.movement_type }),
+        ...(params.transfer_id && { transfer_id: params.transfer_id }),
       };
 
       const response = await azkabanApi.post<BackofficeTransaction>(

@@ -1221,24 +1221,89 @@ const handleSubmit = async () => {
     const milliseconds = now.getMilliseconds().toString().padStart(3, '0');
     const operationTime = `${hours}:${minutes}:${seconds}.${milliseconds}`; // HH:mm:ss.SSS
 
-    // Crear movimiento en backoffice
+    // Determinar el tipo de movimiento según el tipo de operación
+    const isInternalTransfer = formData.value.operationType === 'internal_rebalancing';
+    const isWithdrawal =
+      formData.value.operationType === 'prefunding_provider' || formData.value.operationType === 'b2c_funding';
+
+    // Crear movimiento(s) en backoffice
     try {
-      await AzkabanService.createBackofficeTransaction({
-        operationDate,
-        operationTime,
-        movementType: 'transfer',
-        provider: 'fireblocks',
-        amount: parseFloat(formData.value.amount),
-        currency: formData.value.token.toUpperCase(),
-        externalTransactionId: response.id,
-        destinationAccount: destinationWalletName,
-        originAccount: originWalletName,
-        notes: formData.value.notes || undefined,
-        method: 'BLOCKCHAIN',
-        status: 'PROCESSING',
-        originProvider: originWalletName,
-        movement_type: 'internal',
-      });
+      if (isInternalTransfer) {
+        // Para rebalanceo interno: crear dos transacciones (transfer_out y transfer_in)
+        // Primero crear transfer_in para obtener su ID
+        const transferInResponse = await AzkabanService.createBackofficeTransaction({
+          operationDate,
+          operationTime,
+          movementType: 'transfer_in',
+          provider: 'fireblocks',
+          amount: parseFloat(formData.value.amount),
+          currency: formData.value.token.toUpperCase(),
+          externalTransactionId: response.id,
+          destinationAccount: originWalletName, // Orden invertido: el destino ahora es el origen
+          originAccount: destinationWalletName, // El origen ahora es el destino
+          notes: formData.value.notes || undefined,
+          method: 'BLOCKCHAIN',
+          status: 'PROCESSING',
+          originProvider: destinationWalletName,
+          movement_type: 'internal',
+        });
+
+        // Transfer OUT: dinero sale de originWallet
+        // Incluir el ID de transfer_in en transfer_id para facilitar la búsqueda
+        await AzkabanService.createBackofficeTransaction({
+          operationDate,
+          operationTime,
+          movementType: 'transfer_out',
+          provider: 'fireblocks',
+          amount: parseFloat(formData.value.amount),
+          currency: formData.value.token.toUpperCase(),
+          externalTransactionId: response.id,
+          destinationAccount: destinationWalletName,
+          originAccount: originWalletName,
+          notes: formData.value.notes || undefined,
+          method: 'BLOCKCHAIN',
+          status: 'PROCESSING',
+          originProvider: originWalletName,
+          movement_type: 'internal',
+          transfer_id: transferInResponse.id, // Referencia al transfer_in para facilitar la búsqueda
+        });
+      } else if (isWithdrawal) {
+        // Para prefondeo proveedor y fondeo B2C: usar withdrawal (sale dinero sin contexto de vuelta)
+        await AzkabanService.createBackofficeTransaction({
+          operationDate,
+          operationTime,
+          movementType: 'withdrawal',
+          provider: 'fireblocks',
+          amount: parseFloat(formData.value.amount),
+          currency: formData.value.token.toUpperCase(),
+          externalTransactionId: response.id,
+          destinationAccount: destinationWalletName,
+          originAccount: originWalletName,
+          notes: formData.value.notes || undefined,
+          method: 'BLOCKCHAIN',
+          status: 'PROCESSING',
+          originProvider: originWalletName,
+          movement_type: 'internal',
+        });
+      } else {
+        // Fallback: usar transfer por defecto
+        await AzkabanService.createBackofficeTransaction({
+          operationDate,
+          operationTime,
+          movementType: 'transfer',
+          provider: 'fireblocks',
+          amount: parseFloat(formData.value.amount),
+          currency: formData.value.token.toUpperCase(),
+          externalTransactionId: response.id,
+          destinationAccount: destinationWalletName,
+          originAccount: originWalletName,
+          notes: formData.value.notes || undefined,
+          method: 'BLOCKCHAIN',
+          status: 'PROCESSING',
+          originProvider: originWalletName,
+          movement_type: 'internal',
+        });
+      }
     } catch (backofficeError: any) {
       console.error('[ExecuteMovementForm] Error creating backoffice transaction:', backofficeError);
       // No fallar la transacción principal si falla el backoffice, solo loguear el error
