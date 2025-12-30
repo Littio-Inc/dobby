@@ -1006,13 +1006,11 @@ const estimateTransactionFee = async () => {
     feeOptions.value = null;
     formData.value.transactionSpeed = '';
 
-    // Distinguir entre diferentes tipos de errores
     if (err.response) {
       const status = err.response.status;
       const errorData = err.response.data;
 
       if (status === 400 || status === 422) {
-        // Errores de validación
         feeError.value =
           errorData?.message ||
           errorData?.detail ||
@@ -1020,22 +1018,18 @@ const estimateTransactionFee = async () => {
       } else if (status === 404) {
         feeError.value = 'No se pudo encontrar la información necesaria para estimar los fees.';
       } else if (status >= 500) {
-        // Errores del servidor
         feeError.value = 'Error del servidor al calcular los fees. Por favor, intente nuevamente en unos momentos.';
       } else if (status === 401 || status === 403) {
         feeError.value = 'No tiene permisos para estimar los fees. Por favor, verifique su sesión.';
       } else {
-        // Otros errores HTTP
         feeError.value =
           errorData?.message ||
           errorData?.detail ||
           `Error al calcular los fees (código ${status}). Por favor, intente nuevamente.`;
       }
     } else if (err.request) {
-      // Errores de red (sin respuesta del servidor)
       feeError.value = 'No se pudo conectar con el servidor para calcular los fees. Verifique su conexión a internet.';
     } else {
-      // Otros errores
       feeError.value = err.message || 'Error al calcular los fees. Por favor, intente nuevamente.';
     }
   } finally {
@@ -1197,7 +1191,6 @@ const handleSubmit = async () => {
 
     const response = await AzkabanService.createTransaction(transactionRequest);
 
-    // Obtener nombres de las wallets
     const originAccount = accounts.value.find((acc) => acc.id === formData.value.originWallet);
     const originWalletName = originAccount?.name || formData.value.originWallet;
 
@@ -1212,41 +1205,67 @@ const handleSubmit = async () => {
       destinationWalletName = destinationWallet?.name || formData.value.destinationWallet;
     }
 
-    // Crear fecha actual
     const now = new Date();
-    const operationDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const operationDate = now.toISOString().split('T')[0];
     const hours = now.getHours().toString().padStart(2, '0');
     const minutes = now.getMinutes().toString().padStart(2, '0');
     const seconds = now.getSeconds().toString().padStart(2, '0');
     const milliseconds = now.getMilliseconds().toString().padStart(3, '0');
-    const operationTime = `${hours}:${minutes}:${seconds}.${milliseconds}`; // HH:mm:ss.SSS
+    const operationTime = `${hours}:${minutes}:${seconds}.${milliseconds}`;
 
-    // Crear movimiento en backoffice
+    const isInternalTransfer = formData.value.operationType === 'internal_rebalancing';
+    const isWithdrawal =
+      formData.value.operationType === 'prefunding_provider' || formData.value.operationType === 'b2c_funding';
+
+    const commonParams = {
+      operationDate,
+      operationTime,
+      provider: 'fireblocks',
+      amount: parseFloat(formData.value.amount),
+      currency: formData.value.token.toUpperCase(),
+      externalTransactionId: response.id,
+      notes: formData.value.notes || undefined,
+      method: 'BLOCKCHAIN',
+      status: 'PROCESSING',
+      movement_type: 'internal',
+    };
+
     try {
-      await AzkabanService.createBackofficeTransaction({
-        operationDate,
-        operationTime,
-        movementType: 'transfer',
-        provider: 'fireblocks',
-        amount: parseFloat(formData.value.amount),
-        currency: formData.value.token.toUpperCase(),
-        externalTransactionId: response.id,
-        destinationAccount: destinationWalletName,
-        originAccount: originWalletName,
-        notes: formData.value.notes || undefined,
-        method: 'BLOCKCHAIN',
-        status: 'PROCESSING',
-        originProvider: originWalletName,
-        movement_type: 'internal',
-      });
+      if (isInternalTransfer) {
+        const transferId = crypto.randomUUID();
+
+        await AzkabanService.createBackofficeTransaction({
+          ...commonParams,
+          movementType: 'transfer_in',
+          destinationAccount: originWalletName,
+          originAccount: destinationWalletName,
+          originProvider: destinationWalletName,
+          transfer_id: transferId,
+        });
+
+        await AzkabanService.createBackofficeTransaction({
+          ...commonParams,
+          movementType: 'transfer_out',
+          destinationAccount: destinationWalletName,
+          originAccount: originWalletName,
+          originProvider: originWalletName,
+          transfer_id: transferId,
+        });
+      } else if (isWithdrawal) {
+        await AzkabanService.createBackofficeTransaction({
+          ...commonParams,
+          movementType: 'withdrawal',
+          destinationAccount: destinationWalletName,
+          originAccount: originWalletName,
+          originProvider: originWalletName,
+        });
+      }
     } catch (backofficeError: any) {
       console.error('[ExecuteMovementForm] Error creating backoffice transaction:', backofficeError);
-      // No fallar la transacción principal si falla el backoffice, solo loguear el error
     }
 
     success.value = `Movimiento ejecutado exitosamente. ID de transacción: ${response.id}`;
 
-    // Refrescar la tabla de movimientos unificados
     if (movementsTableRef.value) {
       movementsTableRef.value.refresh();
     }
