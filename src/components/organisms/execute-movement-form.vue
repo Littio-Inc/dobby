@@ -1259,14 +1259,6 @@ const handleSubmit = async () => {
           originAccount: originWalletName,
           originProvider: originWalletName,
         });
-      } else {
-        await AzkabanService.createBackofficeTransaction({
-          ...commonParams,
-          movementType: 'transfer',
-          destinationAccount: destinationWalletName,
-          originAccount: originWalletName,
-          originProvider: originWalletName,
-        });
       }
     } catch (backofficeError: any) {
       console.error('[ExecuteMovementForm] Error creating backoffice transaction:', backofficeError);
