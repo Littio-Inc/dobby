@@ -8,6 +8,9 @@ const AZKABAN_ENDPOINTS = {
   GET_EXTERNAL_WALLETS: '/v1/vault/external-wallets',
   ESTIMATE_FEE: '/v1/vault/transactions/estimate-fee',
   CREATE_TRANSACTION: '/v1/vault/transactions/create-transaction',
+  GET_OPENTRADE_VAULTS: '/v1/opentrade/vaults',
+  GET_OPENTRADE_VAULT_ACCOUNT: '/v1/opentrade/vaultsAccount',
+  GET_OPENTRADE_VAULT_OVERVIEW: '/v1/opentrade/vaults',
 } as const;
 
 export interface DiagonAsset {
@@ -163,6 +166,167 @@ export interface CreateTransactionRequest {
 export interface CreateTransactionResponse {
   id: string;
   status: string;
+}
+
+export interface OpentradeVault {
+  display_name: string;
+  chain_id: number;
+  contract_name: string;
+  pool_type: number;
+  chain_config_name: string;
+  creation_block: number;
+  creation_timestamp: number;
+  symbol: string;
+  name: string;
+  liquidity_asset_addr: string;
+  liquidity_token_symbol: string;
+  currency_label: string;
+  pool_addr: string;
+}
+
+export interface OpentradeVaultsResponse {
+  vault_list: OpentradeVault[];
+}
+
+export interface CollateralSetCto {
+  exchange_rate_automation: string;
+  timestamp: number;
+  collateral: any[];
+  pool_addr: string;
+}
+
+export interface VaultAccountCto {
+  yield_type: string;
+  rollover_collateral: string;
+  automatic_rollover: boolean;
+  early_withdrawal_processing_period: number;
+  maximum_transfer_amount: number;
+  minimum_transfer_amount: number;
+  contractual_currency: string;
+  liquidity_fee_rate: number;
+  platform_fee_rate: number;
+  advisory_fee_rate: number;
+  transfer_out_days: number;
+  transfer_in_days: number;
+  benchmark_rate: string;
+  collateral: any[];
+  collateral_set_cto: CollateralSetCto;
+  timestamp_offchain: number;
+  pool_addr_offchain: string;
+  version: string;
+  pool_type: number;
+  id: string;
+  timestamp: number;
+  timestamp_date_string: string;
+  timestamp_string: string;
+  day_number: number;
+  time_of_day: number;
+  block_number: number;
+  vault_name: string;
+  currency_label: string;
+  liquidity_token_symbol: string;
+  pool_addr: string;
+  account_addr: string;
+  liquidity_asset_addr: string;
+  token_balance: string;
+  asset_balance: string;
+  principal_earning_interest: string;
+  max_withdraw_request: string;
+  max_redeem_request: string;
+  requested_shares_of: string;
+  requested_assets_of: string;
+  accepted_shares: string;
+  accepted_assets: string;
+  assets_deposited: string;
+  assets_withdrawn: string;
+  current_asset_value: string;
+  gain_loss: string;
+  gain_loss_in_day: string;
+  credits: string;
+  credits_in_day: string;
+  debits: string;
+  debits_in_day: string;
+  fees: string;
+  fees_in_day: string;
+  interest_rate: string;
+  exchange_rate: string;
+  indicative_interest_rate: string;
+  collateral_rate: string;
+}
+
+export interface OpentradeVaultAccountResponse {
+  vault_account_cto: VaultAccountCto;
+  vault_address: string;
+  account_address: string;
+}
+
+export interface VaultOverviewCto {
+  yield_type: string;
+  rollover_collateral: string;
+  automatic_rollover: boolean;
+  early_withdrawal_processing_period: number;
+  maximum_transfer_amount: number;
+  minimum_transfer_amount: number;
+  contractual_currency: string;
+  liquidity_fee_rate: number;
+  platform_fee_rate: number;
+  advisory_fee_rate: number;
+  transfer_out_days: number;
+  transfer_in_days: number;
+  benchmark_rate: string;
+  collateral: any[];
+  collateral_set_cto: CollateralSetCto;
+  timestamp_offchain: number;
+  pool_addr_offchain: string;
+  version: string;
+  pool_type: number;
+  pool_addr: string;
+  id: string;
+  chain_configuration_name: string;
+  creation_block: number;
+  creation_timestamp: number;
+  liquidity_token_symbol: string;
+  currency_label: string;
+  pool_admin_addr: string;
+  pool_controller_addr: string;
+  exchange_rate_type: number;
+  name: string;
+  symbol: string;
+  borrower_manager_addr: string;
+  borrower_wallet_addr: string;
+  close_of_deposit_time: number;
+  close_of_withdraw_time: number;
+  fee_collector_address: string;
+  liquidity_asset_addr: string;
+  block_number: number;
+  timestamp: number;
+  timestamp_date_string: string;
+  timestamp_string: string;
+  time_of_day: number;
+  day_number: number;
+  chain_id: number;
+  state: number;
+  total_assets_deposited: string;
+  total_assets_withdrawn: string;
+  interest_rate: string;
+  exchange_rate: string;
+  exchange_rate_at_set_day: string;
+  exchange_rate_set_day: number;
+  exchange_rate_change_rate: string;
+  exchange_rate_compounding_rate: string;
+  exchange_rate_at_maturity: string;
+  exchange_rate_maturity_day: number;
+  indicative_interest_rate: string;
+  collateral_rate: string;
+  total_interest_accrued: string;
+  total_shares: string;
+  total_assets: string;
+  total_outstanding_loan_principal: string;
+}
+
+export interface OpentradeVaultOverviewResponse {
+  vault_overview_cto: VaultOverviewCto;
+  vault_address: string;
 }
 
 /**
@@ -493,6 +657,66 @@ export class AzkabanService {
         }
       }
 
+      throw error;
+    }
+  }
+
+  /**
+   * Obtiene el listado de vaults de OpenTrade
+   * @returns Respuesta con la lista de vaults disponibles
+   */
+  static async getOpentradeVaults(): Promise<OpentradeVault[]> {
+    try {
+      const response = await azkabanApi.get<OpentradeVaultsResponse>(AZKABAN_ENDPOINTS.GET_OPENTRADE_VAULTS);
+
+      if (!Array.isArray(response.data.vault_list)) {
+        console.warn('[AzkabanService] Unexpected response format for opentrade vaults:', response.data);
+        return [];
+      }
+
+      return response.data.vault_list;
+    } catch (error) {
+      console.error('[AzkabanService] Error fetching opentrade vaults:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtiene la información de una cuenta de vault específica de OpenTrade
+   * @param poolAddr - Dirección del pool del vault
+   * @param accountAddr - Dirección de la cuenta
+   * @returns Respuesta con la información de la cuenta del vault
+   */
+  static async getOpentradeVaultAccount(
+    poolAddr: string,
+    accountAddr: string,
+  ): Promise<OpentradeVaultAccountResponse> {
+    try {
+      const response = await azkabanApi.get<OpentradeVaultAccountResponse>(
+        `${AZKABAN_ENDPOINTS.GET_OPENTRADE_VAULT_ACCOUNT}/${poolAddr}/${accountAddr}`,
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error('[AzkabanService] Error fetching opentrade vault account:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtiene la información general (overview) de un vault específico de OpenTrade
+   * @param poolAddr - Dirección del pool del vault
+   * @returns Respuesta con la información general del vault
+   */
+  static async getOpentradeVaultOverview(poolAddr: string): Promise<OpentradeVaultOverviewResponse> {
+    try {
+      const response = await azkabanApi.get<OpentradeVaultOverviewResponse>(
+        `${AZKABAN_ENDPOINTS.GET_OPENTRADE_VAULT_OVERVIEW}/${poolAddr}`,
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error('[AzkabanService] Error fetching opentrade vault overview:', error);
       throw error;
     }
   }
