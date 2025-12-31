@@ -5,6 +5,7 @@
       :usdc-balance="usdcBalance"
       :usdt-balance="usdtBalance"
       :usd-balance="usdBalance"
+      :supra-usd-balance="supraUsdBalance"
       :selected-provider="selectedProvider"
       @update:quote="handleQuoteUpdate"
       @quote="handleQuote"
@@ -69,6 +70,7 @@ const props = defineProps<{
   usdcBalance?: number;
   usdtBalance?: number;
   usdBalance?: number; // USD balance for Cobre
+  supraUsdBalance?: number; // USD balance for Supra
 }>();
 
 // Local recipients state (loaded from API)
@@ -175,8 +177,9 @@ const canMonetize = computed(() => {
     return false;
   }
 
-  // For Cobre, we don't need a saved quote (it has fixed rate)
-  if ((selectedProvider.value || '').toLowerCase() === 'cobre') {
+  // For Cobre and Supra, we don't need a saved quote (they have fixed rate)
+  const providerLower = (selectedProvider.value || '').toLowerCase();
+  if (providerLower === 'cobre' || providerLower === 'supra') {
     // Must have calculated amount (from automatic calculation)
     if (!selectedQuote.calculatedAmount || selectedQuote.calculatedAmount === '-') return false;
     // Must have a valid rate
@@ -247,8 +250,9 @@ const loadRecipients = async () => {
 const handleQuoteUpdate = (index: number, quote: Quote) => {
   const currentQuote = props.quotes[index];
 
-  // For Cobre, always calculate automatically when amount changes
-  if ((quote.provider || '').toLowerCase() === 'cobre' && quote.amount) {
+  // For Cobre and Supra, always calculate automatically when amount changes
+  const providerLower = (quote.provider || '').toLowerCase();
+  if ((providerLower === 'cobre' || providerLower === 'supra') && quote.amount) {
     Object.assign(props.quotes[index], quote);
     updateQuote(index);
     return;
@@ -269,8 +273,9 @@ const handleQuoteUpdate = (index: number, quote: Quote) => {
 };
 
 const handleRefresh = async (index: number, quote: Quote) => {
-  // For Cobre, refresh means getting a new quote from API
-  if ((quote.provider || '').toLowerCase() === 'cobre' && quote.amount) {
+  // For Cobre and Supra, refresh means getting a new quote from API
+  const providerLower = (quote.provider || '').toLowerCase();
+  if ((providerLower === 'cobre' || providerLower === 'supra') && quote.amount) {
     await handleQuote(index, quote);
   }
 };
@@ -348,7 +353,8 @@ const handleQuote = async (index: number, quote: Quote) => {
   const usdBalance = props.usdBalance ?? 0; // USD balance for Cobre
 
   // Check if provider is Cobre and currency is USD
-  const isCobreUSD = (quote.provider || '').toLowerCase() === 'cobre' && quote.from === 'USD';
+  const providerLower = (quote.provider || '').toLowerCase();
+  const isCobreUSD = providerLower === 'cobre' && quote.from === 'USD';
 
   if (quote.from === 'USD') {
     // For Cobre, use USD balance specifically; for others, use USD balance or USDC as fallback
@@ -564,13 +570,16 @@ const handleMonetize = async () => {
     return;
   }
 
-  // For Cobre, get quote from API if we don't have one
-  if ((selectedProvider.value || '').toLowerCase() === 'cobre' && !savedQuote.value) {
+  // For Cobre and Supra, get quote from API if we don't have one
+  const providerLower = (selectedProvider.value || '').toLowerCase();
+  if ((providerLower === 'cobre' || providerLower === 'supra') && !savedQuote.value) {
     try {
       isProcessing.value = true;
+      // Cobre and Supra use USD
+      const baseCurrency = 'USD';
       const quoteResponse = await getQuote('transfer', {
         amount,
-        base_currency: 'USD',
+        base_currency: baseCurrency,
         quote_currency: selectedQuote.to,
         provider: stringToProvider(selectedProvider.value),
       });

@@ -43,18 +43,20 @@
               <!-- De (From Currency) -->
               <td class="p-4">
                 <select
-                  :value="quote.from || (quote.provider === 'Cobre' ? 'USD' : 'USDC')"
+                  :value="quote.from || (quote.provider === 'Cobre' || quote.provider === 'Supra' ? 'USD' : 'USDC')"
                   :disabled="!!quote.disabled"
                   class="w-28 px-3 py-2 border border-neutral-40 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky/20 focus:border-littio-secondary-sky appearance-none cursor-pointer disabled:bg-neutral-20 disabled:cursor-not-allowed"
                   @change="
                     $emit('update:quote', index, {
                       ...quote,
-                      from: ($event.target as HTMLSelectElement).value || (quote.provider === 'Cobre' ? 'USD' : 'USDC'),
+                      from:
+                        ($event.target as HTMLSelectElement).value ||
+                        (quote.provider === 'Cobre' || quote.provider === 'Supra' ? 'USD' : 'USDC'),
                     })
                   "
                 >
                   <option
-                    v-if="quote.provider === 'Cobre'"
+                    v-if="quote.provider === 'Cobre' || quote.provider === 'Supra'"
                     value="USD"
                   >
                     USD
@@ -92,7 +94,12 @@
                   @change="$emit('update:quote', index, { ...quote, to: ($event.target as HTMLSelectElement).value })"
                 >
                   <option
-                    v-if="quote.provider === 'Kira' || quote.provider === 'Cobre' || quote.provider === 'Cotizar'"
+                    v-if="
+                      quote.provider === 'Kira' ||
+                      quote.provider === 'Cobre' ||
+                      quote.provider === 'Supra' ||
+                      quote.provider === 'Cotizar'
+                    "
                     value="COP"
                   >
                     COP
@@ -105,10 +112,13 @@
 
               <td class="p-4 text-right">
                 <span
-                  v-if="(quote.provider === 'Kira' || quote.provider === 'Cobre') && quote.from"
+                  v-if="
+                    (quote.provider === 'Kira' || quote.provider === 'Cobre' || quote.provider === 'Supra') &&
+                    quote.from
+                  "
                   class="text-sm font-medium text-neutral-80"
                 >
-                  {{ formatBalance(getBalanceForCurrency(quote.from)) }}
+                  {{ formatBalance(getBalanceForCurrency(quote.from, quote.provider)) }}
                 </span>
                 <span
                   v-else
@@ -119,7 +129,10 @@
 
               <td class="p-4 text-center">
                 <button
-                  v-if="(quote.provider === 'Kira' || quote.provider === 'Cobre') && quote.disabled !== true"
+                  v-if="
+                    (quote.provider === 'Kira' || quote.provider === 'Cobre' || quote.provider === 'Supra') &&
+                    quote.disabled !== true
+                  "
                   type="button"
                   class="h-8 w-8 rounded-full bg-white border border-neutral-40 hover:bg-neutral-20 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   @click="quote.provider === 'Kira' ? $emit('quote', index, quote) : $emit('refresh', index, quote)"
@@ -221,6 +234,7 @@ const props = defineProps<{
   usdcBalance?: number;
   usdtBalance?: number;
   usdBalance?: number; // USD balance for Cobre
+  supraUsdBalance?: number; // USD balance for Supra
   selectedProvider?: string;
 }>();
 
@@ -231,8 +245,8 @@ const emit = defineEmits<{
   refresh: [index: number, quote: Quote];
 }>();
 
-// Get balance for a specific currency
-const getBalanceForCurrency = (currency: string): number => {
+// Get balance for a specific currency and provider
+const getBalanceForCurrency = (currency: string, provider?: string): number => {
   if (currency === 'USDC') {
     return props.usdcBalance ?? 0;
   }
@@ -240,8 +254,15 @@ const getBalanceForCurrency = (currency: string): number => {
     return props.usdtBalance ?? 0;
   }
   if (currency === 'USD') {
-    // For USD, prioritize USD balance prop (for Cobre)
-    // Only use USDC as fallback if USD balance is explicitly not provided (undefined)
+    // For Supra, use Supra USD balance
+    if (provider?.toLowerCase() === 'supra' && props.supraUsdBalance !== undefined) {
+      return props.supraUsdBalance;
+    }
+    // For Cobre, use Cobre USD balance
+    if (provider?.toLowerCase() === 'cobre' && props.usdBalance !== undefined) {
+      return props.usdBalance;
+    }
+    // For other providers, prioritize USD balance prop, fallback to USDC
     if (props.usdBalance !== undefined) {
       return props.usdBalance;
     }

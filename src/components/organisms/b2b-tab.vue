@@ -5,6 +5,7 @@
       :usdc-balance="usdcBalance"
       :usdt-balance="usdtBalance"
       :usd-balance="usdBalance"
+      :supra-usd-balance="supraUsdBalance"
       :selected-provider="selectedProvider"
       @update:quote="handleQuoteUpdate"
       @quote="handleQuote"
@@ -66,6 +67,7 @@ const props = defineProps<{
   usdcBalance?: number;
   usdtBalance?: number;
   usdBalance?: number; // USD balance for Cobre
+  supraUsdBalance?: number; // USD balance for Supra
 }>();
 
 const emit = defineEmits<{
@@ -165,8 +167,9 @@ const canMonetize = computed(() => {
     return false;
   }
 
-  // For Cobre, we don't need a saved quote (it has fixed rate)
-  if (selectedProvider.value === 'cobre') {
+  // For Cobre and Supra, we don't need a saved quote (they have fixed rate)
+  const providerLower = (selectedProvider.value || '').toLowerCase();
+  if (providerLower === 'cobre' || providerLower === 'supra') {
     // Must have calculated amount (from automatic calculation)
     if (!selectedQuote.calculatedAmount || selectedQuote.calculatedAmount === '-') return false;
     // Must have a valid rate
@@ -265,7 +268,7 @@ const updateQuoteWithValue = (index: number, quote: Quote, updatedQuotes: Quote[
       return;
     }
 
-    // For Cobre, use the fixed rate if available
+    // For Cobre and Supra, use the fixed rate if available
     const cleanRate = quote.rate.replace(/\./g, '').replace(',', '.');
     const rate = parseFloat(cleanRate);
     if (!isNaN(rate) && rate > 0) {
@@ -302,8 +305,9 @@ const handleQuoteUpdate = (index: number, quote: Quote) => {
   const updatedQuotes = [...props.quotes];
   updatedQuotes[index] = updatedQuote;
 
-  // For Cobre, always calculate automatically when amount changes
-  if (quote.provider === 'Cobre' && quote.amount) {
+  // For Cobre and Supra, always calculate automatically when amount changes
+  const providerLower = (quote.provider || '').toLowerCase();
+  if ((providerLower === 'cobre' || providerLower === 'supra') && quote.amount) {
     // Calculate using the updated quote
     updateQuoteWithValue(index, updatedQuote, updatedQuotes);
     return;
@@ -321,8 +325,9 @@ const handleQuoteUpdate = (index: number, quote: Quote) => {
 };
 
 const handleRefresh = async (index: number, quote: Quote) => {
-  // For Cobre, refresh means getting a new quote from API
-  if (quote.provider === 'Cobre') {
+  // For Cobre and Supra, refresh means getting a new quote from API
+  const providerLower = (quote.provider || '').toLowerCase();
+  if (providerLower === 'cobre' || providerLower === 'supra') {
     if (!quote.amount) {
       showDialog('Monto requerido', 'Por favor ingresa un monto para cotizar', 'info');
       return;
@@ -403,12 +408,21 @@ const handleQuote = async (index: number, quote: Quote) => {
   const usdtBalance = props.usdtBalance ?? 0;
   const usdBalance = props.usdBalance ?? 0; // USD balance for Cobre
 
-  // Check if provider is Cobre and currency is USD
-  const isCobreUSD = quote.provider.toLowerCase() === 'cobre' && quote.from === 'USD';
+  // Check if provider is Cobre or Supra and currency is USD
+  const providerLower = (quote.provider || '').toLowerCase();
+  const isCobreUSD = providerLower === 'cobre' && quote.from === 'USD';
+  const isSupraUSD = providerLower === 'supra' && quote.from === 'USD';
 
   if (quote.from === 'USD') {
-    // For Cobre, use USD balance specifically; for others, use USD balance or USDC as fallback
-    const balance = isCobreUSD ? usdBalance : usdBalance > 0 ? usdBalance : usdcBalance;
+    // For Cobre, use Cobre USD balance; for Supra, use Supra USD balance; for others, use USD balance or USDC as fallback
+    let balance: number;
+    if (isCobreUSD) {
+      balance = usdBalance;
+    } else if (isSupraUSD) {
+      balance = supraUsdBalance;
+    } else {
+      balance = usdBalance > 0 ? usdBalance : usdcBalance;
+    }
 
     if (amount > balance) {
       showDialog(
@@ -544,15 +558,18 @@ const handleMonetize = async () => {
   const selectedQuote = props.quotes.find((q) => q.provider.toLowerCase() === selectedProvider.value);
   if (!selectedQuote) return;
 
-  // For Cobre, get quote from API if we don't have one
-  if (selectedProvider.value === 'cobre' && !savedQuote.value) {
+  // For Cobre and Supra, get quote from API if we don't have one
+  const providerLower = (selectedProvider.value || '').toLowerCase();
+  if ((providerLower === 'cobre' || providerLower === 'supra') && !savedQuote.value) {
     try {
       isProcessing.value = true;
       const cleanAmount = selectedQuote.amount.replace(/\./g, '').replace(',', '.');
       const amount = parseFloat(cleanAmount);
+      // Cobre and Supra use USD
+      const baseCurrency = 'USD';
       const quoteResponse = await getQuote('pay', {
         amount,
-        base_currency: 'USD',
+        base_currency: baseCurrency,
         quote_currency: selectedQuote.to,
         provider: stringToProvider(selectedProvider.value),
       });
@@ -573,8 +590,8 @@ const handleMonetize = async () => {
     }
   }
 
-  // Validate that we have a saved quote (for non-Cobre providers)
-  if (selectedProvider.value !== 'cobre' && !savedQuote.value) {
+  // Validate that we have a saved quote (for non-Cobre/Supra providers)
+  if (providerLower !== 'cobre' && providerLower !== 'supra' && !savedQuote.value) {
     showDialog('Error', 'Por favor, primero cotiza el monto antes de monetizar', 'error');
     return;
   }
