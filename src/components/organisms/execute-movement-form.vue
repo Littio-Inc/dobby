@@ -437,6 +437,7 @@ import {
   type EstimateFeeResponse,
   type FeeOption,
   type CreateTransactionRequest,
+  type BlockchainWallet,
 } from '../../services/api';
 import { getTokenBadgeColor } from '../../utils/token-badge-colors';
 import LoadingSpinner from '../atoms/loading-spinner.vue';
@@ -495,6 +496,7 @@ const originWallets = ref<Wallet[]>([]);
 const destinationWallets = ref<Array<DestinationWallet | Wallet>>([]);
 const availableTokens = ref<Array<{ symbol: string; badgeColor: string }>>([]);
 const externalWallets = ref<ExternalWallet[]>([]);
+const blockchainWallets = ref<BlockchainWallet[]>([]);
 const feeOptions = ref<EstimateFeeResponse | null>(null);
 const isLoadingFee = ref(false);
 const feeError = ref<string | null>(null);
@@ -884,6 +886,16 @@ const loadExternalWallets = async () => {
   }
 };
 
+const loadBlockchainWallets = async () => {
+  try {
+    const wallets = await AzkabanService.getBlockchainWallets('FIREBLOCKS');
+    blockchainWallets.value = wallets;
+  } catch (err: any) {
+    console.error('[ExecuteMovementForm] Error loading blockchain wallets:', err);
+    blockchainWallets.value = [];
+  }
+};
+
 const loadWallets = async () => {
   isLoading.value = true;
   error.value = '';
@@ -891,6 +903,7 @@ const loadWallets = async () => {
   try {
     const accountsData = await AzkabanService.getAccountsWithAssets();
     await loadExternalWallets();
+    await loadBlockchainWallets();
 
     accounts.value = accountsData;
 
@@ -1230,18 +1243,35 @@ const handleSubmit = async () => {
       movement_type: 'internal',
     };
 
+    // Track backoffice transaction success
+    // If backoffice fails, we still want to show a partial success message
+    // since the blockchain transaction was successful
+    // Alternatively, you may re-throw the error here if you want the whole operation to fail
+    let backofficeSuccess = true;
+
     try {
       if (isInternalTransfer) {
-        const transferId = crypto.randomUUID();
+        const originBlockchainWallet = blockchainWallets.value.find(
+          (bw) => bw.provider_id === formData.value.originWallet,
+        );
+        const destinationBlockchainWallet = blockchainWallets.value.find(
+          (bw) => bw.provider_id === formData.value.destinationWallet,
+        );
 
-        await AzkabanService.createBackofficeTransaction({
-          ...commonParams,
-          movementType: 'transfer_in',
-          destinationAccount: originWalletName,
-          originAccount: destinationWalletName,
-          originProvider: destinationWalletName,
-          transfer_id: transferId,
-        });
+        const originBlockchainWalletId = originBlockchainWallet?.id;
+        const destinationBlockchainWalletId = destinationBlockchainWallet?.id;
+
+        if (!originBlockchainWalletId) {
+          throw new Error(
+            `No se encontró blockchain_wallet.id para la wallet de origen: ${originWalletName} (provider_id: ${formData.value.originWallet}). Por favor, verifique que la wallet tenga un blockchain_wallet asociado.`,
+          );
+        }
+
+        if (!destinationBlockchainWalletId) {
+          throw new Error(
+            `No se encontró blockchain_wallet.id para la wallet de destino: ${destinationWalletName} (provider_id: ${formData.value.destinationWallet}). Por favor, verifique que la wallet tenga un blockchain_wallet asociado.`,
+          );
+        }
 
         await AzkabanService.createBackofficeTransaction({
           ...commonParams,
@@ -1249,22 +1279,63 @@ const handleSubmit = async () => {
           destinationAccount: destinationWalletName,
           originAccount: originWalletName,
           originProvider: originWalletName,
-          transfer_id: transferId,
+          userIdFrom: originBlockchainWalletId,
+          userIdTo: destinationBlockchainWalletId,
         });
       } else if (isWithdrawal) {
+        const blockchainWallet = blockchainWallets.value.find((bw) => bw.provider_id === formData.value.originWallet);
+
+        const blockchainWalletId = blockchainWallet?.id;
+
+        if (!blockchainWalletId) {
+          throw new Error(
+            `No se encontró blockchain_wallet.id para la wallet de origen: ${originWalletName} (provider_id: ${formData.value.originWallet}). Por favor, verifique que la wallet tenga un blockchain_wallet asociado.`,
+          );
+        }
+
+        const destinationWallet = destinationWallets.value.find(
+          (w) => 'address' in w && w.id === formData.value.destinationWallet,
+        );
+        const destinationAddress =
+          destinationWallet && 'address' in destinationWallet ? destinationWallet.address : null;
+
+        if (!destinationAddress) {
+          throw new Error(
+            `No se encontró la dirección de la wallet de destino: ${destinationWalletName}. Por favor, verifique que la wallet tenga una dirección asociada.`,
+          );
+        }
+
         await AzkabanService.createBackofficeTransaction({
           ...commonParams,
           movementType: 'withdrawal',
           destinationAccount: destinationWalletName,
           originAccount: originWalletName,
           originProvider: originWalletName,
+          userIdFrom: blockchainWalletId,
+          userIdTo: destinationAddress,
         });
       }
     } catch (backofficeError: any) {
-      console.error('[ExecuteMovementForm] Error creating backoffice transaction:', backofficeError);
+      backofficeSuccess = false;
+      console.error('[ExecuteMovementForm] Error creating backoffice transaction:', {
+        error: backofficeError,
+        message: backofficeError?.message,
+        response: backofficeError?.response?.data,
+        status: backofficeError?.response?.status,
+        stack: backofficeError?.stack,
+      });
+      // Note: We catch and log the error but don't re-throw it, allowing the
+      // blockchain transaction success to be communicated to the user with a
+      // partial success message. If you want the whole operation to fail when
+      // backoffice registration fails, uncomment the line below:
+      // throw backofficeError;
     }
 
-    success.value = `Movimiento ejecutado exitosamente. ID de transacción: ${response.id}`;
+    if (backofficeSuccess) {
+      success.value = `Movimiento ejecutado exitosamente. ID de transacción: ${response.id}`;
+    } else {
+      success.value = `Transacción blockchain exitosa (ID: ${response.id}), pero el registro en backoffice falló. Contacte al administrador.`;
+    }
 
     if (movementsTableRef.value) {
       movementsTableRef.value.refresh();
