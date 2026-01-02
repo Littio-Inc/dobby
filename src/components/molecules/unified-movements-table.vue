@@ -478,6 +478,12 @@ const getStatusBadgeColor = (status: string): string => {
   if (statusLower.includes('created') || statusLower.includes('creado')) {
     return 'bg-blue-100 text-blue-700';
   }
+  if (statusLower.includes('canceled') || statusLower.includes('cancelado')) {
+    return 'bg-gray-200 text-gray-800';
+  }
+  if (statusLower.includes('pending') || statusLower.includes('pendiente')) {
+    return 'bg-yellow-200 text-yellow-900';
+  }
   return 'bg-neutral-100 text-neutral-700';
 };
 
@@ -485,6 +491,12 @@ const getTypeBadgeColorForTransaction = (type: string): string => {
   const typeLower = type.toLowerCase();
   if (typeLower.includes('transfer')) {
     return 'bg-blue-100 text-blue-700';
+  }
+  if (typeLower.includes('payment')) {
+    return 'bg-blue-600 text-white';
+  }
+  if (typeLower.includes('swap')) {
+    return 'bg-slate-600 text-white';
   }
   if (typeLower.includes('deposit') || typeLower.includes('ingreso')) {
     return 'bg-green-100 text-green-700';
@@ -504,8 +516,14 @@ const getMethodBadgeColor = (method: string | undefined): string => {
   if (methodLower.includes('transfer_out') || methodLower === 'transfer_out') {
     return 'bg-orange-100 text-orange-700';
   }
+  if (methodLower.includes('swap_in') || methodLower === 'swap_in') {
+    return 'bg-slate-600 text-white';
+  }
+  if (methodLower.includes('swap_out') || methodLower === 'swap_out') {
+    return 'bg-slate-600 text-white';
+  }
   if (methodLower.includes('payment') || methodLower === 'payment') {
-    return 'bg-blue-100 text-blue-700';
+    return 'bg-blue-600 text-white';
   }
   if (methodLower.includes('withdrawal') || methodLower === 'withdrawal') {
     return 'bg-red-100 text-red-700';

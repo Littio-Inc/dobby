@@ -11,6 +11,7 @@ const AZKABAN_ENDPOINTS = {
   GET_OPENTRADE_VAULTS: '/v1/opentrade/vaults',
   GET_OPENTRADE_VAULT_ACCOUNT: '/v1/opentrade/vaultsAccount',
   GET_OPENTRADE_VAULT_OVERVIEW: '/v1/opentrade/vaults',
+  GET_RECIPIENTS: '/v1/recipients',
 } as const;
 
 export interface DiagonAsset {
@@ -97,6 +98,10 @@ export interface CreateBackofficeTransactionParams {
   originProvider?: string;
   movement_type?: string;
   transfer_id?: string;
+  userId?: string;
+  rate?: number;
+  userIdFrom?: string; // UUID del proveedor
+  userIdTo?: string; // UUID del recipient (cuenta de destino)
 }
 
 export interface ExternalWalletAsset {
@@ -330,6 +335,32 @@ export interface OpentradeVaultOverviewResponse {
   vault_address: string;
 }
 
+export interface Recipient {
+  id: string;
+  user_id: string;
+  type: string;
+  first_name: string | null;
+  last_name: string | null;
+  company_name: string | null;
+  document_type: string;
+  document_number: string;
+  bank_code: string;
+  account_number: string;
+  account_type: string;
+  cobre_counterparty_id: string | null;
+  provider: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RecipientsResponse {
+  recipients: Recipient[];
+}
+
+export interface GetRecipientsParams {
+  exclude_provider?: string;
+}
+
 /**
  * Servicio para consultar saldos de cuentas Fireblocks
  * Migrado de Diagon a Azkaban. Ahora usa azkabanApi.
@@ -492,10 +523,58 @@ export class AzkabanService {
     }
   }
 
-  static async createBackofficeTransaction(params: CreateBackofficeTransactionParams): Promise<BackofficeTransaction> {
-    try {
-      const idempotencyKey = crypto.randomUUID();
+  /**
+   * Obtiene el tipo de movimiento opuesto para transacciones pareadas
+   */
+  private static getOppositeMovementType(movementType: string): string {
+    const oppositeMap: Record<string, string> = {
+      transfer_in: 'transfer_out',
+      transfer_out: 'transfer_in',
+      swap_in: 'swap_out',
+      swap_out: 'swap_in',
+    };
+    return oppositeMap[movementType] || movementType;
+  }
 
+  /**
+   * Crea el payload base para una transacción de backoffice
+   */
+  private static createTransactionPayload(
+    params: CreateBackofficeTransactionParams,
+    idempotencyKey: string,
+    formattedDate: string,
+    type: string,
+    userEmail: string | null,
+    user_id_to: string,
+    user_id_from: string,
+    transfer_id?: string,
+    method?: string,
+  ): any {
+    return {
+      created_at: formattedDate,
+      type: type,
+      provider: params.provider,
+      amount: String(params.amount),
+      currency: params.currency,
+      st_id: params.externalTransactionId,
+      user_id: params.userId || params.provider,
+      user_id_to: user_id_to,
+      user_id_from: user_id_from,
+      method: method || params.method || params.movementType,
+      reason: params.notes || '',
+      occurred_at: formattedDate,
+      idempotency_key: idempotencyKey,
+      status: params.status || 'COMPLETED',
+      ...(userEmail && { actor_id: userEmail }),
+      ...(params.originProvider && { origin_provider: params.originProvider }),
+      ...(params.movement_type && { movement_type: params.movement_type }),
+      ...(transfer_id && { transfer_id: transfer_id }),
+      ...(params.rate !== undefined && { rate: String(params.rate) }),
+    };
+  }
+
+  static async createBackofficeTransaction(params: CreateBackofficeTransactionParams): Promise<BackofficeTransaction | BackofficeTransaction[]> {
+    try {
       const user = $user.get();
       const userEmail = user?.email || null;
 
@@ -528,38 +607,121 @@ export class AzkabanService {
         params.movementType === 'transfer_in' || params.movementType === 'transfer_out'
           ? 'transfer'
           : params.movementType === 'swap_in' || params.movementType === 'swap_out'
-            ? params.movementType
+            ? 'swap'
             : params.movementType;
 
-      const payload: any = {
-        created_at: formattedDate,
-        type: type,
-        provider: params.provider,
-        amount: String(params.amount),
-        currency: params.currency,
-        st_id: params.externalTransactionId,
-        user_id: params.provider,
-        user_id_to: params.destinationAccount,
-        user_id_from: params.originAccount,
-        method: params.method || params.movementType,
-        reason: params.notes || '',
-        occurred_at: formattedDate,
-        idempotency_key: idempotencyKey,
-        status: params.status || 'COMPLETED',
-        ...(userEmail && { actor_id: userEmail }),
-        ...(params.originProvider && { origin_provider: params.originProvider }),
-        ...(params.movement_type && { movement_type: params.movement_type }),
-        ...(params.transfer_id && { transfer_id: params.transfer_id }),
-      };
+      // Determinar si necesitamos crear 2 transacciones (transfer_in, transfer_out, swap_in, swap_out)
+      const needsPairedTransaction =
+        params.movementType === 'transfer_in' ||
+        params.movementType === 'transfer_out' ||
+        params.movementType === 'swap_in' ||
+        params.movementType === 'swap_out';
 
-      const response = await azkabanApi.post<BackofficeTransaction>(
-        AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS,
-        payload,
-      );
+      if (needsPairedTransaction) {
+        // Generar transfer_id único para ambas transacciones
+        const transferId = params.transfer_id || crypto.randomUUID();
 
-      return response.data;
-    } catch (error) {
+        // Obtener el tipo de movimiento opuesto para la segunda transacción
+        const oppositeMovementType = this.getOppositeMovementType(params.movementType);
+        
+        // Calcular el tipo para la segunda transacción
+        const oppositeType =
+          oppositeMovementType === 'transfer_in' || oppositeMovementType === 'transfer_out'
+            ? 'transfer'
+            : oppositeMovementType === 'swap_in' || oppositeMovementType === 'swap_out'
+              ? 'swap'
+              : oppositeMovementType;
+
+        // Crear primera transacción (dirección normal)
+        const idempotencyKey1 = crypto.randomUUID();
+        const payload1 = this.createTransactionPayload(
+          params,
+          idempotencyKey1,
+          formattedDate,
+          type,
+          userEmail,
+          params.userIdTo || params.destinationAccount, // UUID del recipient (cuenta de destino)
+          params.userIdFrom || params.originAccount, // UUID del proveedor
+          transferId,
+          params.movementType, // method para la primera transacción
+        );
+
+        // Crear segunda transacción (dirección invertida con tipo opuesto)
+        const idempotencyKey2 = crypto.randomUUID();
+        const payload2 = this.createTransactionPayload(
+          params,
+          idempotencyKey2,
+          formattedDate,
+          oppositeType,
+          userEmail,
+          params.userIdFrom || params.originAccount, // user_id_to invertido (UUID del proveedor)
+          params.userIdTo || params.destinationAccount, // user_id_from invertido (UUID del recipient)
+          transferId,
+          oppositeMovementType, // method opuesto para la segunda transacción
+        );
+
+        // Debug: Log the exact payloads being sent
+        console.log('[AzkabanService] Creating paired backoffice transactions');
+        console.log('[AzkabanService] Transfer ID:', transferId);
+        console.log('[AzkabanService] Transaction 1 (normal):', JSON.stringify(payload1, null, 2));
+        console.log('[AzkabanService] Transaction 2 (inverted):', JSON.stringify(payload2, null, 2));
+        console.log('[AzkabanService] Endpoint:', AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS);
+
+        // Crear ambas transacciones en paralelo
+        const [response1, response2] = await Promise.all([
+          azkabanApi.post<BackofficeTransaction>(AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS, payload1),
+          azkabanApi.post<BackofficeTransaction>(AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS, payload2),
+        ]);
+
+        console.log('[AzkabanService] Created paired transactions:', {
+          transaction1: response1.data.id,
+          transaction2: response2.data.id,
+          transfer_id: transferId,
+        });
+
+        return [response1.data, response2.data];
+      } else {
+        // Para payment o withdrawal, crear solo una transacción
+        const idempotencyKey = crypto.randomUUID();
+        const payload = this.createTransactionPayload(
+          params,
+          idempotencyKey,
+          formattedDate,
+          type,
+          userEmail,
+          params.userIdTo || params.destinationAccount, // UUID del recipient (cuenta de destino)
+          params.userIdFrom || params.originAccount, // UUID del proveedor
+        );
+
+        // Debug: Log the exact payload being sent
+        console.log('[AzkabanService] Creating single backoffice transaction with payload:', JSON.stringify(payload, null, 2));
+        console.log('[AzkabanService] Endpoint:', AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS);
+        console.log('[AzkabanService] Full URL:', `${azkabanApi.defaults.baseURL}${AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS}`);
+
+        const response = await azkabanApi.post<BackofficeTransaction>(
+          AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS,
+          payload,
+        );
+
+        return response.data;
+      }
+    } catch (error: any) {
       console.error('[AzkabanService] Error creating backoffice transaction:', error);
+      
+      // Log detailed error information for debugging
+      if (error.response) {
+        console.error('[AzkabanService] Error response status:', error.response.status);
+        console.error('[AzkabanService] Error response data:', JSON.stringify(error.response.data, null, 2));
+        console.error('[AzkabanService] Error response headers:', error.response.headers);
+      }
+      if (error.request) {
+        console.error('[AzkabanService] Request that caused error:', {
+          url: error.config?.url,
+          method: error.config?.method,
+          data: error.config?.data,
+        });
+      }
+      
       throw error;
     }
   }
@@ -716,6 +878,37 @@ export class AzkabanService {
       return response.data;
     } catch (error) {
       console.error('[AzkabanService] Error fetching opentrade vault overview:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtiene el listado de recipients
+   * @param params - Parámetros de consulta: exclude_provider (opcional)
+   * @returns Respuesta con los recipients
+   */
+  static async getRecipients(params?: GetRecipientsParams): Promise<Recipient[]> {
+    try {
+      const queryParams = new URLSearchParams();
+
+      if (params?.exclude_provider) {
+        queryParams.append('exclude_provider', params.exclude_provider);
+      }
+
+      const url = queryParams.toString()
+        ? `${AZKABAN_ENDPOINTS.GET_RECIPIENTS}?${queryParams.toString()}`
+        : AZKABAN_ENDPOINTS.GET_RECIPIENTS;
+
+      const response = await azkabanApi.get<RecipientsResponse>(url);
+
+      if (!Array.isArray(response.data.recipients)) {
+        console.warn('[AzkabanService] Unexpected response format for recipients:', response.data);
+        return [];
+      }
+
+      return response.data.recipients;
+    } catch (error) {
+      console.error('[AzkabanService] Error fetching recipients:', error);
       throw error;
     }
   }
