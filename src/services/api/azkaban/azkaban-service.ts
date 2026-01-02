@@ -12,6 +12,7 @@ const AZKABAN_ENDPOINTS = {
   GET_OPENTRADE_VAULT_ACCOUNT: '/v1/opentrade/vaultsAccount',
   GET_OPENTRADE_VAULT_OVERVIEW: '/v1/opentrade/vaults',
   GET_RECIPIENTS: '/v1/recipients',
+  GET_BLOCKCHAIN_WALLETS: '/v1/blockchain-wallets',
 } as const;
 
 export interface DiagonAsset {
@@ -29,6 +30,19 @@ export interface DiagonAsset {
 
 export interface BlockchainWallet {
   id: string;
+  name: string;
+  provider: string;
+  wallet_id: string;
+  provider_id: string;
+  network: string;
+  enabled: boolean;
+  category: string;
+  owner: string;
+  created_at: string;
+}
+
+export interface BlockchainWalletsResponse {
+  wallets: BlockchainWallet[];
 }
 
 export interface DiagonAccountResponse {
@@ -635,14 +649,19 @@ export class AzkabanService {
               ? 'swap'
               : oppositeMovementType;
 
-        // Si se pasan userIdFrom y userIdTo explícitamente, usar los mismos valores para ambas transacciones
-        // De lo contrario, invertir los valores como antes
+        // Si se pasan userIdFrom y userIdTo explícitamente, invertir los valores para la transacción opuesta
+        // De lo contrario, usar los valores de originAccount y destinationAccount
         const hasExplicitUserIds = params.userIdFrom !== undefined || params.userIdTo !== undefined;
 
         const user_id_to_1 = params.userIdTo || params.destinationAccount;
         const user_id_from_1 = params.userIdFrom || params.originAccount;
-        const user_id_to_2 = hasExplicitUserIds ? (params.userIdTo || params.destinationAccount) : (params.userIdFrom || params.originAccount);
-        const user_id_from_2 = hasExplicitUserIds ? (params.userIdFrom || params.originAccount) : (params.userIdTo || params.destinationAccount);
+        // Para la transacción opuesta, invertir los valores cuando se pasan explícitamente
+        const user_id_to_2 = hasExplicitUserIds
+          ? params.userIdFrom || params.originAccount
+          : params.userIdTo || params.destinationAccount;
+        const user_id_from_2 = hasExplicitUserIds
+          ? params.userIdTo || params.destinationAccount
+          : params.userIdFrom || params.originAccount;
 
         const idempotencyKey1 = crypto.randomUUID();
         const payload1 = this.createTransactionPayload(
@@ -678,20 +697,43 @@ export class AzkabanService {
         return [response1.data, response2.data];
       } else {
         const idempotencyKey = crypto.randomUUID();
+        // Para withdrawals, si se pasa userIdTo explícitamente, usarlo directamente
+        // De lo contrario, usar destinationAccount como fallback
+        const user_id_to = params.userIdTo !== undefined ? params.userIdTo : params.destinationAccount;
+        const user_id_from = params.userIdFrom !== undefined ? params.userIdFrom : params.originAccount;
+
+        console.log('[AzkabanService] Creando transacción no pareada:', {
+          movementType: params.movementType,
+          type,
+          user_id_to,
+          user_id_from,
+          userIdTo: params.userIdTo,
+          userIdFrom: params.userIdFrom,
+          destinationAccount: params.destinationAccount,
+          originAccount: params.originAccount,
+        });
+
         const payload = this.createTransactionPayload(
           params,
           idempotencyKey,
           formattedDate,
           type,
           userEmail,
-          params.userIdTo || params.destinationAccount,
-          params.userIdFrom || params.originAccount,
+          user_id_to,
+          user_id_from,
         );
+
+        console.log('[AzkabanService] Payload enviado al backend:', JSON.stringify(payload, null, 2));
 
         const response = await azkabanApi.post<BackofficeTransaction>(
           AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS,
           payload,
         );
+
+        console.log('[AzkabanService] Respuesta del backend:', {
+          status: response.status,
+          data: response.data,
+        });
 
         return response.data;
       }
@@ -859,6 +901,23 @@ export class AzkabanService {
       return response.data;
     } catch (error) {
       console.error('[AzkabanService] Error fetching opentrade vault overview:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtiene todas las blockchain_wallets de un proveedor (por defecto FIREBLOCKS)
+   * @param provider - Proveedor (por defecto 'FIREBLOCKS')
+   * @returns Lista de blockchain_wallets
+   */
+  static async getBlockchainWallets(provider: string = 'FIREBLOCKS'): Promise<BlockchainWallet[]> {
+    try {
+      const response = await azkabanApi.get<BlockchainWalletsResponse>(
+        `${AZKABAN_ENDPOINTS.GET_BLOCKCHAIN_WALLETS}?provider=${provider}`,
+      );
+      return response.data.wallets || [];
+    } catch (error) {
+      console.error('[AzkabanService] Error fetching blockchain wallets:', error);
       throw error;
     }
   }

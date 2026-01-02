@@ -510,6 +510,9 @@ const getTypeBadgeColorForTransaction = (type: string): string => {
 const getMethodBadgeColor = (method: string | undefined): string => {
   if (!method) return 'bg-neutral-100 text-neutral-700';
   const methodLower = method.toLowerCase();
+  if (methodLower.includes('blockchain') || methodLower === 'blockchain') {
+    return 'bg-indigo-100 text-indigo-800';
+  }
   if (methodLower.includes('transfer_in') || methodLower === 'transfer_in') {
     return 'bg-green-100 text-green-700';
   }
