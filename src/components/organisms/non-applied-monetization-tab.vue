@@ -296,7 +296,7 @@
                   <option value="swap_in">SWAP IN</option>
                   <option value="swap_out">SWAP OUT</option>
                   <option value="payment">Payment</option>
-                  <option value="withdraw">Withdraw</option>
+                  <option value="withdrawal">Withdrawal</option>
                   <option value="transfer_in">Transfer In</option>
                   <option value="transfer_out">Transfer Out</option>
                 </select>
@@ -422,76 +422,35 @@
                 >
                   Banco/Proveedor destino <span class="text-carmine">*</span>
                 </label>
-                <input
-                  id="destination-bank"
-                  v-model="formData.destinationBank"
-                  type="text"
-                  required
-                  placeholder="Ej: Bancolombia"
-                  :class="[
-                    'w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-neutral-80 placeholder:text-neutral-60',
-                    fieldErrors.destinationBank
-                      ? 'border-carmine focus:ring-carmine focus:border-carmine'
-                      : 'border-neutral-40 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky',
-                  ]"
-                  @input="fieldErrors.destinationBank = false"
-                />
-              </div>
-
-              <!-- Titular de cuenta -->
-              <div>
-                <label
-                  for="account-holder"
-                  class="block text-sm font-medium text-neutral-80 mb-2"
-                >
-                  Titular de cuenta <span class="text-carmine">*</span>
-                </label>
-                <input
-                  id="account-holder"
-                  v-model="formData.accountHolder"
-                  type="text"
-                  required
-                  placeholder="Nombre completo"
-                  :class="[
-                    'w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-neutral-80 placeholder:text-neutral-60',
-                    fieldErrors.accountHolder
-                      ? 'border-carmine focus:ring-carmine focus:border-carmine'
-                      : 'border-neutral-40 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky',
-                  ]"
-                  @input="fieldErrors.accountHolder = false"
-                />
-              </div>
-
-              <!-- Tipo de cuenta -->
-              <div>
-                <label
-                  for="account-type"
-                  class="block text-sm font-medium text-neutral-80 mb-2"
-                >
-                  Tipo de cuenta <span class="text-carmine">*</span>
-                </label>
                 <div class="relative">
                   <select
-                    id="account-type"
-                    v-model="formData.accountType"
+                    id="destination-bank"
+                    v-model="formData.selectedRecipientId"
                     required
                     :class="[
                       'w-full px-4 py-2.5 pr-10 border rounded-lg focus:outline-none focus:ring-2 text-neutral-80 bg-white appearance-none cursor-pointer',
-                      fieldErrors.accountType
+                      fieldErrors.destinationBank
                         ? 'border-carmine focus:ring-carmine focus:border-carmine'
                         : 'border-neutral-40 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky',
                     ]"
-                    @change="fieldErrors.accountType = false"
+                    @change="handleRecipientChange"
                   >
                     <option
                       value=""
                       disabled
                     >
-                      Seleccionar tipo
+                      Seleccionar proveedor
                     </option>
-                    <option value="ahorros">Ahorros</option>
-                    <option value="corriente">Corriente</option>
-                    <option value="otro">Otro</option>
+                    <option
+                      v-for="recipient in recipients"
+                      :key="recipient.id"
+                      :value="recipient.id"
+                    >
+                      {{ recipient.provider }} -
+                      {{
+                        recipient.company_name || `${recipient.first_name || ''} ${recipient.last_name || ''}`.trim()
+                      }}
+                    </option>
                   </select>
                   <svg
                     class="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-60 pointer-events-none"
@@ -509,6 +468,56 @@
                 </div>
               </div>
 
+              <!-- Titular de cuenta -->
+              <div>
+                <label
+                  for="account-holder"
+                  class="block text-sm font-medium text-neutral-80 mb-2"
+                >
+                  Titular de cuenta <span class="text-carmine">*</span>
+                </label>
+                <input
+                  id="account-holder"
+                  v-model="formData.accountHolder"
+                  type="text"
+                  required
+                  placeholder="Nombre completo"
+                  readonly
+                  :class="[
+                    'w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-neutral-80 placeholder:text-neutral-60 bg-neutral-20 cursor-not-allowed',
+                    fieldErrors.accountHolder
+                      ? 'border-carmine focus:ring-carmine focus:border-carmine'
+                      : 'border-neutral-40 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky',
+                  ]"
+                  @input="fieldErrors.accountHolder = false"
+                />
+              </div>
+
+              <!-- Tipo de cuenta -->
+              <div>
+                <label
+                  for="account-type"
+                  class="block text-sm font-medium text-neutral-80 mb-2"
+                >
+                  Tipo de cuenta <span class="text-carmine">*</span>
+                </label>
+                <input
+                  id="account-type"
+                  v-model="formData.accountType"
+                  type="text"
+                  required
+                  readonly
+                  placeholder="Tipo de cuenta"
+                  :class="[
+                    'w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-neutral-80 placeholder:text-neutral-60 bg-neutral-20 cursor-not-allowed',
+                    fieldErrors.accountType
+                      ? 'border-carmine focus:ring-carmine focus:border-carmine'
+                      : 'border-neutral-40 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky',
+                  ]"
+                  @input="fieldErrors.accountType = false"
+                />
+              </div>
+
               <!-- Número de cuenta -->
               <div>
                 <label
@@ -522,9 +531,10 @@
                   v-model="formData.accountNumber"
                   type="text"
                   required
+                  readonly
                   placeholder="1234567890"
                   :class="[
-                    'w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-neutral-80 placeholder:text-neutral-60',
+                    'w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 text-neutral-80 placeholder:text-neutral-60 bg-neutral-20 cursor-not-allowed',
                     fieldErrors.accountNumber
                       ? 'border-carmine focus:ring-carmine focus:border-carmine'
                       : 'border-neutral-40 focus:ring-littio-secondary-sky focus:border-littio-secondary-sky',
@@ -608,6 +618,7 @@
     <!-- Historial de Transacciones Section -->
     <div class="space-y-6">
       <UnifiedMovementsTable
+        ref="movementsTableRef"
         exclude-provider="kira,cobre"
         movement-type="monetization"
         title="Historial de Transacciones"
@@ -620,7 +631,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue';
 import UnifiedMovementsTable from '../molecules/unified-movements-table.vue';
-import { AzkabanService } from '../../services/api';
+import { AzkabanService, type Recipient } from '../../services/api';
 
 interface Props {
   enableFileUpload?: boolean;
@@ -657,6 +668,7 @@ interface FormData {
   transactionId: string;
   transactionHash: string;
   internalNotes: string;
+  selectedRecipientId: string;
   destinationBank: string;
   accountHolder: string;
   accountType: string;
@@ -664,15 +676,6 @@ interface FormData {
 }
 
 const currencies = ['USD', 'COP', 'EUR', 'MXN', 'BRL', 'ARS'];
-
-const providers = [
-  { value: 'bancolombia', label: 'Bancolombia' },
-  { value: 'bbva', label: 'BBVA' },
-  { value: 'zulu', label: 'Zulu' },
-  { value: 'davivienda', label: 'Davivienda' },
-  { value: 'banco-de-bogota', label: 'Banco de Bogotá' },
-  { value: 'nequi', label: 'Nequi' },
-];
 
 const statuses = [
   { value: 'pending', label: 'Pending' },
@@ -694,6 +697,7 @@ const formData = ref<FormData>({
   transactionId: '',
   transactionHash: '',
   internalNotes: '',
+  selectedRecipientId: '',
   destinationBank: '',
   accountHolder: '',
   accountType: '',
@@ -706,6 +710,24 @@ const success = ref('');
 const selectedFile = ref<File | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const fieldErrors = ref<Record<string, boolean>>({});
+const recipients = ref<Recipient[]>([]);
+const isLoadingRecipients = ref(false);
+const movementsTableRef = ref<InstanceType<typeof UnifiedMovementsTable> | null>(null);
+
+const providers = computed(() => {
+  const uniqueProviders = new Set<string>();
+  recipients.value.forEach((recipient) => {
+    if (recipient.provider) {
+      uniqueProviders.add(recipient.provider);
+    }
+  });
+  return Array.from(uniqueProviders)
+    .sort()
+    .map((provider) => ({
+      value: provider.toLowerCase(),
+      label: provider,
+    }));
+});
 
 const formatDateTimeForInput = (date: Date = new Date()): string => {
   const year = date.getFullYear();
@@ -809,6 +831,60 @@ const handleFileSelect = (event: Event) => {
   }
 };
 
+const mapAccountTypeToSpanish = (accountType: string): string => {
+  const typeMap: Record<string, string> = {
+    savings: 'Ahorros',
+    checking: 'Corriente',
+    corriente: 'Corriente',
+    ahorros: 'Ahorros',
+    otro: 'Otro',
+    other: 'Otro',
+  };
+  return typeMap[accountType.toLowerCase()] || accountType;
+};
+
+const handleRecipientChange = () => {
+  const selectedRecipient = recipients.value.find((r) => r.id === formData.value.selectedRecipientId);
+
+  if (selectedRecipient) {
+    formData.value.destinationBank = selectedRecipient.provider;
+    formData.value.accountHolder =
+      selectedRecipient.company_name ||
+      [selectedRecipient.first_name, selectedRecipient.last_name]
+        .filter((s): s is string => Boolean(s))
+        .map((s) => s.trim())
+        .join(' ') ||
+      '';
+    formData.value.accountType = mapAccountTypeToSpanish(selectedRecipient.account_type || '');
+    formData.value.accountNumber = selectedRecipient.account_number || '';
+    fieldErrors.value.destinationBank = false;
+    fieldErrors.value.accountHolder = false;
+    fieldErrors.value.accountType = false;
+    fieldErrors.value.accountNumber = false;
+  } else {
+    formData.value.destinationBank = '';
+    formData.value.accountHolder = '';
+    formData.value.accountType = '';
+    formData.value.accountNumber = '';
+  }
+};
+
+const loadRecipients = async () => {
+  isLoadingRecipients.value = true;
+  try {
+    const recipientsList = await AzkabanService.getRecipients({ exclude_provider: 'COBRE' });
+    recipients.value = recipientsList;
+  } catch (err: any) {
+    console.error('Error al cargar recipients:', err);
+    error.value = {
+      code: 'RECIPIENTS_LOAD_ERROR',
+      message: 'Error al cargar la lista de proveedores. Por favor, intente recargar la página.',
+    };
+  } finally {
+    isLoadingRecipients.value = false;
+  }
+};
+
 const handleClear = () => {
   formData.value = {
     provider: '',
@@ -822,6 +898,7 @@ const handleClear = () => {
     transactionId: '',
     transactionHash: '',
     internalNotes: '',
+    selectedRecipientId: '',
     destinationBank: '',
     accountHolder: '',
     accountType: '',
@@ -892,7 +969,7 @@ const handleValidate = async (suppressSuccess = false) => {
     fieldErrors.value.transactionId = true;
     hasErrors = true;
   }
-  if (!formData.value.destinationBank) {
+  if (!formData.value.selectedRecipientId) {
     fieldErrors.value.destinationBank = true;
     hasErrors = true;
   }
@@ -960,7 +1037,20 @@ const handleSubmit = async (eventOrDuplicate?: Event | boolean, duplicateParam: 
       throw new Error('El monto inicial debe ser un número válido mayor a cero.');
     }
 
+    const parsedRate = parseFloat(formData.value.rate);
+    if (isNaN(parsedRate) || parsedRate <= 0) {
+      throw new Error('La tasa debe ser un número válido mayor a cero.');
+    }
+
     const destinationAccount = `${formData.value.destinationBank} - ${formData.value.accountHolder} - ${formData.value.accountType} - ${formData.value.accountNumber}`;
+
+    const selectedRecipient = recipients.value.find((r) => r.id === formData.value.selectedRecipientId);
+    const providerRecipient = recipients.value.find(
+      (r) => r.provider?.toLowerCase() === formData.value.provider.toLowerCase(),
+    );
+
+    const userIdTo = selectedRecipient?.id || undefined;
+    const userIdFrom = providerRecipient?.id || undefined;
 
     const movementType = formData.value.operationType as
       | 'transfer_in'
@@ -987,9 +1077,26 @@ const handleSubmit = async (eventOrDuplicate?: Event | boolean, duplicateParam: 
       method: formData.value.operationType,
       status: status,
       movement_type: 'monetization',
+      userId: formData.value.selectedRecipientId || undefined,
+      rate: parsedRate,
+      userIdFrom: userIdFrom,
+      userIdTo: userIdTo,
     });
 
-    success.value = `Monetización registrada exitosamente. ID: ${response.id}`;
+    if (Array.isArray(response)) {
+      const transactionIds = response.map((tx) => tx.id).join(', ');
+      success.value = `Monetización registrada exitosamente. Transacciones creadas: ${transactionIds}`;
+    } else {
+      success.value = `Monetización registrada exitosamente. ID: ${response.id}`;
+    }
+
+    await nextTick();
+    if (movementsTableRef.value) {
+      movementsTableRef.value.refresh();
+    }
+
+    await nextTick();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 
     if (duplicate) {
       formData.value.transactionId = '';
@@ -1000,7 +1107,9 @@ const handleSubmit = async (eventOrDuplicate?: Event | boolean, duplicateParam: 
         fileInputRef.value.value = '';
       }
     } else {
+      const successMessage = success.value;
       handleClear();
+      success.value = successMessage;
     }
 
     setTimeout(() => {
@@ -1030,8 +1139,9 @@ const handleSubmit = async (eventOrDuplicate?: Event | boolean, duplicateParam: 
   }
 };
 
-onMounted(() => {
+onMounted(async () => {
   formData.value.creationDate = formatDateTimeForInput(new Date());
+  await loadRecipients();
 });
 </script>
 
