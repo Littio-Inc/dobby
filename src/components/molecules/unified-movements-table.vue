@@ -493,10 +493,10 @@ const getTypeBadgeColorForTransaction = (type: string): string => {
     return 'bg-blue-100 text-blue-700';
   }
   if (typeLower.includes('payment')) {
-    return 'bg-blue-600 text-white';
+    return 'bg-blue-100 text-blue-700';
   }
   if (typeLower.includes('swap')) {
-    return 'bg-slate-600 text-white';
+    return 'bg-slate-100 text-slate-700';
   }
   if (typeLower.includes('deposit') || typeLower.includes('ingreso')) {
     return 'bg-green-100 text-green-700';

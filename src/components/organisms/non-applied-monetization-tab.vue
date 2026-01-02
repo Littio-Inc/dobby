@@ -845,7 +845,12 @@ const handleRecipientChange = () => {
   
   if (selectedRecipient) {
     formData.value.destinationBank = selectedRecipient.provider;
-    formData.value.accountHolder = selectedRecipient.company_name || '';
+    formData.value.accountHolder = selectedRecipient.company_name 
+      || [selectedRecipient.first_name, selectedRecipient.last_name]
+          .filter((s): s is string => Boolean(s))
+          .map(s => s.trim())
+          .join(' ')
+      || '';
     formData.value.accountType = mapAccountTypeToSpanish(selectedRecipient.account_type || '');
     formData.value.accountNumber = selectedRecipient.account_number || '';
     fieldErrors.value.destinationBank = false;

@@ -100,8 +100,8 @@ export interface CreateBackofficeTransactionParams {
   transfer_id?: string;
   userId?: string;
   rate?: number;
-  userIdFrom?: string; // UUID del proveedor
-  userIdTo?: string; // UUID del recipient (cuenta de destino)
+  userIdFrom?: string;
+  userIdTo?: string;
 }
 
 export interface ExternalWalletAsset {
@@ -610,7 +610,6 @@ export class AzkabanService {
             ? 'swap'
             : params.movementType;
 
-      // Determinar si necesitamos crear 2 transacciones (transfer_in, transfer_out, swap_in, swap_out)
       const needsPairedTransaction =
         params.movementType === 'transfer_in' ||
         params.movementType === 'transfer_out' ||
@@ -618,13 +617,10 @@ export class AzkabanService {
         params.movementType === 'swap_out';
 
       if (needsPairedTransaction) {
-        // Generar transfer_id único para ambas transacciones
         const transferId = params.transfer_id || crypto.randomUUID();
 
-        // Obtener el tipo de movimiento opuesto para la segunda transacción
         const oppositeMovementType = this.getOppositeMovementType(params.movementType);
         
-        // Calcular el tipo para la segunda transacción
         const oppositeType =
           oppositeMovementType === 'transfer_in' || oppositeMovementType === 'transfer_out'
             ? 'transfer'
@@ -632,7 +628,6 @@ export class AzkabanService {
               ? 'swap'
               : oppositeMovementType;
 
-        // Crear primera transacción (dirección normal)
         const idempotencyKey1 = crypto.randomUUID();
         const payload1 = this.createTransactionPayload(
           params,
@@ -640,13 +635,12 @@ export class AzkabanService {
           formattedDate,
           type,
           userEmail,
-          params.userIdTo || params.destinationAccount, // UUID del recipient (cuenta de destino)
-          params.userIdFrom || params.originAccount, // UUID del proveedor
+          params.userIdTo || params.destinationAccount,
+          params.userIdFrom || params.originAccount,
           transferId,
-          params.movementType, // method para la primera transacción
+          params.movementType,
         );
 
-        // Crear segunda transacción (dirección invertida con tipo opuesto)
         const idempotencyKey2 = crypto.randomUUID();
         const payload2 = this.createTransactionPayload(
           params,
@@ -654,34 +648,19 @@ export class AzkabanService {
           formattedDate,
           oppositeType,
           userEmail,
-          params.userIdFrom || params.originAccount, // user_id_to invertido (UUID del proveedor)
-          params.userIdTo || params.destinationAccount, // user_id_from invertido (UUID del recipient)
+          params.userIdFrom || params.originAccount,
+          params.userIdTo || params.destinationAccount,
           transferId,
-          oppositeMovementType, // method opuesto para la segunda transacción
+          oppositeMovementType,
         );
 
-        // Debug: Log the exact payloads being sent
-        console.log('[AzkabanService] Creating paired backoffice transactions');
-        console.log('[AzkabanService] Transfer ID:', transferId);
-        console.log('[AzkabanService] Transaction 1 (normal):', JSON.stringify(payload1, null, 2));
-        console.log('[AzkabanService] Transaction 2 (inverted):', JSON.stringify(payload2, null, 2));
-        console.log('[AzkabanService] Endpoint:', AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS);
-
-        // Crear ambas transacciones en paralelo
         const [response1, response2] = await Promise.all([
           azkabanApi.post<BackofficeTransaction>(AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS, payload1),
           azkabanApi.post<BackofficeTransaction>(AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS, payload2),
         ]);
 
-        console.log('[AzkabanService] Created paired transactions:', {
-          transaction1: response1.data.id,
-          transaction2: response2.data.id,
-          transfer_id: transferId,
-        });
-
         return [response1.data, response2.data];
       } else {
-        // Para payment o withdrawal, crear solo una transacción
         const idempotencyKey = crypto.randomUUID();
         const payload = this.createTransactionPayload(
           params,
@@ -689,14 +668,9 @@ export class AzkabanService {
           formattedDate,
           type,
           userEmail,
-          params.userIdTo || params.destinationAccount, // UUID del recipient (cuenta de destino)
-          params.userIdFrom || params.originAccount, // UUID del proveedor
+          params.userIdTo || params.destinationAccount,
+          params.userIdFrom || params.originAccount,
         );
-
-        // Debug: Log the exact payload being sent
-        console.log('[AzkabanService] Creating single backoffice transaction with payload:', JSON.stringify(payload, null, 2));
-        console.log('[AzkabanService] Endpoint:', AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS);
-        console.log('[AzkabanService] Full URL:', `${azkabanApi.defaults.baseURL}${AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS}`);
 
         const response = await azkabanApi.post<BackofficeTransaction>(
           AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS,
@@ -708,7 +682,6 @@ export class AzkabanService {
     } catch (error: any) {
       console.error('[AzkabanService] Error creating backoffice transaction:', error);
       
-      // Log detailed error information for debugging
       if (error.response) {
         console.error('[AzkabanService] Error response status:', error.response.status);
         console.error('[AzkabanService] Error response data:', JSON.stringify(error.response.data, null, 2));
@@ -768,13 +741,8 @@ export class AzkabanService {
    */
   static async createTransaction(params: CreateTransactionRequest): Promise<CreateTransactionResponse> {
     try {
-      // Generate idempotency key if not provided
       const idempotencyKey = params.idempotencyKey || crypto.randomUUID();
 
-      // Include idempotency key in request body (consistent with createBackofficeTransaction)
-      // Note: If backend requires it as HTTP header instead, use:
-      // const requestConfig = { headers: { 'Idempotency-Key': idempotencyKey } };
-      // and pass requestConfig as third parameter to azkabanApi.post()
       const requestBody = {
         ...params,
         idempotencyKey: idempotencyKey,
@@ -789,12 +757,10 @@ export class AzkabanService {
     } catch (error: any) {
       console.error('[AzkabanService] Error creating transaction:', error);
 
-      // Handle idempotency-related errors
       if (error.response) {
         const status = error.response.status;
         const errorData = error.response.data;
 
-        // 409 Conflict typically indicates duplicate request (idempotency)
         if (status === 409) {
           const errorMessage =
             errorData?.message ||
@@ -806,7 +772,6 @@ export class AzkabanService {
           throw idempotencyError;
         }
 
-        // 422 might also indicate duplicate or validation issues related to idempotency
         if (status === 422) {
           const errorMessage = errorData?.message || errorData?.detail || error.message;
           if (
