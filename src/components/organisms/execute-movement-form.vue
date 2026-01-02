@@ -1243,6 +1243,12 @@ const handleSubmit = async () => {
       movement_type: 'internal',
     };
 
+    // Track backoffice transaction success
+    // If backoffice fails, we still want to show a partial success message
+    // since the blockchain transaction was successful
+    // Alternatively, you may re-throw the error here if you want the whole operation to fail
+    let backofficeSuccess = true;
+
     try {
       if (isInternalTransfer) {
         const originBlockchainWallet = blockchainWallets.value.find(
@@ -1310,6 +1316,7 @@ const handleSubmit = async () => {
         });
       }
     } catch (backofficeError: any) {
+      backofficeSuccess = false;
       console.error('[ExecuteMovementForm] Error creating backoffice transaction:', {
         error: backofficeError,
         message: backofficeError?.message,
@@ -1317,9 +1324,18 @@ const handleSubmit = async () => {
         status: backofficeError?.response?.status,
         stack: backofficeError?.stack,
       });
+      // Note: We catch and log the error but don't re-throw it, allowing the
+      // blockchain transaction success to be communicated to the user with a
+      // partial success message. If you want the whole operation to fail when
+      // backoffice registration fails, uncomment the line below:
+      // throw backofficeError;
     }
 
-    success.value = `Movimiento ejecutado exitosamente. ID de transacción: ${response.id}`;
+    if (backofficeSuccess) {
+      success.value = `Movimiento ejecutado exitosamente. ID de transacción: ${response.id}`;
+    } else {
+      success.value = `Transacción blockchain exitosa (ID: ${response.id}), pero el registro en backoffice falló. Contacte al administrador.`;
+    }
 
     if (movementsTableRef.value) {
       movementsTableRef.value.refresh();
