@@ -573,7 +573,9 @@ export class AzkabanService {
     };
   }
 
-  static async createBackofficeTransaction(params: CreateBackofficeTransactionParams): Promise<BackofficeTransaction | BackofficeTransaction[]> {
+  static async createBackofficeTransaction(
+    params: CreateBackofficeTransactionParams,
+  ): Promise<BackofficeTransaction | BackofficeTransaction[]> {
     try {
       const user = $user.get();
       const userEmail = user?.email || null;
@@ -620,7 +622,7 @@ export class AzkabanService {
         const transferId = params.transfer_id || crypto.randomUUID();
 
         const oppositeMovementType = this.getOppositeMovementType(params.movementType);
-        
+
         const oppositeType =
           oppositeMovementType === 'transfer_in' || oppositeMovementType === 'transfer_out'
             ? 'transfer'
@@ -681,7 +683,7 @@ export class AzkabanService {
       }
     } catch (error: any) {
       console.error('[AzkabanService] Error creating backoffice transaction:', error);
-      
+
       if (error.response) {
         console.error('[AzkabanService] Error response status:', error.response.status);
         console.error('[AzkabanService] Error response data:', JSON.stringify(error.response.data, null, 2));
@@ -694,7 +696,7 @@ export class AzkabanService {
           data: error.config?.data,
         });
       }
-      
+
       throw error;
     }
   }

@@ -446,7 +446,10 @@
                       :key="recipient.id"
                       :value="recipient.id"
                     >
-                      {{ recipient.provider }} - {{ recipient.company_name || `${recipient.first_name || ''} ${recipient.last_name || ''}`.trim() }}
+                      {{ recipient.provider }} -
+                      {{
+                        recipient.company_name || `${recipient.first_name || ''} ${recipient.last_name || ''}`.trim()
+                      }}
                     </option>
                   </select>
                   <svg
@@ -842,15 +845,16 @@ const mapAccountTypeToSpanish = (accountType: string): string => {
 
 const handleRecipientChange = () => {
   const selectedRecipient = recipients.value.find((r) => r.id === formData.value.selectedRecipientId);
-  
+
   if (selectedRecipient) {
     formData.value.destinationBank = selectedRecipient.provider;
-    formData.value.accountHolder = selectedRecipient.company_name 
-      || [selectedRecipient.first_name, selectedRecipient.last_name]
-          .filter((s): s is string => Boolean(s))
-          .map(s => s.trim())
-          .join(' ')
-      || '';
+    formData.value.accountHolder =
+      selectedRecipient.company_name ||
+      [selectedRecipient.first_name, selectedRecipient.last_name]
+        .filter((s): s is string => Boolean(s))
+        .map((s) => s.trim())
+        .join(' ') ||
+      '';
     formData.value.accountType = mapAccountTypeToSpanish(selectedRecipient.account_type || '');
     formData.value.accountNumber = selectedRecipient.account_number || '';
     fieldErrors.value.destinationBank = false;
