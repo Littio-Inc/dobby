@@ -1255,14 +1255,26 @@ const handleSubmit = async () => {
         const originBlockchainWalletId = originBlockchainWallet?.id;
         const destinationBlockchainWalletId = destinationBlockchainWallet?.id;
 
+        if (!originBlockchainWalletId) {
+          throw new Error(
+            `No se encontró blockchain_wallet.id para la wallet de origen: ${originWalletName} (provider_id: ${formData.value.originWallet}). Por favor, verifique que la wallet tenga un blockchain_wallet asociado.`,
+          );
+        }
+
+        if (!destinationBlockchainWalletId) {
+          throw new Error(
+            `No se encontró blockchain_wallet.id para la wallet de destino: ${destinationWalletName} (provider_id: ${formData.value.destinationWallet}). Por favor, verifique que la wallet tenga un blockchain_wallet asociado.`,
+          );
+        }
+
         await AzkabanService.createBackofficeTransaction({
           ...commonParams,
           movementType: 'transfer_out',
           destinationAccount: destinationWalletName,
           originAccount: originWalletName,
           originProvider: originWalletName,
-          userIdFrom: originBlockchainWalletId || undefined,
-          userIdTo: destinationBlockchainWalletId || undefined,
+          userIdFrom: originBlockchainWalletId,
+          userIdTo: destinationBlockchainWalletId,
         });
       } else if (isWithdrawal) {
         const blockchainWallet = blockchainWallets.value.find((bw) => bw.provider_id === formData.value.originWallet);
