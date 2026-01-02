@@ -27,12 +27,17 @@ export interface DiagonAsset {
   blockHash?: string;
 }
 
+export interface BlockchainWallet {
+  id: string;
+}
+
 export interface DiagonAccountResponse {
   id: string;
   name: string;
   hiddenOnUI: boolean;
   autoFuel: boolean;
   assets: DiagonAsset[];
+  blockchain_wallet?: BlockchainWallet;
 }
 
 export interface DiagonWallet {

@@ -1234,6 +1234,13 @@ const handleSubmit = async () => {
       if (isInternalTransfer) {
         const transferId = crypto.randomUUID();
 
+        // Para rebalanceo interno, usar blockchain_wallet.id tanto para origen como destino
+        const originAccount = accounts.value.find((acc) => acc.id === formData.value.originWallet);
+        const destinationAccount = accounts.value.find((acc) => acc.id === formData.value.destinationWallet);
+
+        const originBlockchainWalletId = originAccount?.blockchain_wallet?.id || null;
+        const destinationBlockchainWalletId = destinationAccount?.blockchain_wallet?.id || null;
+
         await AzkabanService.createBackofficeTransaction({
           ...commonParams,
           movementType: 'transfer_in',
@@ -1241,6 +1248,8 @@ const handleSubmit = async () => {
           originAccount: destinationWalletName,
           originProvider: destinationWalletName,
           transfer_id: transferId,
+          userIdFrom: destinationBlockchainWalletId || undefined,
+          userIdTo: originBlockchainWalletId || undefined,
         });
 
         await AzkabanService.createBackofficeTransaction({
@@ -1250,14 +1259,26 @@ const handleSubmit = async () => {
           originAccount: originWalletName,
           originProvider: originWalletName,
           transfer_id: transferId,
+          userIdFrom: originBlockchainWalletId || undefined,
+          userIdTo: destinationBlockchainWalletId || undefined,
         });
       } else if (isWithdrawal) {
+        const originAccount = accounts.value.find((acc) => acc.id === formData.value.originWallet);
+        const blockchainWalletId = originAccount?.blockchain_wallet?.id || null;
+
+        const destinationWallet = destinationWallets.value.find(
+          (w) => 'address' in w && w.id === formData.value.destinationWallet,
+        );
+        const destinationAddress = destinationWallet && 'address' in destinationWallet ? destinationWallet.address : null;
+
         await AzkabanService.createBackofficeTransaction({
           ...commonParams,
           movementType: 'withdrawal',
           destinationAccount: destinationWalletName,
           originAccount: originWalletName,
           originProvider: originWalletName,
+          userIdFrom: blockchainWalletId || undefined,
+          userIdTo: destinationAddress || undefined,
         });
       }
     } catch (backofficeError: any) {
