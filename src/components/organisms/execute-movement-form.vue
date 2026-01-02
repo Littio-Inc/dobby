@@ -1232,39 +1232,33 @@ const handleSubmit = async () => {
 
     try {
       if (isInternalTransfer) {
-        const transferId = crypto.randomUUID();
-
-        // Para rebalanceo interno, usar blockchain_wallet.id tanto para origen como destino
+        // Para rebalanceo interno, el servicio crea automáticamente ambas transacciones (transfer_in y transfer_out)
+        // Solo necesitamos llamar UNA vez con transfer_out
         const originAccount = accounts.value.find((acc) => acc.id === formData.value.originWallet);
         const destinationAccount = accounts.value.find((acc) => acc.id === formData.value.destinationWallet);
 
         const originBlockchainWalletId = originAccount?.blockchain_wallet?.id || null;
         const destinationBlockchainWalletId = destinationAccount?.blockchain_wallet?.id || null;
 
-        await AzkabanService.createBackofficeTransaction({
-          ...commonParams,
-          movementType: 'transfer_in',
-          destinationAccount: originWalletName,
-          originAccount: destinationWalletName,
-          originProvider: destinationWalletName,
-          transfer_id: transferId,
-          userIdFrom: destinationBlockchainWalletId || undefined,
-          userIdTo: originBlockchainWalletId || undefined,
-        });
-
+        // Llamar solo una vez con transfer_out - el servicio creará automáticamente transfer_in también
         await AzkabanService.createBackofficeTransaction({
           ...commonParams,
           movementType: 'transfer_out',
           destinationAccount: destinationWalletName,
           originAccount: originWalletName,
           originProvider: originWalletName,
-          transfer_id: transferId,
           userIdFrom: originBlockchainWalletId || undefined,
           userIdTo: destinationBlockchainWalletId || undefined,
         });
       } else if (isWithdrawal) {
         const originAccount = accounts.value.find((acc) => acc.id === formData.value.originWallet);
-        const blockchainWalletId = originAccount?.blockchain_wallet?.id || null;
+        const blockchainWalletId = originAccount?.blockchain_wallet?.id;
+
+        if (!blockchainWalletId) {
+          throw new Error(
+            `No se encontró blockchain_wallet.id para la wallet de origen: ${originWalletName}. Por favor, verifique que la wallet tenga un blockchain_wallet asociado.`,
+          );
+        }
 
         const destinationWallet = destinationWallets.value.find(
           (w) => 'address' in w && w.id === formData.value.destinationWallet,
@@ -1277,7 +1271,7 @@ const handleSubmit = async () => {
           destinationAccount: destinationWalletName,
           originAccount: originWalletName,
           originProvider: originWalletName,
-          userIdFrom: blockchainWalletId || undefined,
+          userIdFrom: blockchainWalletId,
           userIdTo: destinationAddress || undefined,
         });
       }

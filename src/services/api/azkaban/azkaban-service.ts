@@ -635,6 +635,15 @@ export class AzkabanService {
               ? 'swap'
               : oppositeMovementType;
 
+        // Si se pasan userIdFrom y userIdTo explícitamente, usar los mismos valores para ambas transacciones
+        // De lo contrario, invertir los valores como antes
+        const hasExplicitUserIds = params.userIdFrom !== undefined || params.userIdTo !== undefined;
+
+        const user_id_to_1 = params.userIdTo || params.destinationAccount;
+        const user_id_from_1 = params.userIdFrom || params.originAccount;
+        const user_id_to_2 = hasExplicitUserIds ? (params.userIdTo || params.destinationAccount) : (params.userIdFrom || params.originAccount);
+        const user_id_from_2 = hasExplicitUserIds ? (params.userIdFrom || params.originAccount) : (params.userIdTo || params.destinationAccount);
+
         const idempotencyKey1 = crypto.randomUUID();
         const payload1 = this.createTransactionPayload(
           params,
@@ -642,8 +651,8 @@ export class AzkabanService {
           formattedDate,
           type,
           userEmail,
-          params.userIdTo || params.destinationAccount,
-          params.userIdFrom || params.originAccount,
+          user_id_to_1,
+          user_id_from_1,
           transferId,
           params.movementType,
         );
@@ -655,8 +664,8 @@ export class AzkabanService {
           formattedDate,
           oppositeType,
           userEmail,
-          params.userIdFrom || params.originAccount,
-          params.userIdTo || params.destinationAccount,
+          user_id_to_2,
+          user_id_from_2,
           transferId,
           oppositeMovementType,
         );
