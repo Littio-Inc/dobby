@@ -890,7 +890,6 @@ const loadBlockchainWallets = async () => {
   try {
     const wallets = await AzkabanService.getBlockchainWallets('FIREBLOCKS');
     blockchainWallets.value = wallets;
-    console.log('[ExecuteMovementForm] Blockchain wallets cargadas:', wallets.length);
   } catch (err: any) {
     console.error('[ExecuteMovementForm] Error loading blockchain wallets:', err);
     blockchainWallets.value = [];
@@ -1231,13 +1230,6 @@ const handleSubmit = async () => {
     const isWithdrawal =
       formData.value.operationType === 'prefunding_provider' || formData.value.operationType === 'b2c_funding';
 
-    console.log('[ExecuteMovementForm] Tipo de operación:', {
-      operationType: formData.value.operationType,
-      isInternalTransfer,
-      isWithdrawal,
-      fireblocksTransactionId: response.id,
-    });
-
     const commonParams = {
       operationDate,
       operationTime,
@@ -1251,13 +1243,8 @@ const handleSubmit = async () => {
       movement_type: 'internal',
     };
 
-    console.log('[ExecuteMovementForm] Parámetros comunes:', commonParams);
-
     try {
-      console.log('[ExecuteMovementForm] Entrando al bloque try para crear transacción de backoffice');
       if (isInternalTransfer) {
-        console.log('[ExecuteMovementForm] Es transferencia interna');
-
         const originBlockchainWallet = blockchainWallets.value.find(
           (bw) => bw.provider_id === formData.value.originWallet,
         );
@@ -1267,15 +1254,6 @@ const handleSubmit = async () => {
 
         const originBlockchainWalletId = originBlockchainWallet?.id;
         const destinationBlockchainWalletId = destinationBlockchainWallet?.id;
-
-        console.log('[ExecuteMovementForm] Blockchain wallets encontradas para rebalanceo:', {
-          originProviderId: formData.value.originWallet,
-          originBlockchainWallet,
-          originBlockchainWalletId,
-          destinationProviderId: formData.value.destinationWallet,
-          destinationBlockchainWallet,
-          destinationBlockchainWalletId,
-        });
 
         await AzkabanService.createBackofficeTransaction({
           ...commonParams,
@@ -1287,32 +1265,11 @@ const handleSubmit = async () => {
           userIdTo: destinationBlockchainWalletId || undefined,
         });
       } else if (isWithdrawal) {
-        console.log('[ExecuteMovementForm] Es withdrawal, entrando al bloque');
-
         const blockchainWallet = blockchainWallets.value.find((bw) => bw.provider_id === formData.value.originWallet);
 
         const blockchainWalletId = blockchainWallet?.id;
 
-        console.log('[ExecuteMovementForm] Blockchain wallet encontrada para withdrawal:', {
-          providerId: formData.value.originWallet,
-          blockchainWallet,
-          blockchainWalletId,
-          availableBlockchainWallets: blockchainWallets.value.map((bw) => ({
-            id: bw.id,
-            name: bw.name,
-            provider_id: bw.provider_id,
-          })),
-        });
-
         if (!blockchainWalletId) {
-          console.error('[ExecuteMovementForm] blockchain_wallet.id no encontrado:', {
-            providerId: formData.value.originWallet,
-            availableBlockchainWallets: blockchainWallets.value.map((bw) => ({
-              id: bw.id,
-              name: bw.name,
-              provider_id: bw.provider_id,
-            })),
-          });
           throw new Error(
             `No se encontró blockchain_wallet.id para la wallet de origen: ${originWalletName} (provider_id: ${formData.value.originWallet}). Por favor, verifique que la wallet tenga un blockchain_wallet asociado.`,
           );
@@ -1329,14 +1286,6 @@ const handleSubmit = async () => {
             `No se encontró la dirección de la wallet de destino: ${destinationWalletName}. Por favor, verifique que la wallet tenga una dirección asociada.`,
           );
         }
-
-        console.log('[ExecuteMovementForm] Creando transacción de withdrawal:', {
-          movementType: 'withdrawal',
-          userIdFrom: blockchainWalletId,
-          userIdTo: destinationAddress,
-          originAccount: originWalletName,
-          destinationAccount: destinationWalletName,
-        });
 
         await AzkabanService.createBackofficeTransaction({
           ...commonParams,
@@ -1357,8 +1306,6 @@ const handleSubmit = async () => {
         stack: backofficeError?.stack,
       });
     }
-
-    console.log('[ExecuteMovementForm] Después del bloque try-catch de backoffice, continuando...');
 
     success.value = `Movimiento ejecutado exitosamente. ID de transacción: ${response.id}`;
 

@@ -649,13 +649,10 @@ export class AzkabanService {
               ? 'swap'
               : oppositeMovementType;
 
-        // Si se pasan userIdFrom y userIdTo explícitamente, invertir los valores para la transacción opuesta
-        // De lo contrario, usar los valores de originAccount y destinationAccount
         const hasExplicitUserIds = params.userIdFrom !== undefined || params.userIdTo !== undefined;
 
         const user_id_to_1 = params.userIdTo || params.destinationAccount;
         const user_id_from_1 = params.userIdFrom || params.originAccount;
-        // Para la transacción opuesta, invertir los valores cuando se pasan explícitamente
         const user_id_to_2 = hasExplicitUserIds
           ? params.userIdFrom || params.originAccount
           : params.userIdTo || params.destinationAccount;
@@ -697,8 +694,6 @@ export class AzkabanService {
         return [response1.data, response2.data];
       } else {
         const idempotencyKey = crypto.randomUUID();
-        // Para withdrawals, si se pasa userIdTo explícitamente, usarlo directamente
-        // De lo contrario, usar destinationAccount como fallback
         const user_id_to = params.userIdTo !== undefined ? params.userIdTo : params.destinationAccount;
         const user_id_from = params.userIdFrom !== undefined ? params.userIdFrom : params.originAccount;
 
