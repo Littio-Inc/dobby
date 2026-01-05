@@ -98,6 +98,7 @@
                 <span class="text-neutral-50">↑↓</span>
               </div>
             </th>
+            <th class="text-left p-4 font-semibold text-sm text-neutral-80">Provider</th>
             <th class="text-left p-4 font-semibold text-sm text-neutral-80 cursor-pointer hover:bg-neutral-30/50">
               <div class="flex items-center gap-1">
                 Creado
@@ -115,6 +116,7 @@
             <th class="text-right p-4 font-semibold text-sm text-neutral-80">Monto Inicial</th>
             <th class="text-right p-4 font-semibold text-sm text-neutral-80">Monto Final</th>
             <th class="text-center p-4 font-semibold text-sm text-neutral-80">Estado</th>
+            <th class="text-left p-4 font-semibold text-sm text-neutral-80">Provider</th>
             <th class="text-left p-4 font-semibold text-sm text-neutral-80">Cuenta de Destino</th>
           </tr>
         </thead>
@@ -124,7 +126,7 @@
             class="border-b"
           >
             <td
-              colspan="9"
+              colspan="10"
               class="p-8 text-center text-neutral-60"
             >
               {{
@@ -163,6 +165,18 @@
                   </svg>
                 </button>
               </div>
+            </td>
+
+            <!-- Provider -->
+            <td class="p-4">
+              <span
+                :class="[
+                  'inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium',
+                  getProviderBadgeClass(payout.provider),
+                ]"
+              >
+                {{ formatProvider(payout.provider) }}
+              </span>
             </td>
 
             <!-- Creado -->
@@ -415,6 +429,25 @@ const getCurrencyBadgeClass = (currency: string) => {
     return 'bg-purple-100 text-purple-800';
   }
   if (currencyUpper === 'ARS') {
+    return 'bg-purple-100 text-purple-800';
+  }
+  return 'bg-neutral-100 text-neutral-800';
+};
+
+const formatProvider = (provider: string) => {
+  // Capitalize first letter
+  return provider.charAt(0).toUpperCase() + provider.slice(1);
+};
+
+const getProviderBadgeClass = (provider: string) => {
+  const providerLower = provider.toLowerCase();
+  if (providerLower === 'kira') {
+    return 'bg-blue-100 text-blue-800';
+  }
+  if (providerLower === 'cobre') {
+    return 'bg-orange-100 text-orange-800';
+  }
+  if (providerLower === 'supra') {
     return 'bg-purple-100 text-purple-800';
   }
   return 'bg-neutral-100 text-neutral-800';

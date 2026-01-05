@@ -278,77 +278,12 @@ const pomeloQuotes = ref<Quote[]>([
 //   },
 // ]);
 
-const b2bQuotes = ref<Quote[]>([
-  {
-    amount: '',
-    from: 'USD', // Supra uses USD (same as Cobre)
-    to: 'COP',
-    calculatedAmount: '-',
-    rate: '-', // Will be populated after quote
-    spread: '-',
-    provider: 'Supra',
-    disabled: false, // Enable Supra for B2B
-  },
-  {
-    amount: '',
-    from: 'USD', // Cobre uses USD (same as Pomelo)
-    to: 'COP',
-    calculatedAmount: '-',
-    rate: '-', // Will be populated after quote
-    spread: '-',
-    provider: 'Cobre',
-    disabled: false, // Enable Cobre for B2B
-  },
-  {
-    amount: '',
-    from: 'USDC', // Default to USDC - always set
-    to: 'COP',
-    calculatedAmount: '-',
-    rate: '-', // Will be populated after quote
-    spread: '-',
-    provider: 'Kira',
-    disabled: false,
-  },
-]);
+const b2bQuotes = ref<Quote[]>([]);
 
 // Recipients data
-const pomeloRecipients = ref<any[]>([
-  {
-    id: 'pomelo-1',
-    name: 'Pomelo',
-    bank: 'BBVA',
-    account_type: 'Ahorros',
-    type: 'company',
-    account_number: '1234565892',
-  },
-]);
+const pomeloRecipients = ref<any[]>([]);
 
-const b2bRecipients = ref<any[]>([
-  {
-    id: 'b2b-wagmi',
-    name: 'WAGMI SAS',
-    bank: 'Coinfx',
-    account_type: 'Ahorros',
-    type: 'company',
-    account_number: '5555127351',
-  },
-  {
-    id: 'b2b-wagmi-co',
-    name: 'WAGMI co',
-    bank: 'Coinfx',
-    account_type: 'Ahorros',
-    type: 'company',
-    account_number: '5555127351',
-  },
-  {
-    id: 'b2b-tech',
-    name: 'Tech Solutions Ltd',
-    bank: 'Bancolombia',
-    account_type: 'Corriente',
-    type: 'company',
-    account_number: '9876544289',
-  },
-]);
+const b2bRecipients = ref<any[]>([]);
 
 // Providers based on account type
 const pomeloProviders = computed(() => [
