@@ -111,6 +111,7 @@ const menuItems = computed(() => {
   items.push({ id: 'configuration', name: 'Configuración', path: '/configuration/index.html', icon: Cog6ToothIcon });
   if (isAdmin.value) {
     items.push({ id: 'users', name: 'Usuarios', path: '/admin/users/index.html', icon: UserGroupIcon });
+    items.push({ id: 'configuration', name: 'Configuración', path: '/configuration/index.html', icon: Cog6ToothIcon });
   } else {
     console.log('[NavigationSidebar] User is not admin, not showing admin menu items');
   }
