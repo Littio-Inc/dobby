@@ -64,7 +64,13 @@ import { useStore } from '@nanostores/vue';
 import { $isAdmin, $userRole } from '../../stores/auth-store';
 import { $sidebarCollapsed } from '../../stores/sidebar-store';
 import { goTo, Route } from '../../routes/routes';
-import { HomeIcon, CurrencyDollarIcon, UserGroupIcon, DocumentTextIcon } from '@heroicons/vue/24/outline';
+import {
+  HomeIcon,
+  CurrencyDollarIcon,
+  UserGroupIcon,
+  DocumentTextIcon,
+  Cog6ToothIcon,
+} from '@heroicons/vue/24/outline';
 
 const logoUrl = new URL('../../assets/logo.png', import.meta.url).href;
 
@@ -102,12 +108,11 @@ const menuItems = computed(() => {
     },
   ];
 
-  // Only show Users menu item if user is admin
+  items.push({ id: 'configuration', name: 'Configuración', path: '/configuration/index.html', icon: Cog6ToothIcon });
   if (isAdmin.value) {
-    console.log('[NavigationSidebar] Adding Users menu item for admin');
     items.push({ id: 'users', name: 'Usuarios', path: '/admin/users/index.html', icon: UserGroupIcon });
   } else {
-    console.log('[NavigationSidebar] User is not admin, not showing Users menu');
+    console.log('[NavigationSidebar] User is not admin, not showing admin menu items');
   }
 
   return items;
