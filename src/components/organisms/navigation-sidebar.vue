@@ -7,7 +7,7 @@
           alt="Littio Logo"
           class="h-10 w-auto"
         />
-        <h1 class="text-2xl font-bold">Littio Ledger</h1>
+        <h1 class="text-2xl font-bold">Littio</h1>
       </div>
     </div>
 
