@@ -1,9 +1,37 @@
 <template>
   <header class="bg-white border-b border-neutral-20 px-6 py-4 flex items-center justify-between">
     <div class="flex items-center gap-4">
-      <h2 class="text-xl font-semibold text-neutral-80">
-        {{ pageTitle }}
-      </h2>
+      <button
+        @click="toggleSidebar"
+        class="p-2 rounded hover:bg-neutral-20 transition-colors flex items-center justify-center"
+        :title="isCollapsed ? 'Expandir menú' : 'Colapsar menú'"
+      >
+        <svg
+          class="w-6 h-6 text-neutral-80"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <rect
+            x="3"
+            y="3"
+            width="18"
+            height="18"
+            rx="2"
+            stroke="currentColor"
+          />
+          <line
+            x1="8"
+            y1="3"
+            x2="8"
+            y2="21"
+            stroke="currentColor"
+          />
+        </svg>
+      </button>
+      <h2 class="text-xl font-semibold text-neutral-80"></h2>
     </div>
     <div class="flex items-center gap-4">
       <div class="flex items-center gap-3">
@@ -35,6 +63,7 @@
 import { computed } from 'vue';
 import { useStore } from '@nanostores/vue';
 import { $user, logout } from '../../stores/auth-store';
+import { $sidebarCollapsed, toggleSidebar } from '../../stores/sidebar-store';
 import { goTo, Route } from '../../routes/routes';
 
 defineProps<{
@@ -42,6 +71,7 @@ defineProps<{
 }>();
 
 const user = useStore($user);
+const isCollapsed = useStore($sidebarCollapsed);
 
 const userInitials = computed(() => {
   const name = user.value?.displayName || user.value?.email || '';

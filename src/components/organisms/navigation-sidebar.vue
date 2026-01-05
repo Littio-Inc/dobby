@@ -1,17 +1,34 @@
 <template>
-  <aside class="w-64 bg-littio-primary-billionaire text-white h-screen flex flex-col fixed left-0 top-0 z-10">
-    <div class="p-6 border-b border-neutral-80">
-      <div class="flex items-center gap-3">
+  <aside
+    class="bg-littio-primary-billionaire text-white h-screen flex flex-col fixed left-0 top-0 z-10 transition-all duration-300"
+    :class="isCollapsed ? 'w-16' : 'w-64'"
+  >
+    <div
+      class="border-b border-neutral-80"
+      :class="isCollapsed ? 'p-4' : 'p-6'"
+    >
+      <div
+        class="flex items-center gap-3"
+        :class="isCollapsed ? 'justify-center' : ''"
+      >
         <img
           :src="logoUrl"
           alt="Littio Logo"
-          class="h-10 w-auto"
+          class="h-10 w-auto flex-shrink-0"
         />
-        <h1 class="text-2xl font-bold">Littio</h1>
+        <h1
+          class="text-2xl font-bold whitespace-nowrap transition-opacity duration-300"
+          :class="isCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'"
+        >
+          Littio
+        </h1>
       </div>
     </div>
 
-    <nav class="flex-1 p-4 overflow-y-auto">
+    <nav
+      class="flex-1 overflow-y-auto"
+      :class="isCollapsed ? 'p-2' : 'p-4'"
+    >
       <ul class="space-y-2">
         <li
           v-for="item in menuItems"
@@ -19,28 +36,40 @@
         >
           <a
             :href="item.path"
-            class="block px-4 py-2 rounded hover:bg-neutral-100 transition-colors flex items-center gap-2 cursor-pointer"
-            :class="{ 'bg-neutral-100': currentPath === item.path }"
+            class="block py-2 rounded hover:bg-neutral-100 transition-colors flex items-center gap-2 cursor-pointer"
+            :class="[isCollapsed ? 'px-2 justify-center' : 'px-4', { 'bg-neutral-100': currentPath === item.path }]"
             @click.prevent="handleNavigation(item.path)"
+            :title="isCollapsed ? item.name : ''"
           >
             <component
               :is="item.icon"
-              class="w-5 h-5"
+              class="w-5 h-5 flex-shrink-0"
             />
-            <span>{{ item.name }}</span>
+            <span
+              class="whitespace-nowrap transition-opacity duration-300"
+              :class="isCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'"
+            >
+              {{ item.name }}
+            </span>
           </a>
         </li>
       </ul>
     </nav>
 
     <div class="p-4 border-t border-neutral-80">
-      <div class="flex items-center gap-3 mb-4">
-        <div class="w-10 h-10 rounded-full bg-littio-primary-lime flex items-center justify-center">
+      <div
+        class="flex items-center gap-3 mb-4"
+        :class="isCollapsed ? 'justify-center' : ''"
+      >
+        <div class="w-10 h-10 rounded-full bg-littio-primary-lime flex items-center justify-center flex-shrink-0">
           <span class="text-littio-primary-billionaire font-bold">
             {{ userInitials }}
           </span>
         </div>
-        <div class="flex-1 min-w-0">
+        <div
+          class="flex-1 min-w-0 transition-opacity duration-300"
+          :class="isCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'"
+        >
           <p class="text-sm font-medium truncate">
             {{ userName }}
           </p>
@@ -50,10 +79,17 @@
         </div>
       </div>
       <button
-        class="w-full px-4 py-2 bg-carmine hover:bg-carmine/80 rounded transition-colors"
+        class="w-full px-4 py-2 bg-carmine hover:bg-carmine/80 rounded transition-colors flex items-center justify-center gap-2"
         @click="handleLogout"
+        :title="isCollapsed ? 'Cerrar Sesión' : ''"
       >
-        Cerrar Sesión
+        <ArrowRightOnRectangleIcon class="w-5 h-5 flex-shrink-0" />
+        <span
+          class="whitespace-nowrap transition-opacity duration-300"
+          :class="isCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'"
+        >
+          Cerrar Sesión
+        </span>
       </button>
     </div>
   </aside>
@@ -63,8 +99,15 @@
 import { computed, onMounted } from 'vue';
 import { useStore } from '@nanostores/vue';
 import { $user, $isAdmin, $userRole, logout } from '../../stores/auth-store';
+import { $sidebarCollapsed } from '../../stores/sidebar-store';
 import { goTo, Route } from '../../routes/routes';
-import { HomeIcon, CurrencyDollarIcon, UserGroupIcon, DocumentTextIcon } from '@heroicons/vue/24/outline';
+import {
+  HomeIcon,
+  CurrencyDollarIcon,
+  UserGroupIcon,
+  DocumentTextIcon,
+  ArrowRightOnRectangleIcon,
+} from '@heroicons/vue/24/outline';
 
 const logoUrl = new URL('../../assets/logo.png', import.meta.url).href;
 
@@ -77,6 +120,7 @@ const currentPath = computed(() => {
 const user = useStore($user);
 const isAdmin = useStore($isAdmin);
 const userRole = useStore($userRole);
+const isCollapsed = useStore($sidebarCollapsed);
 
 // Debug logging
 onMounted(() => {
