@@ -55,59 +55,16 @@
         </li>
       </ul>
     </nav>
-
-    <div class="p-4 border-t border-neutral-80">
-      <div
-        class="flex items-center gap-3 mb-4"
-        :class="isCollapsed ? 'justify-center' : ''"
-      >
-        <div class="w-10 h-10 rounded-full bg-littio-primary-lime flex items-center justify-center flex-shrink-0">
-          <span class="text-littio-primary-billionaire font-bold">
-            {{ userInitials }}
-          </span>
-        </div>
-        <div
-          class="flex-1 min-w-0 transition-opacity duration-300"
-          :class="isCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'"
-        >
-          <p class="text-sm font-medium truncate">
-            {{ userName }}
-          </p>
-          <p class="text-xs text-neutral-60 truncate">
-            {{ userEmail }}
-          </p>
-        </div>
-      </div>
-      <button
-        class="w-full px-4 py-2 bg-carmine hover:bg-carmine/80 rounded transition-colors flex items-center justify-center gap-2"
-        @click="handleLogout"
-        :title="isCollapsed ? 'Cerrar Sesión' : ''"
-      >
-        <ArrowRightOnRectangleIcon class="w-5 h-5 flex-shrink-0" />
-        <span
-          class="whitespace-nowrap transition-opacity duration-300"
-          :class="isCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'"
-        >
-          Cerrar Sesión
-        </span>
-      </button>
-    </div>
   </aside>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import { useStore } from '@nanostores/vue';
-import { $user, $isAdmin, $userRole, logout } from '../../stores/auth-store';
+import { $isAdmin, $userRole } from '../../stores/auth-store';
 import { $sidebarCollapsed } from '../../stores/sidebar-store';
 import { goTo, Route } from '../../routes/routes';
-import {
-  HomeIcon,
-  CurrencyDollarIcon,
-  UserGroupIcon,
-  DocumentTextIcon,
-  ArrowRightOnRectangleIcon,
-} from '@heroicons/vue/24/outline';
+import { HomeIcon, CurrencyDollarIcon, UserGroupIcon, DocumentTextIcon } from '@heroicons/vue/24/outline';
 
 const logoUrl = new URL('../../assets/logo.png', import.meta.url).href;
 
@@ -117,34 +74,14 @@ const currentPath = computed(() => {
   }
   return '/';
 });
-const user = useStore($user);
 const isAdmin = useStore($isAdmin);
 const userRole = useStore($userRole);
 const isCollapsed = useStore($sidebarCollapsed);
 
 // Debug logging
 onMounted(() => {
-  console.log('[NavigationSidebar] User:', user.value?.email);
   console.log('[NavigationSidebar] User role:', userRole.value);
   console.log('[NavigationSidebar] Is admin:', isAdmin.value);
-});
-
-const userInitials = computed(() => {
-  const name = user.value?.displayName || user.value?.email || '';
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-});
-
-const userName = computed(() => {
-  return user.value?.displayName || user.value?.email || 'Usuario';
-});
-
-const userEmail = computed(() => {
-  return user.value?.email || '';
 });
 
 const menuItems = computed(() => {
@@ -180,10 +117,5 @@ const menuItems = computed(() => {
 
 const handleNavigation = (path: string) => {
   goTo(path as Route);
-};
-
-const handleLogout = async () => {
-  await logout();
-  goTo(Route.LOGIN);
 };
 </script>
