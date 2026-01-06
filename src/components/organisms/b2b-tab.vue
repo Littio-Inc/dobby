@@ -25,8 +25,9 @@
       @monetize="handleMonetize"
     />
 
-    <!-- Dialog Modal -->
+    <!-- Dialog Modal - Only render when open to avoid hydration issues -->
     <DialogModal
+      v-if="dialog.isOpen"
       :is-open="dialog.isOpen"
       :title="dialog.title"
       :message="dialog.message"
@@ -483,6 +484,13 @@ const handleQuote = async (index: number, quote: Quote) => {
 
     // Guardar el quote en una variable
     savedQuote.value = quoteResponse;
+    
+    // Log for debugging in staging - check if exchange_confirmation_token is present
+    if (providerStr === 'supra' && quoteResponse.exchange_confirmation_token) {
+      console.log('[B2B] Initial Supra quote - exchange_confirmation_token received:', quoteResponse.exchange_confirmation_token);
+    } else if (providerStr === 'supra') {
+      console.warn('[B2B] Initial Supra quote - missing exchange_confirmation_token');
+    }
 
     // Format rate from quote response (use rate if available, otherwise balam_rate)
     const rateValue = quoteResponse.rate || quoteResponse.balam_rate;
@@ -574,6 +582,13 @@ const handleMonetize = async () => {
         provider: stringToProvider(selectedProvider.value),
       });
       savedQuote.value = quoteResponse;
+      
+      // Log for debugging in staging
+      if (providerLower === 'supra' && quoteResponse.exchange_confirmation_token) {
+        console.log('[B2B] Supra exchange_confirmation_token received:', quoteResponse.exchange_confirmation_token);
+      } else if (providerLower === 'supra') {
+        console.warn('[B2B] Supra quote missing exchange_confirmation_token');
+      }
     } catch (error: any) {
       isProcessing.value = false;
       const errorMessage =
@@ -660,6 +675,15 @@ const handleMonetize = async () => {
   }
   // If no user_id available, Azkaban will obtain it from database
 
+  // Ensure exchange_confirmation_token is preserved for Supra
+  const quoteToSend = { ...savedQuote.value };
+  if (providerLower === 'supra' && savedQuote.value.exchange_confirmation_token) {
+    quoteToSend.exchange_confirmation_token = savedQuote.value.exchange_confirmation_token;
+    console.log('[B2B] Preserving Supra exchange_confirmation_token in payout request');
+  } else if (providerLower === 'supra') {
+    console.warn('[B2B] WARNING: Supra quote missing exchange_confirmation_token when building payout');
+  }
+
   pendingPayoutData.value = {
     recipient_id: selectedRecipient.value,
     wallet_id: walletId,
@@ -668,7 +692,7 @@ const handleMonetize = async () => {
     quote_currency: selectedQuote.to,
     amount: savedQuote.value.base_amount,
     quote_id: savedQuote.value.quote_id,
-    quote: savedQuote.value,
+    quote: quoteToSend,
     token: token,
     provider: stringToProvider(selectedProvider.value),
     user_id: userId, // Optional: Kira uses env var, others will be set by Azkaban
@@ -683,7 +707,16 @@ const executePayout = async (payoutData: any) => {
     isProcessing.value = true;
     dialog.value.isLoading = true;
 
-    if (import.meta.env.DEV) {
+    // Log payout data for debugging (especially exchange_confirmation_token for Supra)
+    if (payoutData.provider === 'supra') {
+      const hasToken = !!payoutData.quote?.exchange_confirmation_token;
+      console.log('[B2B] Executing Supra payout - exchange_confirmation_token present:', hasToken);
+      if (hasToken) {
+        console.log('[B2B] exchange_confirmation_token value:', payoutData.quote.exchange_confirmation_token);
+      } else {
+        console.error('[B2B] ERROR: Supra payout missing exchange_confirmation_token in quote!');
+        console.log('[B2B] Full quote object:', JSON.stringify(payoutData.quote, null, 2));
+      }
     }
 
     // Call createPayout API

@@ -9,7 +9,7 @@ const title = "Dobby - Monetización";
 <DashboardLayout title={title} lang={lang} pageTitle="">
   <AuthGuard client:load>
     <div class="p-8">
-      <MonetizationContainer lang={lang} client:load />
+      <MonetizationContainer lang={lang} client:only="vue" />
     </div>
   </AuthGuard>
 </DashboardLayout>

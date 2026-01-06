@@ -25,8 +25,9 @@
       @monetize="handleMonetize"
     />
 
-    <!-- Dialog Modal -->
+    <!-- Dialog Modal - Only render when open to avoid hydration issues -->
     <DialogModal
+      v-if="dialog.isOpen"
       :is-open="dialog.isOpen"
       :title="dialog.title"
       :message="dialog.message"
@@ -419,6 +420,13 @@ const handleQuote = async (index: number, quote: Quote) => {
 
     // Guardar el quote en una variable
     savedQuote.value = quoteResponse;
+    
+    // Log for debugging in staging - check if exchange_confirmation_token is present
+    if (quote.provider?.toLowerCase() === 'supra' && quoteResponse.exchange_confirmation_token) {
+      console.log('[Pomelo] Initial Supra quote - exchange_confirmation_token received:', quoteResponse.exchange_confirmation_token);
+    } else if (quote.provider?.toLowerCase() === 'supra') {
+      console.warn('[Pomelo] Initial Supra quote - missing exchange_confirmation_token');
+    }
 
     // Format balam_rate as number with thousand separators
     const formattedRate = quoteResponse.balam_rate.toLocaleString('es-CO', {
@@ -584,6 +592,13 @@ const handleMonetize = async () => {
         provider: stringToProvider(selectedProvider.value),
       });
       savedQuote.value = quoteResponse;
+      
+      // Log for debugging in staging
+      if (providerLower === 'supra' && quoteResponse.exchange_confirmation_token) {
+        console.log('[Pomelo] Supra exchange_confirmation_token received:', quoteResponse.exchange_confirmation_token);
+      } else if (providerLower === 'supra') {
+        console.warn('[Pomelo] Supra quote missing exchange_confirmation_token');
+      }
     } catch (error: any) {
       isProcessing.value = false;
 
@@ -674,6 +689,15 @@ const handleMonetize = async () => {
   }
   // If no user_id available, Azkaban will obtain it from database
 
+  // Ensure exchange_confirmation_token is preserved for Supra
+  const quoteToSend = { ...savedQuote.value };
+  if (providerLower === 'supra' && savedQuote.value.exchange_confirmation_token) {
+    quoteToSend.exchange_confirmation_token = savedQuote.value.exchange_confirmation_token;
+    console.log('[Pomelo] Preserving Supra exchange_confirmation_token in payout request');
+  } else if (providerLower === 'supra') {
+    console.warn('[Pomelo] WARNING: Supra quote missing exchange_confirmation_token when building payout');
+  }
+
   pendingPayoutData.value = {
     recipient_id: selectedRecipient.value,
     wallet_id: walletId,
@@ -682,7 +706,7 @@ const handleMonetize = async () => {
     quote_currency: selectedQuote.to,
     amount: savedQuote.value.base_amount,
     quote_id: savedQuote.value.quote_id,
-    quote: savedQuote.value,
+    quote: quoteToSend,
     token: token,
     provider: stringToProvider(selectedProvider.value),
     user_id: userId, // Optional: Kira uses env var, others will be set by Azkaban
@@ -696,6 +720,18 @@ const executePayout = async (payoutData: any) => {
   try {
     isProcessing.value = true;
     dialog.value.isLoading = true;
+
+    // Log payout data for debugging (especially exchange_confirmation_token for Supra)
+    if (payoutData.provider === 'supra') {
+      const hasToken = !!payoutData.quote?.exchange_confirmation_token;
+      console.log('[Pomelo] Executing Supra payout - exchange_confirmation_token present:', hasToken);
+      if (hasToken) {
+        console.log('[Pomelo] exchange_confirmation_token value:', payoutData.quote.exchange_confirmation_token);
+      } else {
+        console.error('[Pomelo] ERROR: Supra payout missing exchange_confirmation_token in quote!');
+        console.log('[Pomelo] Full quote object:', JSON.stringify(payoutData.quote, null, 2));
+      }
+    }
 
     // Call createPayout API
     const response = await createPayout('transfer', payoutData);
