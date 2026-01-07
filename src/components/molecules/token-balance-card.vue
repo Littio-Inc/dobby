@@ -2,7 +2,7 @@
   <div class="bg-white rounded-lg border border-neutral-20 p-6 space-y-4">
     <!-- Token Header -->
     <div class="flex items-center justify-between">
-      <span :class="['px-3 py-1 rounded-full text-xs font-semibold', badgeColor]">
+      <span :class="['px-3 py-1.5 rounded-full text-sm font-bold tracking-wide', badgeColor]">
         {{ symbol }}
       </span>
     </div>
