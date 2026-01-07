@@ -143,8 +143,8 @@ const formattedTotalAmount = computed(() => {
           maximumFractionDigits: 0,
         })} ${currency}`;
       }
-    } catch {
-      // Ignore calculation errors
+    } catch (e) {
+      console.error('Error calculating amount:', e);
     }
   }
 
@@ -197,13 +197,13 @@ const canMonetize = computed(() => {
   return true;
 });
 
-const handleProviderSelect = async (provider: string) => {
+const handleProviderSelect = (provider: string) => {
   selectedProvider.value = provider;
   selectedRecipient.value = ''; // Reset recipient when provider changes
 
   // Load recipients from API when a provider is selected
   if (provider) {
-    await loadRecipients();
+    loadRecipients();
   }
 };
 

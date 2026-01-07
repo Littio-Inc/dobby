@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import PayoutHistoryTable from '../molecules/payout-history-table.vue';
 import { getPayoutHistory, type PayoutHistoryItem } from '../../services';
 
@@ -19,6 +19,7 @@ const props = defineProps<{
 
 const payouts = ref<PayoutHistoryItem[]>([]);
 const isLoading = ref(false);
+let pollingInterval: ReturnType<typeof setInterval> | null = null;
 
 const loadPayoutHistory = async () => {
   isLoading.value = true;
@@ -37,16 +38,49 @@ const loadPayoutHistory = async () => {
   }
 };
 
-// Cargar historial al montar
+const startPolling = () => {
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+  }
+
+  pollingInterval = setInterval(() => {
+    if (isLoading.value) {
+      return;
+    }
+    loadPayoutHistory();
+  }, 60000);
+};
+
+const stopPolling = () => {
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+  }
+  isLoading.value = false;
+};
+
 onMounted(() => {
   loadPayoutHistory();
+  startPolling();
 });
 
-// Recargar historial cuando cambie el account (tab activo)
+onUnmounted(() => {
+  stopPolling();
+});
+
 watch(
   () => props.account,
   () => {
+    if (isLoading.value) {
+      return;
+    }
+    stopPolling();
     loadPayoutHistory();
+    startPolling();
   },
 );
+
+defineExpose({
+  loadPayoutHistory,
+});
 </script>

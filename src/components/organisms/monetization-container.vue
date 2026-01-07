@@ -18,7 +18,7 @@
       v-if="activeMainTab === 'apificados'"
       class="space-y-6"
     >
-      <!-- Sub-tabs for Apificados: Pomelo, B2B -->
+      <!-- Sub-tabs for Apificados: Pomelo, B2C, B2B -->
       <MonetizationTabs
         :active-tab="activeSubTab"
         :tabs="apificadosSubTabs"
@@ -39,6 +39,16 @@
         @update:quotes="pomeloQuotes = $event"
       />
 
+      <B2CTab
+        v-if="activeSubTab === 'b2c'"
+        :quotes="b2cQuotes"
+        :available-providers="b2cProviders"
+        :usdt-balance="b2cUSDT"
+        :usd-balance="cobreUSDBalance"
+        @monetize="handleMonetize"
+        @update:quotes="b2cQuotes = $event"
+      />
+
       <B2BTab
         v-if="activeSubTab === 'b2b'"
         :quotes="b2bQuotes"
@@ -46,14 +56,17 @@
         :available-providers="b2bProviders"
         :usdc-balance="b2bUSDC"
         :usdt-balance="b2bUSDT"
-        :usd-balance="cobreB2BUSDBalance"
+        :usd-balance="cobreUSDBalance"
         :supra-usd-balance="supraB2BUSDBalance"
         @monetize="handleMonetize"
         @update:quotes="b2bQuotes = $event"
       />
 
       <!-- Historial de Transacciones - Card debajo de monetización -->
-      <PayoutHistoryTab :account="currentAccount" />
+      <PayoutHistoryTab
+        ref="payoutHistoryTabRef"
+        :account="currentAccount"
+      />
     </div>
 
     <!-- Monetización No Apificados Tab -->
@@ -76,9 +89,11 @@ import { ref, computed, onMounted } from 'vue';
 import { getBalances, WALLET_IDS, Provider, type BalanceResponse } from '../../services';
 import MonetizationTabs from '../molecules/monetization-tabs.vue';
 import PomeloTab from './pomelo-tab.vue';
+import B2CTab from './b2c-tab.vue';
 import B2BTab from './b2b-tab.vue';
 import NonAppliedMonetizationTab from './non-applied-monetization-tab.vue';
 import PayoutHistoryTab from './payout-history-tab.vue';
+import type { PayoutHistoryTabInstance } from '../../types/components';
 
 defineProps<{
   lang: string;
@@ -86,11 +101,11 @@ defineProps<{
 
 const activeMainTab = ref<'apificados' | 'no-apificados'>('apificados');
 
-const activeSubTab = ref<'pomelo' | 'b2b'>('pomelo');
+const activeSubTab = ref<'pomelo' | 'b2c' | 'b2b'>('pomelo');
 
 const currentAccount = computed(() => {
   // Determine account type based on sub-tab
-  // Pomelo uses 'transfer', B2B uses 'pay'
+  // Pomelo uses 'transfer', B2C and B2B use 'pay'
   return activeSubTab.value === 'pomelo' ? 'transfer' : 'pay';
 });
 
@@ -99,8 +114,10 @@ const isLoadingBalances = ref(false);
 
 // Balance data
 const pomeloBalances = ref<BalanceResponse | null>(null);
+const b2cBalances = ref<BalanceResponse | null>(null);
 const b2bBalances = ref<BalanceResponse | null>(null);
 const cobreBalances = ref<BalanceResponse | null>(null); // Cobre balance for Pomelo (transfer)
+const cobreB2CBalances = ref<BalanceResponse | null>(null); // Cobre balance for B2C (pay)
 const cobreB2BBalances = ref<BalanceResponse | null>(null); // Cobre balance for B2B (pay)
 const supraBalances = ref<BalanceResponse | null>(null); // Supra balance for Pomelo (transfer)
 const supraB2BBalances = ref<BalanceResponse | null>(null); // Supra balance for B2B (pay)
@@ -120,19 +137,11 @@ const pomeloUSDT = computed(() => {
 
 // Cobre USD balance for Pomelo (transfer)
 // Note: Cobre uses the same global balance for both account types
+// Cobre USD balance (consolidated for all account types)
+// Note: Cobre uses the same global balance for all account types
 const cobreUSDBalance = computed(() => {
-  // Use cobreBalances (transfer) or cobreB2BBalances (pay) - both should be the same
-  const balanceSource = cobreBalances.value || cobreB2BBalances.value;
-  if (!balanceSource || !balanceSource.balances) return 0;
-  const usd = balanceSource.balances.find((b) => b.token === 'USD');
-  return usd ? parseFloat(usd.amount || '0') : 0;
-});
-
-// Cobre USD balance for B2B (pay)
-// Note: Cobre uses the same global balance for both account types
-const cobreB2BUSDBalance = computed(() => {
-  // Use cobreB2BBalances (pay) or cobreBalances (transfer) as fallback - both should be the same
-  const balanceSource = cobreB2BBalances.value || cobreBalances.value;
+  // Try all balance sources as fallback - all should be the same
+  const balanceSource = cobreB2CBalances.value || cobreB2BBalances.value || cobreBalances.value;
   if (!balanceSource || !balanceSource.balances) return 0;
   const usd = balanceSource.balances.find((b) => b.token === 'USD');
   return usd ? parseFloat(usd.amount || '0') : 0;
@@ -171,6 +180,13 @@ const b2bUSDT = computed(() => {
   return usdt ? parseFloat(usdt.amount || '0') : 0;
 });
 
+// Individual B2C token balances
+const b2cUSDT = computed(() => {
+  if (!b2cBalances.value || !b2cBalances.value.balances) return 0;
+  const usdt = b2cBalances.value.balances.find((b) => b.token === 'USDT');
+  return usdt ? parseFloat(usdt.amount || '0') : 0;
+});
+
 // Load balances
 const loadBalances = async () => {
   isLoadingBalances.value = true;
@@ -179,19 +195,22 @@ const loadBalances = async () => {
     // Cobre and Supra use the same balance for both account types, so we only need one call each
     const balances = await getBalances([
       { account: 'transfer', walletId: WALLET_IDS.TRANSFER, provider: Provider.KIRA }, // Pomelo - Kira
-      { account: 'pay', walletId: WALLET_IDS.PAY, provider: Provider.KIRA }, // B2B - Kira
-      { account: 'transfer', walletId: WALLET_IDS.TRANSFER, provider: Provider.COBRE }, // Cobre USD balance (same for both accounts)
-      { account: 'transfer', walletId: WALLET_IDS.TRANSFER, provider: Provider.SUPRA }, // Supra USD balance (same for both accounts)
+      { account: 'pay', walletId: WALLET_IDS.PAY, provider: Provider.KIRA }, // B2C/B2B - Kira (for USDT balance, shared)
+      { account: 'transfer', walletId: WALLET_IDS.TRANSFER, provider: Provider.COBRE }, // Cobre USD balance (same for all accounts)
+      { account: 'transfer', walletId: WALLET_IDS.TRANSFER, provider: Provider.SUPRA }, // Supra USD balance (same for all accounts)
     ]);
 
     // Handle null values (failed requests)
     pomeloBalances.value = balances[0] || null;
-    b2bBalances.value = balances[1] || null;
-    // Cobre balance is the same for both Pomelo and B2B (uses global balance)
+    const kiraPayBalance = balances[1] || null;
+    b2cBalances.value = kiraPayBalance; // B2C - Kira (pay)
+    b2bBalances.value = kiraPayBalance; // B2B - Kira (pay) - same as B2C
+    // Cobre balance is the same for all account types (uses global balance)
     const cobreBalance = balances[2] || null;
     cobreBalances.value = cobreBalance; // Cobre balance for Pomelo (transfer)
+    cobreB2CBalances.value = cobreBalance; // Cobre balance for B2C (pay) - same as Pomelo
     cobreB2BBalances.value = cobreBalance; // Cobre balance for B2B (pay) - same as Pomelo
-    // Supra balance is the same for both Pomelo and B2B (uses global balance)
+    // Supra balance is the same for all account types (uses global balance)
     const supraBalance = balances[3] || null;
     supraBalances.value = supraBalance; // Supra balance for Pomelo (transfer)
     supraB2BBalances.value = supraBalance; // Supra balance for B2B (pay) - same as Pomelo
@@ -217,6 +236,7 @@ const mainTabs = [
 // Sub-tabs for Apificados
 const apificadosSubTabs = [
   { value: 'pomelo', label: 'Pomelo' },
+  { value: 'b2c', label: 'B2C' },
   { value: 'b2b', label: 'B2B' },
 ];
 
@@ -265,20 +285,52 @@ const pomeloQuotes = ref<Quote[]>([
   },
 ]);
 
-// B2C quotes - reservado para uso futuro
-// const b2cQuotes = ref<Quote[]>([
-//   {
-//     amount: '',
-//     from: 'USDT',
-//     to: 'MXN',
-//     calculatedAmount: '-',
-//     rate: '-',
-//     spread: '-',
-//     provider: 'Cobre',
-//   },
-// ]);
+// B2C quotes - solo Cobre, USD -> COP
+const b2cQuotes = ref<Quote[]>([
+  {
+    amount: '',
+    from: 'USD',
+    to: 'COP',
+    calculatedAmount: '-',
+    rate: '-',
+    spread: '-',
+    provider: 'Cobre',
+    disabled: false,
+  },
+]);
 
-const b2bQuotes = ref<Quote[]>([]);
+const b2bQuotes = ref<Quote[]>([
+  {
+    amount: '',
+    from: 'USD', // Supra uses USD (same as Cobre)
+    to: 'COP',
+    calculatedAmount: '-',
+    rate: '-',
+    spread: '-',
+    provider: 'Supra',
+    disabled: false,
+  },
+  {
+    amount: '',
+    from: 'USD', // Cobre uses USD
+    to: 'COP',
+    calculatedAmount: '-',
+    rate: '-',
+    spread: '-',
+    provider: 'Cobre',
+    disabled: false,
+  },
+  {
+    amount: '',
+    from: 'USDC', // Default to USDC - always set
+    to: 'COP',
+    calculatedAmount: '-',
+    rate: '-',
+    spread: '-',
+    provider: 'Kira',
+    disabled: false,
+  },
+]);
 
 // Recipients data
 const pomeloRecipients = ref<any[]>([]);
@@ -292,12 +344,8 @@ const pomeloProviders = computed(() => [
   { value: 'kira', label: 'Kira', disabled: false },
 ]);
 
-// B2C providers (for future use)
-// const b2cProviders = computed(() => [
-//   { value: 'cobre', label: 'Cobre', disabled: false },
-//   { value: 'kira', label: 'Kira', disabled: true },
-//   { value: 'supra', label: 'Supra', disabled: true },
-// ]);
+// B2C providers - solo Cobre
+const b2cProviders = computed(() => [{ value: 'cobre', label: 'Cobre', disabled: false }]);
 
 const b2bProviders = computed(() => [
   { value: 'supra', label: 'Supra', disabled: false },
@@ -314,14 +362,22 @@ const handleMainTabChange = (tab: string) => {
 };
 
 const handleSubTabChange = (tab: string) => {
-  activeSubTab.value = tab as 'pomelo' | 'b2b';
+  activeSubTab.value = tab as 'pomelo' | 'b2c' | 'b2b';
   // Reset quotes when switching sub-tabs
-  const quotes = activeSubTab.value === 'pomelo' ? pomeloQuotes.value : b2bQuotes.value;
+  const quotes =
+    activeSubTab.value === 'pomelo'
+      ? pomeloQuotes.value
+      : activeSubTab.value === 'b2c'
+        ? b2cQuotes.value
+        : b2bQuotes.value;
   quotes.forEach((q) => {
     q.amount = '';
     q.calculatedAmount = '-';
   });
 };
+
+// Reference to PayoutHistoryTab component
+const payoutHistoryTabRef = ref<PayoutHistoryTabInstance | null>(null);
 
 const handleMonetize = async (_payoutInfo: any) => {
   error.value = '';
@@ -331,6 +387,12 @@ const handleMonetize = async (_payoutInfo: any) => {
   try {
     // Reload balances after successful payout
     await loadBalances();
+
+    // Update payout history to show the new transaction
+    if (payoutHistoryTabRef.value && typeof payoutHistoryTabRef.value.loadPayoutHistory === 'function') {
+      await payoutHistoryTabRef.value.loadPayoutHistory();
+    }
+
     error.value = '';
   } catch (err: any) {
     error.value = err.response?.data?.detail || 'Error al recargar balances';

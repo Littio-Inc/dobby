@@ -26,7 +26,6 @@
         </button>
       </div>
 
-      <!-- Filtros -->
       <div class="flex items-center gap-4">
         <div class="flex-1">
           <label class="block text-sm font-medium text-neutral-70 mb-1">Filtrar por ID</label>
@@ -141,7 +140,6 @@
             :key="payout.id"
             class="border-b border-neutral-10 hover:bg-neutral-20/20 transition-colors"
           >
-            <!-- ID -->
             <td class="p-4">
               <div class="flex items-center gap-2">
                 <span class="text-sm text-neutral-80 font-mono">{{ formatId(payout.id) }}</span>
@@ -167,7 +165,6 @@
               </div>
             </td>
 
-            <!-- Provider -->
             <td class="p-4">
               <span
                 :class="[
@@ -179,17 +176,14 @@
               </span>
             </td>
 
-            <!-- Creado -->
             <td class="p-4 text-sm text-neutral-70">
               {{ formatDate(payout.created_at) }}
             </td>
 
-            <!-- Tasa -->
             <td class="p-4 text-right text-sm text-neutral-70">
               {{ formatAmount(payout.rate) }}
             </td>
 
-            <!-- Moneda Inicial -->
             <td class="p-4">
               <span
                 :class="[
@@ -201,7 +195,6 @@
               </span>
             </td>
 
-            <!-- Moneda Final -->
             <td class="p-4">
               <span
                 :class="[
@@ -213,17 +206,14 @@
               </span>
             </td>
 
-            <!-- Monto Inicial -->
             <td class="p-4 text-right text-sm text-neutral-80 font-medium">
               {{ formatAmount(payout.initial_amount) }}
             </td>
 
-            <!-- Monto Final -->
             <td class="p-4 text-right text-sm text-neutral-80 font-medium">
               {{ formatAmount(payout.final_amount) }}
             </td>
 
-            <!-- Estado -->
             <td class="p-4 text-center">
               <span
                 :class="[
@@ -235,7 +225,6 @@
               </span>
             </td>
 
-            <!-- Cuenta de Destino -->
             <td class="p-4">
               <div class="flex items-center gap-2">
                 <span class="text-sm text-neutral-70">{{ getDestinationAccount(payout) }}</span>
@@ -265,7 +254,6 @@
       </table>
     </div>
 
-    <!-- Copy feedback message -->
     <div
       v-if="copyMessage"
       :class="[
@@ -290,7 +278,6 @@ const props = defineProps<{
   isLoading?: boolean;
 }>();
 
-// Emit se usa en el template con $emit('refresh')
 defineEmits<{
   refresh: [];
 }>();
@@ -298,43 +285,37 @@ defineEmits<{
 const copyMessage = ref<string>('');
 const copyMessageType = ref<'success' | 'error'>('success');
 const filterId = ref<string>('');
-const filterDate = ref<string>(''); // Formato YYYY-MM-DD (formato nativo del input date)
-const filterDateDisplay = ref<string>(''); // Formato YYYY-MM-DD para mostrar
+const filterDate = ref<string>('');
+const filterDateDisplay = ref<string>('');
 const datePickerInput = ref<HTMLInputElement | null>(null);
 
-// Sincronizar filterDateDisplay con filterDate
 watch(filterDate, (newValue) => {
   filterDateDisplay.value = newValue;
 });
 
-// Actualizar display cuando cambia el date picker
 const updateDateDisplay = () => {
   if (filterDate.value) {
     filterDateDisplay.value = filterDate.value;
   }
 };
 
-// Abrir el date picker
 const openDatePicker = () => {
   if (datePickerInput.value) {
     datePickerInput.value.showPicker?.();
   }
 };
 
-// Filtrar payouts por ID y Fecha
 const filteredPayouts = computed(() => {
   let filtered = [...props.payouts];
 
-  // Filtrar por ID
   if (filterId.value.trim()) {
     const searchId = filterId.value.trim().toLowerCase();
     filtered = filtered.filter((payout) => payout.id.toLowerCase().includes(searchId));
   }
 
-  // Filtrar por Fecha (formato YYYY-MM-DD del input date)
   if (filterDate.value) {
     const [filterYear, filterMonth, filterDay] = filterDate.value.split('-').map(Number);
-    const filterMonthIndex = filterMonth - 1; // Los meses en Date son 0-indexed
+    const filterMonthIndex = filterMonth - 1;
 
     filtered = filtered.filter((payout) => {
       try {
@@ -384,11 +365,10 @@ const formatDate = (dateString: string) => {
 };
 
 const formatId = (id: string) => {
-  // Formato: tx_7a8b9c0d1e2f3g4h5...
-  if (id.startsWith('tx_')) {
-    return id;
+  if (id.length > 20) {
+    return `${id.substring(0, 20)}...`;
   }
-  return `tx_${id.substring(0, 16)}...`;
+  return id;
 };
 
 const formatAmount = (amount: string) => {
@@ -435,7 +415,6 @@ const getCurrencyBadgeClass = (currency: string) => {
 };
 
 const formatProvider = (provider: string) => {
-  // Capitalize first letter
   return provider.charAt(0).toUpperCase() + provider.slice(1);
 };
 
@@ -454,7 +433,6 @@ const getProviderBadgeClass = (provider: string) => {
 };
 
 const getDestinationAccount = (payout: PayoutHistoryItem): string => {
-  // Intentar obtener la cuenta de destino de additional_data
   if (payout.additional_data) {
     const accountNumber = (payout.additional_data as any)?.account_number;
     const bankName = (payout.additional_data as any)?.bank_name || (payout.additional_data as any)?.bank;
@@ -463,7 +441,6 @@ const getDestinationAccount = (payout: PayoutHistoryItem): string => {
       return bankName ? `${bankName} ****${last4}` : `****${last4}`;
     }
   }
-  // Si no hay información, usar el provider_external_id o un placeholder
   if (payout.provider_external_id) {
     return payout.provider_external_id;
   }

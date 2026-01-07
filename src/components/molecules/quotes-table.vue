@@ -43,24 +43,25 @@
               <!-- De (From Currency) -->
               <td class="p-4">
                 <select
-                  :value="quote.from || (quote.provider === 'Cobre' || quote.provider === 'Supra' ? 'USD' : 'USDC')"
+                  :value="
+                    quote.from ||
+                    (isB2CQuote(quote)
+                      ? 'USD'
+                      : quote.provider === 'Cobre' || quote.provider === 'Supra'
+                        ? 'USD'
+                        : 'USDC')
+                  "
                   :disabled="!!quote.disabled"
                   class="w-28 px-3 py-2 border border-neutral-40 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky/20 focus:border-littio-secondary-sky appearance-none cursor-pointer disabled:bg-neutral-20 disabled:cursor-not-allowed"
-                  @change="
-                    $emit('update:quote', index, {
-                      ...quote,
-                      from:
-                        ($event.target as HTMLSelectElement).value ||
-                        (quote.provider === 'Cobre' || quote.provider === 'Supra' ? 'USD' : 'USDC'),
-                    })
-                  "
+                  @change="handleFromCurrencyChange(index, quote, ($event.target as HTMLSelectElement).value)"
                 >
-                  <option
-                    v-if="quote.provider === 'Cobre' || quote.provider === 'Supra'"
-                    value="USD"
-                  >
-                    USD
-                  </option>
+                  <template v-if="isB2CQuote(quote)">
+                    <option value="USD">USD</option>
+                    <option value="COP">COP</option>
+                  </template>
+                  <template v-else-if="quote.provider === 'Cobre' || quote.provider === 'Supra'">
+                    <option value="USD">USD</option>
+                  </template>
                   <template v-else>
                     <option value="USDC">USDC</option>
                     <option value="USDT">USDT</option>
@@ -91,19 +92,12 @@
                   :value="quote.to"
                   :disabled="!!quote.disabled"
                   class="w-28 px-3 py-2 border border-neutral-40 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky/20 focus:border-littio-secondary-sky appearance-none cursor-pointer disabled:bg-neutral-20 disabled:cursor-not-allowed"
-                  @change="$emit('update:quote', index, { ...quote, to: ($event.target as HTMLSelectElement).value })"
+                  @change="handleToCurrencyChange(index, quote, ($event.target as HTMLSelectElement).value)"
                 >
-                  <option
-                    v-if="
-                      quote.provider === 'Kira' ||
-                      quote.provider === 'Cobre' ||
-                      quote.provider === 'Supra' ||
-                      quote.provider === 'Cotizar'
-                    "
-                    value="COP"
-                  >
-                    COP
-                  </option>
+                  <template v-if="isB2CQuote(quote)">
+                    <option value="USD">USD</option>
+                    <option value="COP">COP</option>
+                  </template>
                   <template v-else>
                     <option value="COP">COP</option>
                   </template>
@@ -247,6 +241,12 @@ const emit = defineEmits<{
 
 // Get balance for a specific currency and provider
 const getBalanceForCurrency = (currency: string, provider?: string): number => {
+  // For Cobre, always use USD balance regardless of the currency in the quote
+  // (Cobre uses USD internally, even if the quote shows USDT)
+  if (provider?.toLowerCase() === 'cobre' && props.usdBalance !== undefined) {
+    return props.usdBalance;
+  }
+
   if (currency === 'USDC') {
     return props.usdcBalance ?? 0;
   }
@@ -257,10 +257,6 @@ const getBalanceForCurrency = (currency: string, provider?: string): number => {
     // For Supra, use Supra USD balance
     if (provider?.toLowerCase() === 'supra' && props.supraUsdBalance !== undefined) {
       return props.supraUsdBalance;
-    }
-    // For Cobre, use Cobre USD balance
-    if (provider?.toLowerCase() === 'cobre' && props.usdBalance !== undefined) {
-      return props.usdBalance;
     }
     // For other providers, prioritize USD balance prop, fallback to USDC
     if (props.usdBalance !== undefined) {
@@ -307,6 +303,36 @@ const handleNumericKeyDown = (e: KeyboardEvent) => {
   if (!/^[0-9.,]$/.test(e.key)) {
     e.preventDefault();
   }
+};
+
+// Check if quote is for B2C (Business to Consumer)
+// B2C quotes are identified by Cobre provider, which exclusively uses USD/COP currencies
+const isB2CQuote = (quote: Quote): boolean => {
+  return quote.provider === 'Cobre';
+};
+
+// Handle "De" (From) currency change for B2C
+const handleFromCurrencyChange = (index: number, quote: Quote, newFrom: string) => {
+  const updatedQuote = { ...quote, from: newFrom };
+
+  // For B2C, if the new "from" currency is the same as "to", swap them
+  if (isB2CQuote(quote) && newFrom === quote.to) {
+    updatedQuote.to = newFrom === 'USD' ? 'COP' : 'USD';
+  }
+
+  emit('update:quote', index, updatedQuote);
+};
+
+// Handle "Hacia" (To) currency change for B2C
+const handleToCurrencyChange = (index: number, quote: Quote, newTo: string) => {
+  const updatedQuote = { ...quote, to: newTo };
+
+  // For B2C, if the new "to" currency is the same as "from", swap them
+  if (isB2CQuote(quote) && newTo === quote.from) {
+    updatedQuote.from = newTo === 'USD' ? 'COP' : 'USD';
+  }
+
+  emit('update:quote', index, updatedQuote);
 };
 
 const handleAmountInput = (index: number, value: string) => {
