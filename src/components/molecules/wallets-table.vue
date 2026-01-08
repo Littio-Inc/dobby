@@ -123,6 +123,7 @@ import { DocumentDuplicateIcon, EllipsisVerticalIcon, ArrowsRightLeftIcon } from
 
 interface WalletRow {
   id: string;
+  originalId?: string;
   name: string;
   type: string;
   typeBadgeColor: string;

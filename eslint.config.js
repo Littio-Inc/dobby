@@ -17,10 +17,11 @@ const config = [
     files: ['*.d.ts', '**/*.d.ts'],
     rules: {
       '@typescript-eslint/triple-slash-reference': 'off',
+      '@typescript-eslint/no-empty-object-type': 'off',
     },
   },
   {
-    ignores: ['dist/**'],
+    ignores: ['dist/**', '.astro/**'],
   },
   {
     files: ['*.ts', '**/*.ts', '*.vue', '**/*.vue'],

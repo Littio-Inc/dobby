@@ -290,6 +290,40 @@ const getWalletTokenBalance = (walletId: string, tokenSymbol: string): number =>
   return totalBalance;
 };
 
+const getWalletTokenBalanceByBlockchain = (walletId: string, tokenSymbol: string, blockchain: string): number => {
+  const account = accounts.value.find((acc) => acc.id === walletId);
+  if (!account) return 0;
+
+  const tokenUpper = tokenSymbol.toUpperCase();
+  let totalBalance = 0;
+
+  for (const asset of account.assets) {
+    const { token, blockchain: assetBlockchain } = parseAssetId(asset.id);
+    if (token.toUpperCase() === tokenUpper && assetBlockchain === blockchain) {
+      totalBalance += parseFloat(asset.balance) || 0;
+    }
+  }
+
+  return totalBalance;
+};
+
+const getWalletTokenBlockchains = (walletId: string, tokenSymbol: string): string[] => {
+  const account = accounts.value.find((acc) => acc.id === walletId);
+  if (!account) return [];
+
+  const tokenUpper = tokenSymbol.toUpperCase();
+  const blockchains = new Set<string>();
+
+  for (const asset of account.assets) {
+    const { token, blockchain } = parseAssetId(asset.id);
+    if (token.toUpperCase() === tokenUpper) {
+      blockchains.add(blockchain);
+    }
+  }
+
+  return Array.from(blockchains);
+};
+
 const getWalletMainToken = (walletId: string): { token: string; balance: number } | null => {
   const account = accounts.value.find((acc) => acc.id === walletId);
   if (!account || account.assets.length === 0) return null;
@@ -314,15 +348,19 @@ const parseAssetId = (assetId: string): { token: string; blockchain: string } =>
   const parts = assetId.split('_');
   const assetIdUpper = assetId.toUpperCase();
 
-  const knownTokens = ['USDC', 'USDT', 'ETH', 'BTC', 'DAI', 'MATIC', 'POL', 'WBTC', 'WETH'];
+  const knownTokens = ['USDC', 'USDT', 'ETH', 'BTC', 'DAI', 'MATIC', 'POL', 'WBTC', 'WETH', 'SOL'];
 
   const blockchainMap: Record<string, string> = {
+    BASECHAIN: 'BaseChain',
+    BASE: 'BaseChain',
     POLYGON: 'Polygon',
     AMOY: 'Polygon',
     BITCOIN: 'Bitcoin',
     BTC: 'Bitcoin',
+    SOL: 'Solana',
   };
 
+  // Determinar blockchain primero
   let blockchain = 'Unknown';
   for (const [key, value] of Object.entries(blockchainMap)) {
     if (assetIdUpper.includes(key)) {
@@ -331,14 +369,46 @@ const parseAssetId = (assetId: string): { token: string; blockchain: string } =>
     }
   }
 
+  // Si contiene SOL, es Solana (verificar antes de extraer el token)
+  if (assetIdUpper.includes('SOL') || assetIdUpper === 'SOL') {
+    blockchain = 'Solana';
+  }
+
   let token = parts[0].toUpperCase();
 
+  // Casos especiales para BTC
   if (token === 'BTC' || assetIdUpper.startsWith('BTC_')) {
     token = 'BTC';
     blockchain = 'Bitcoin';
     return { token, blockchain };
   }
 
+  // Casos especiales para SOL
+  if (token === 'SOL' || assetIdUpper === 'SOL') {
+    token = 'SOL';
+    blockchain = 'Solana';
+    return { token, blockchain };
+  }
+
+  // Si empieza con SOL_, buscar el token real después de SOL_
+  if (assetIdUpper.startsWith('SOL_')) {
+    // Buscar el token en las siguientes partes
+    for (const part of parts.slice(1)) {
+      const partUpper = part.toUpperCase();
+      if (knownTokens.includes(partUpper)) {
+        token = partUpper;
+        break;
+      }
+    }
+    // Si no se encontró un token conocido, usar SOL como token
+    if (!knownTokens.includes(token)) {
+      token = 'SOL';
+    }
+    blockchain = 'Solana';
+    return { token, blockchain };
+  }
+
+  // Casos especiales para Polygon
   if (token === 'AMOY' || token === 'POLYGON') {
     let foundToken = false;
     for (const knownToken of knownTokens) {
@@ -358,6 +428,7 @@ const parseAssetId = (assetId: string): { token: string; blockchain: string } =>
     token = 'POL';
   }
 
+  // Si el blockchain sigue siendo Unknown y no es BTC, asumir Ethereum
   if (blockchain === 'Unknown' && token !== 'BTC') {
     blockchain = 'Ethereum';
   }
@@ -419,28 +490,64 @@ const filteredWallets = computed(() => {
 });
 
 const tableWallets = computed(() => {
-  return filteredWallets.value.map((wallet) => {
-    let formattedBalance = '-';
+  return filteredWallets.value.flatMap((wallet) => {
+    // Si hay un token seleccionado, mostrar una entrada por blockchain que tenga ese token
+    const currentToken = selectedToken.value;
+    if (currentToken) {
+      const blockchains = getWalletTokenBlockchains(wallet.id, currentToken);
 
-    if (selectedToken.value) {
-      const balance = getWalletTokenBalance(wallet.id, selectedToken.value);
-      formattedBalance = `${formatTokenBalance(balance)} ${selectedToken.value}`;
+      // Solo mostrar blockchains que tengan balance > 0 (excepto para tokens importantes)
+      const importantTokens = ['ETH', 'BTC'];
+      const tokenUpper = currentToken.toUpperCase();
+      const filteredBlockchains = blockchains.filter((blockchain) => {
+        const balance = getWalletTokenBalanceByBlockchain(wallet.id, currentToken, blockchain);
+        // Para tokens importantes, mostrar incluso con balance 0
+        if (importantTokens.includes(tokenUpper)) {
+          return true;
+        }
+        return balance > 0;
+      });
+
+      if (filteredBlockchains.length === 0) {
+        return [];
+      }
+
+      return filteredBlockchains.map((blockchain) => {
+        const balance = getWalletTokenBalanceByBlockchain(wallet.id, currentToken, blockchain);
+        const formattedBalance = `${formatTokenBalance(balance)} ${currentToken}`;
+
+        return {
+          id: `${wallet.id}-${blockchain}`,
+          originalId: wallet.id,
+          name: wallet.name,
+          type: wallet.type,
+          typeBadgeColor: getTypeBadgeColor(wallet.type),
+          blockchain: blockchain,
+          provider: wallet.provider,
+          formattedBalance,
+        };
+      });
     } else {
+      // Sin token seleccionado, mostrar la wallet normalmente
+      let formattedBalance = '-';
       const mainToken = walletMainTokens.value[wallet.id];
       if (mainToken) {
         formattedBalance = `${formatTokenBalance(mainToken.balance)} ${mainToken.token}`;
       }
-    }
 
-    return {
-      id: wallet.id,
-      name: wallet.name,
-      type: wallet.type,
-      typeBadgeColor: getTypeBadgeColor(wallet.type),
-      blockchain: wallet.blockchain,
-      provider: wallet.provider,
-      formattedBalance,
-    };
+      return [
+        {
+          id: wallet.id,
+          originalId: wallet.id,
+          name: wallet.name,
+          type: wallet.type,
+          typeBadgeColor: getTypeBadgeColor(wallet.type),
+          blockchain: wallet.blockchain,
+          provider: wallet.provider,
+          formattedBalance,
+        },
+      ];
+    }
   });
 });
 
@@ -527,20 +634,23 @@ const copyToClipboard = async (text: string) => {
 };
 
 const handleMoveFunds = (walletId: string) => {
-  const wallet = wallets.value.find((w) => w.id === walletId);
+  const walletData = tableWallets.value.find((w) => w.id === walletId);
+  const originalWalletId = walletData?.originalId || walletId;
+
+  const wallet = wallets.value.find((w) => w.id === originalWalletId);
   if (!wallet) {
-    console.error('[FireblocksDashboard] Wallet not found:', walletId);
+    console.error('[FireblocksDashboard] Wallet not found:', originalWalletId);
     return;
   }
 
-  const walletData = tableWallets.value.find((w) => w.id === walletId);
-  const mainToken = walletMainTokens.value[walletId];
+  const mainToken = walletMainTokens.value[originalWalletId];
+  const currentToken = selectedToken.value;
 
   emit('move-funds', {
-    walletId,
+    walletId: originalWalletId,
     walletName: wallet.name,
     balance: walletData?.formattedBalance || '-',
-    token: mainToken?.token || null,
+    token: currentToken || mainToken?.token || null,
   });
 };
 
