@@ -368,7 +368,7 @@ const parseAssetId = (assetId: string): { token: string; blockchain: string } =>
       break;
     }
   }
-  
+
   // Si contiene SOL, es Solana (verificar antes de extraer el token)
   if (assetIdUpper.includes('SOL') || assetIdUpper === 'SOL') {
     blockchain = 'Solana';
@@ -495,7 +495,7 @@ const tableWallets = computed(() => {
     const currentToken = selectedToken.value;
     if (currentToken) {
       const blockchains = getWalletTokenBlockchains(wallet.id, currentToken);
-      
+
       // Solo mostrar blockchains que tengan balance > 0 (excepto para tokens importantes)
       const importantTokens = ['ETH', 'BTC'];
       const tokenUpper = currentToken.toUpperCase();
@@ -535,16 +535,18 @@ const tableWallets = computed(() => {
         formattedBalance = `${formatTokenBalance(mainToken.balance)} ${mainToken.token}`;
       }
 
-      return [{
-        id: wallet.id,
-        originalId: wallet.id,
-        name: wallet.name,
-        type: wallet.type,
-        typeBadgeColor: getTypeBadgeColor(wallet.type),
-        blockchain: wallet.blockchain,
-        provider: wallet.provider,
-        formattedBalance,
-      }];
+      return [
+        {
+          id: wallet.id,
+          originalId: wallet.id,
+          name: wallet.name,
+          type: wallet.type,
+          typeBadgeColor: getTypeBadgeColor(wallet.type),
+          blockchain: wallet.blockchain,
+          provider: wallet.provider,
+          formattedBalance,
+        },
+      ];
     }
   });
 });
