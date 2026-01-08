@@ -11,7 +11,7 @@
     />
     <!-- TOTP Setup (first time) -->
     <TOTPSetup
-      v-else-if="user && !totpConfigured && !totpVerified && qrCode"
+      v-else-if="user && !totpConfigured && !otpVerified && qrCode"
       :qr-code="qrCode"
       :manual-entry-key="manualEntryKey"
       :dev-totp-code="devTotpCode"
@@ -21,14 +21,14 @@
     />
     <!-- Loading TOTP setup -->
     <div
-      v-else-if="user && !totpConfigured && !totpVerified && !qrCode"
+      v-else-if="user && !totpConfigured && !otpVerified && !qrCode"
       class="text-center p-6"
     >
       <LoadingSpinner message="Configurando autenticación de dos factores..." />
     </div>
     <!-- TOTP Verification (already configured) -->
     <div
-      v-else-if="user && totpConfigured && !totpVerified && qrCode === null"
+      v-else-if="user && totpConfigured && !otpVerified && qrCode === null"
       class="space-y-4"
     >
       <div class="text-center">
@@ -59,7 +59,7 @@
         :email="user.email || ''"
         :dev-otp-code="devTotpCode"
         :on-verify="handleVerifyTOTP"
-        :on-resend="() => {}"
+        :on-resend="async () => {}"
         @verified="handleTOTPVerified"
       />
     </div>
@@ -109,7 +109,9 @@ const totpConfigured = ref(false);
 const qrCode = ref<string | null>(null);
 const manualEntryKey = ref<string | null>(null);
 const devTotpCode = ref<string | null>(null);
-const fixedOtpCode = ref<string | null>(import.meta.env.DEV ? '123456' : null);
+// Fixed code only shown if devTotpCode is not available
+// The backend doesn't accept "123456" as a valid TOTP code
+const fixedOtpCode = ref<string | null>(null);
 let totpCodeInterval: ReturnType<typeof setInterval> | null = null;
 
 // Check TOTP status when user logs in
@@ -141,8 +143,23 @@ watch(
           // If configured but not verified in this session, show verification
           console.log('[LoginContainer] TOTP configured but not verified, showing verification');
           // TOTP is configured, user just needs to enter code
-          // Note: We can't get the secret here for dev code display (security)
-          // User must use Google Authenticator app
+          // In development, try to get the secret to show dev code
+          if (import.meta.env.DEV) {
+            try {
+              // Try to setup TOTP again to get the secret (only in dev)
+              const setupResponse = await setupTOTP();
+              if (setupResponse.secret) {
+                startTOTPCodeRefresh(setupResponse.secret);
+              }
+            } catch (setupErr: any) {
+              console.log('[LoginContainer] Could not get TOTP secret for dev code:', setupErr);
+              // If setup fails (maybe TOTP already configured), hide fixed code
+              fixedOtpCode.value = null;
+            }
+          } else {
+            // In production, user must use Google Authenticator app
+            fixedOtpCode.value = null;
+          }
         }
       } catch (err: any) {
         console.error('[LoginContainer] Error checking TOTP status:', err);
