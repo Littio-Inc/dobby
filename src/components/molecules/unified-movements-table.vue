@@ -484,6 +484,12 @@ const getStatusBadgeColor = (status: string): string => {
   if (statusLower.includes('pending') || statusLower.includes('pendiente')) {
     return 'bg-yellow-200 text-yellow-900';
   }
+  if (statusLower.includes('blocked') || statusLower.includes('bloqueado')) {
+    return 'bg-red-200 text-red-800';
+  }
+  if (statusLower.includes('submitted') || statusLower.includes('enviado')) {
+    return 'bg-blue-200 text-blue-800';
+  }
   return 'bg-neutral-100 text-neutral-700';
 };
 
