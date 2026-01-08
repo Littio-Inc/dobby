@@ -27,7 +27,7 @@ export interface GetBalanceParams {
 }
 
 export interface PayoutRequest {
-  recipient_id: string; // UUID of the recipient (id from Recipient)
+  recipient_id?: string; // UUID of the recipient (id from Recipient) - optional for exchange-only payouts
   wallet_id: string;
   reference: string;
   base_currency: string;
@@ -38,6 +38,7 @@ export interface PayoutRequest {
   token: string;
   provider: Provider;
   user_id?: string; // Optional, will be set by backend
+  exchange_only?: boolean; // If true, only perform exchange without recipient (for B2C)
 }
 
 export interface PayoutResponse {

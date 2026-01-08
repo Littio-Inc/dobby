@@ -112,7 +112,9 @@ const formattedTotalAmount = computed(() => {
     return '-';
   }
 
-  const selectedQuote = props.quotes.find((q) => q.provider.toLowerCase() === selectedProvider.value);
+  const selectedQuote = props.quotes.find(
+    (q) => (q.provider || '').toLowerCase() === (selectedProvider.value || '').toLowerCase(),
+  );
 
   // If quote has calculated amount, show it
   if (selectedQuote && selectedQuote.calculatedAmount && selectedQuote.calculatedAmount !== '-') {
@@ -135,8 +137,8 @@ const formattedTotalAmount = computed(() => {
           maximumFractionDigits: 0,
         })} ${currency}`;
       }
-    } catch {
-      // Ignore calculation errors
+    } catch (e) {
+      console.error('Error calculating amount:', e);
     }
   }
 
@@ -152,7 +154,9 @@ const canMonetize = computed(() => {
   if (!selectedRecipient.value) return false;
 
   // Must have a selected quote with amount
-  const selectedQuote = props.quotes.find((q) => q.provider.toLowerCase() === selectedProvider.value);
+  const selectedQuote = props.quotes.find(
+    (q) => (q.provider || '').toLowerCase() === (selectedProvider.value || '').toLowerCase(),
+  );
   if (!selectedQuote) return false;
 
   // Must have amount entered
@@ -187,13 +191,13 @@ const canMonetize = computed(() => {
   return true;
 });
 
-const handleProviderSelect = async (provider: string) => {
+const handleProviderSelect = (provider: string) => {
   selectedProvider.value = provider;
   selectedRecipient.value = ''; // Reset recipient when provider changes
 
   // Load recipients from API when a provider is selected
   if (provider) {
-    await loadRecipients();
+    loadRecipients();
   }
 };
 
@@ -407,6 +411,7 @@ const handleQuote = async (index: number, quote: Quote) => {
   const usdcBalance = props.usdcBalance ?? 0;
   const usdtBalance = props.usdtBalance ?? 0;
   const usdBalance = props.usdBalance ?? 0; // USD balance for Cobre
+  const supraUsdBalance = props.supraUsdBalance ?? 0; // USD balance for Supra
 
   // Check if provider is Cobre or Supra and currency is USD
   const providerLower = (quote.provider || '').toLowerCase();
@@ -485,7 +490,7 @@ const handleQuote = async (index: number, quote: Quote) => {
     savedQuote.value = quoteResponse;
 
     // Format rate from quote response (use rate if available, otherwise balam_rate)
-    const rateValue = quoteResponse.rate || quoteResponse.balam_rate;
+    const rateValue = quoteResponse.rate || quoteResponse.balam_rate || 0;
     const formattedRate = rateValue.toLocaleString('es-CO', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
@@ -555,7 +560,9 @@ const getRecipientDisplayName = (recipientId: string): string => {
 
 const handleMonetize = async () => {
   if (!canMonetize.value) return;
-  const selectedQuote = props.quotes.find((q) => q.provider.toLowerCase() === selectedProvider.value);
+  const selectedQuote = props.quotes.find(
+    (q) => (q.provider || '').toLowerCase() === (selectedProvider.value || '').toLowerCase(),
+  );
   if (!selectedQuote) return;
 
   // For Cobre and Supra, get quote from API if we don't have one
@@ -709,7 +716,7 @@ const executePayout = async (payoutData: any) => {
     // Reset form
     selectedRecipient.value = '';
     const updatedQuotes = props.quotes.map((q) => {
-      if (q.provider.toLowerCase() === selectedProvider.value) {
+      if ((q.provider || '').toLowerCase() === (selectedProvider.value || '').toLowerCase()) {
         return {
           ...q,
           amount: '',

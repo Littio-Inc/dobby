@@ -25,7 +25,8 @@
           <div class="flex items-center gap-4">
             <select
               :model-value="selectedRecipient || ''"
-              class="flex-1 px-4 py-2.5 border border-neutral-40 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky/20 focus:border-littio-secondary-sky appearance-none cursor-pointer"
+              :disabled="recipientDisabled"
+              class="flex-1 px-4 py-2.5 border border-neutral-40 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-littio-secondary-sky/20 focus:border-littio-secondary-sky appearance-none cursor-pointer disabled:bg-neutral-20 disabled:cursor-not-allowed"
               @change="$emit('update:selectedRecipient', ($event.target as HTMLSelectElement).value || '')"
             >
               <option value="">Seleccionar destinatario</option>
@@ -132,15 +133,21 @@ interface Provider {
   disabled: boolean;
 }
 
-const props = defineProps<{
-  selectedProvider: string;
-  selectedRecipient: string;
-  recipients: Recipient[];
-  availableProviders: Provider[];
-  formattedTotalAmount: string;
-  canMonetize: boolean;
-  isProcessing: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    selectedProvider: string;
+    selectedRecipient: string;
+    recipients?: Recipient[];
+    availableProviders: Provider[];
+    formattedTotalAmount: string;
+    canMonetize: boolean;
+    isProcessing: boolean;
+    recipientDisabled?: boolean;
+  }>(),
+  {
+    recipients: () => [],
+  },
+);
 
 defineEmits<{
   'update:selectedProvider': [value: string];
