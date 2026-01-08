@@ -555,7 +555,7 @@ const showProviderField = computed(() => {
 
 const availableNetworks = computed(() => {
   const networks = new Set<string>();
-  
+
   // Extraer redes de las accounts (wallets de Fireblocks)
   // Por ahora solo usamos accounts ya que blockchainWallets aún no está implementado en producción
   accounts.value.forEach((account) => {
@@ -570,7 +570,7 @@ const availableNetworks = computed(() => {
       }
     });
   });
-  
+
   // TODO: Cuando blockchainWallets esté implementado en producción, agregar aquí:
   // blockchainWallets.value.forEach((wallet) => {
   //   if (wallet.network && wallet.enabled) {
@@ -578,7 +578,7 @@ const availableNetworks = computed(() => {
   //     networks.add(networkName);
   //   }
   // });
-  
+
   return Array.from(networks).sort();
 });
 
@@ -750,7 +750,7 @@ const updateOriginWallets = () => {
 
   const tokenUpper = formData.value.token.toUpperCase();
   const importantTokens = ['ETH', 'BTC'];
-  
+
   // Obtener el blockchain correspondiente a la red seleccionada
   const targetBlockchain = getBlockchainFromNetwork(formData.value.network);
   if (!targetBlockchain) {
@@ -862,20 +862,6 @@ const parseAssetId = (assetId: string): { token: string; blockchain: string } =>
   }
 
   return { token, blockchain };
-};
-
-const getWalletTokenBalance = (account: DiagonAccountResponse, tokenSymbol: string): number => {
-  const tokenUpper = tokenSymbol.toUpperCase();
-  let totalBalance = 0;
-
-  for (const asset of account.assets) {
-    const { token } = parseAssetId(asset.id);
-    if (token.toUpperCase() === tokenUpper) {
-      totalBalance += parseFloat(asset.balance) || 0;
-    }
-  }
-
-  return totalBalance;
 };
 
 // Obtiene el balance de un token en una blockchain específica
@@ -1001,7 +987,7 @@ const extractAvailableTokens = (
 ): Array<{ symbol: string; badgeColor: string }> => {
   const tokenSet = new Set<string>();
   const importantTokens = ['ETH', 'BTC'];
-  
+
   // Si hay una red seleccionada, obtener el blockchain correspondiente
   const targetBlockchain = selectedNetwork ? getBlockchainFromNetwork(selectedNetwork) : null;
 
@@ -1089,7 +1075,11 @@ const loadWallets = async () => {
 
     // Si hay un token predefinido y hay una red seleccionada, intentar establecerlo
     const normalizedWalletToken = props.walletToken?.toUpperCase();
-    if (normalizedWalletToken && formData.value.network && availableTokens.value.some((t) => t.symbol === normalizedWalletToken)) {
+    if (
+      normalizedWalletToken &&
+      formData.value.network &&
+      availableTokens.value.some((t) => t.symbol === normalizedWalletToken)
+    ) {
       formData.value.token = normalizedWalletToken;
       updateOriginWallets();
     }
@@ -1305,18 +1295,6 @@ const handleProviderChange = () => {
   updateDestinationWallets();
 };
 
-const getNetworkFromBlockchain = (blockchain: string): string => {
-  const networkMap: Record<string, string> = {
-    Polygon: 'polygon',
-    Ethereum: 'ethereum',
-    Bitcoin: 'bitcoin',
-    Avalanche: 'avalanche',
-    BaseChain: 'base',
-    Solana: 'solana',
-  };
-  return networkMap[blockchain] || blockchain.toLowerCase();
-};
-
 // Convierte el nombre de red del formulario (ej: "POLYGON") al formato de la API (ej: "polygon")
 const getNetworkForApi = (networkDisplayName: string): string => {
   return networkDisplayName.toLowerCase();
@@ -1447,12 +1425,14 @@ const handleSubmit = async () => {
       if (isInternalTransfer) {
         // TODO: Cuando blockchainWallets esté implementado, usar estos IDs
         // Por ahora, si blockchainWallets está vacío, usamos los walletIds directamente
-        const originBlockchainWallet = blockchainWallets.value.length > 0
-          ? blockchainWallets.value.find((bw) => bw.provider_id === formData.value.originWallet)
-          : null;
-        const destinationBlockchainWallet = blockchainWallets.value.length > 0
-          ? blockchainWallets.value.find((bw) => bw.provider_id === formData.value.destinationWallet)
-          : null;
+        const originBlockchainWallet =
+          blockchainWallets.value.length > 0
+            ? blockchainWallets.value.find((bw) => bw.provider_id === formData.value.originWallet)
+            : null;
+        const destinationBlockchainWallet =
+          blockchainWallets.value.length > 0
+            ? blockchainWallets.value.find((bw) => bw.provider_id === formData.value.destinationWallet)
+            : null;
 
         const originBlockchainWalletId = originBlockchainWallet?.id || formData.value.originWallet;
         const destinationBlockchainWalletId = destinationBlockchainWallet?.id || formData.value.destinationWallet;
@@ -1469,9 +1449,10 @@ const handleSubmit = async () => {
       } else if (isWithdrawal) {
         // TODO: Cuando blockchainWallets esté implementado, usar este ID
         // Por ahora, si blockchainWallets está vacío, usamos el walletId directamente
-        const blockchainWallet = blockchainWallets.value.length > 0
-          ? blockchainWallets.value.find((bw) => bw.provider_id === formData.value.originWallet)
-          : null;
+        const blockchainWallet =
+          blockchainWallets.value.length > 0
+            ? blockchainWallets.value.find((bw) => bw.provider_id === formData.value.originWallet)
+            : null;
 
         const blockchainWalletId = blockchainWallet?.id || formData.value.originWallet;
 
