@@ -687,24 +687,16 @@ export class AzkabanService {
         );
 
         const [response1, response2] = await Promise.all([
-          azkabanApi.post<BackofficeTransaction>(
-            AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS,
-            payload1,
-            {
-              headers: {
-                'Idempotency-Key': idempotencyKey1,
-              },
+          azkabanApi.post<BackofficeTransaction>(AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS, payload1, {
+            headers: {
+              'Idempotency-Key': idempotencyKey1,
             },
-          ),
-          azkabanApi.post<BackofficeTransaction>(
-            AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS,
-            payload2,
-            {
-              headers: {
-                'Idempotency-Key': idempotencyKey2,
-              },
+          }),
+          azkabanApi.post<BackofficeTransaction>(AZKABAN_ENDPOINTS.GET_BACKOFFICE_TRANSACTIONS, payload2, {
+            headers: {
+              'Idempotency-Key': idempotencyKey2,
             },
-          ),
+          }),
         ]);
 
         return [response1.data, response2.data];
