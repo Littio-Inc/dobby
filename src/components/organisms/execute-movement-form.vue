@@ -1258,8 +1258,20 @@ const handleSubmit = async () => {
           (bw) => bw.provider_id === formData.value.destinationWallet,
         );
 
-        const originBlockchainWalletId = originBlockchainWallet?.id || formData.value.originWallet;
-        const destinationBlockchainWalletId = destinationBlockchainWallet?.id || formData.value.destinationWallet;
+        const originBlockchainWalletId = originBlockchainWallet?.id;
+        const destinationBlockchainWalletId = destinationBlockchainWallet?.id;
+
+        if (!originBlockchainWalletId) {
+          throw new Error(
+            `No se encontró blockchain_wallet.id para la wallet de origen: ${originWalletName} (provider_id: ${formData.value.originWallet}). Por favor, verifique que la wallet tenga un blockchain_wallet asociado.`,
+          );
+        }
+
+        if (!destinationBlockchainWalletId) {
+          throw new Error(
+            `No se encontró blockchain_wallet.id para la wallet de destino: ${destinationWalletName} (provider_id: ${formData.value.destinationWallet}). Por favor, verifique que la wallet tenga un blockchain_wallet asociado.`,
+          );
+        }
 
         await AzkabanService.createBackofficeTransaction({
           ...commonParams,
@@ -1273,7 +1285,13 @@ const handleSubmit = async () => {
       } else if (isWithdrawal) {
         const blockchainWallet = blockchainWallets.value.find((bw) => bw.provider_id === formData.value.originWallet);
 
-        const blockchainWalletId = blockchainWallet?.id || formData.value.originWallet;
+        const blockchainWalletId = blockchainWallet?.id;
+
+        if (!blockchainWalletId) {
+          throw new Error(
+            `No se encontró blockchain_wallet.id para la wallet de origen: ${originWalletName} (provider_id: ${formData.value.originWallet}). Por favor, verifique que la wallet tenga un blockchain_wallet asociado.`,
+          );
+        }
 
         const destinationWallet = destinationWallets.value.find(
           (w) => 'address' in w && w.id === formData.value.destinationWallet,
