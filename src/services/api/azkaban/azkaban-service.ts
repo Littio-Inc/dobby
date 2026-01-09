@@ -1,5 +1,6 @@
 import { azkabanApi } from '../../../stores/common/api-client';
 import { $user } from '../../../stores/auth-store';
+import { getEnvironment, isProduction } from '../../../utils/environment';
 
 const AZKABAN_ENDPOINTS = {
   GET_ACCOUNTS: '/v1/vault/accounts',
@@ -766,11 +767,141 @@ export class AzkabanService {
   }
 
   /**
+   * Mock de external wallets para producción
+   */
+  private static getProductionMockWallets(): ExternalWallet[] {
+    return [
+      {
+        id: 'edbd06be-e9b0-4739-ad91-41b7dc83c594',
+        name: 'BOTH_COBRE_B2C',
+        assets: [
+          {
+            id: 'USDT_POLYGON',
+            status: 'APPROVED',
+            address: '0x4A99D2Bc4bf591a0a6FC39B1D24cD6959c609391',
+            tag: '',
+          },
+          {
+            id: 'USDC_POLYGON_NXTB',
+            status: 'APPROVED',
+            address: '0x4A99D2Bc4bf591a0a6FC39B1D24cD6959c609391',
+            tag: '',
+          },
+        ],
+      },
+      {
+        id: '8bf82d61-7574-41b1-8af5-0c5f1d543f35',
+        name: 'PROVIDER_KIRA_B2B',
+        assets: [
+          {
+            id: 'USDT_POLYGON',
+            status: 'APPROVED',
+            address: '0xB9fE096DA4b371FC0c8eCEB5DACb6931E0748C43',
+            tag: '',
+          },
+          {
+            id: 'USDC_POLYGON_NXTB',
+            status: 'APPROVED',
+            address: '0xB9fE096DA4b371FC0c8eCEB5DACb6931E0748C43',
+            tag: '',
+          },
+        ],
+      },
+      {
+        id: '8bf82d61-7574-41b1-8af5-0c5f1d543f36',
+        name: 'PROVIDER_KIRA_POMELO',
+        assets: [
+          {
+            id: 'USDT_POLYGON',
+            status: 'APPROVED',
+            address: '0x2E95787CB5Fe967257aF440a4134080018dffE54',
+            tag: '',
+          },
+          {
+            id: 'USDC_POLYGON_NXTB',
+            status: 'APPROVED',
+            address: '0x2E95787CB5Fe967257aF440a4134080018dffE54',
+            tag: '',
+          },
+        ],
+      },
+      {
+        id: 'de129840-bcea-40b4-993c-04dc342d78bb',
+        name: 'PROVIDER_SUPRA',
+        assets: [
+          {
+            id: 'USDC',
+            status: 'APPROVED',
+            address: '0x821d8547515dcD513e2f5eBb0EA684A003B85a58',
+            tag: '',
+          },
+          {
+            id: 'USDT_ERC20',
+            status: 'APPROVED',
+            address: '0x821d8547515dcD513e2f5eBb0EA684A003B85a58',
+            tag: '',
+          },
+          {
+            id: 'USDT_POLYGON',
+            status: 'APPROVED',
+            address: '0x821d8547515dcD513e2f5eBb0EA684A003B85a58',
+            tag: '',
+          },
+        ],
+      },
+      {
+        id: 'dbee134f-b6f0-428b-8992-2813ca3f4bd0',
+        name: 'B2C_BRIDGE',
+        assets: [
+          {
+            id: 'USDC_POLYGON',
+            status: 'APPROVED',
+            address: '0x56dD4D9A4236Acbe5C6F6E0970A41b26A27d62e6',
+            tag: '',
+          },
+        ],
+      },
+      {
+        id: 'dbee134f-b6f0-428b-8992-2813ca3f4bd1',
+        name: 'B2C_KOYWE',
+        assets: [
+          {
+            id: 'USDC_POLYGON',
+            status: 'APPROVED',
+            address: '0x97F3539EbEA7844C1BfBdbC00b82F285D2f5D32f',
+            tag: '',
+          },
+        ],
+      },
+      {
+        id: 'dbee134f-b6f0-428b-8992-2813ca3f4bd2',
+        name: 'B2C_BLOCKCHAIN',
+        assets: [
+          {
+            id: 'USDC_POLYGON',
+            status: 'APPROVED',
+            address: '0xE95DFf9E426F8135F018534C4bA2dE9f9E42783F',
+            tag: '',
+          },
+        ],
+      },
+    ];
+  }
+
+  /**
    * Obtiene el listado de wallets externas
    * @returns Respuesta con las wallets externas (puede ser un array vacío si no hay wallets)
    */
   static async getExternalWallets(): Promise<ExternalWallet[]> {
     try {
+      const environment = getEnvironment();
+      console.log('[AzkabanService] Obteniendo external wallets en ambiente:', environment);
+
+      if (isProduction()) {
+        console.log('[AzkabanService] Usando mock de external wallets para producción');
+        return this.getProductionMockWallets();
+      }
+
       const response = await azkabanApi.get<ExternalWalletsResponse>(AZKABAN_ENDPOINTS.GET_EXTERNAL_WALLETS);
 
       if (!Array.isArray(response.data.data)) {

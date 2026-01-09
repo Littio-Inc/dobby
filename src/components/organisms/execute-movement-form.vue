@@ -607,17 +607,23 @@ const getBlockchainFromNetwork = (networkDisplayName: string): string | null => 
   return networkToBlockchainMap[networkDisplayName] || null;
 };
 
-const extractProviderFromWalletName = (walletName: string, prefix: string): string | null => {
-  if (!walletName.toUpperCase().startsWith(prefix.toUpperCase())) {
-    return null;
+/**
+ * Extrae el provider de una wallet considerando múltiples prefijos posibles
+ * Para BOTH_, extrae el provider después del prefijo BOTH_
+ */
+const extractProviderFromWalletNameWithMultiplePrefixes = (walletName: string, prefixes: string[]): string | null => {
+  const walletNameUpper = walletName.toUpperCase();
+
+  for (const prefix of prefixes) {
+    if (walletNameUpper.startsWith(prefix.toUpperCase())) {
+      const providerPart = walletName.substring(prefix.length);
+      if (providerPart) {
+        return providerPart.toLowerCase();
+      }
+    }
   }
 
-  const providerPart = walletName.substring(prefix.length);
-  if (!providerPart) {
-    return null;
-  }
-
-  return providerPart.toLowerCase();
+  return null;
 };
 
 const getProviderDisplayName = (providerValue: string): string => {
@@ -637,7 +643,8 @@ const availableProviders = computed(() => {
   if (formData.value.operationType === 'prefunding_provider') {
     const providers = new Set<string>();
     externalWallets.value.forEach((wallet) => {
-      const provider = extractProviderFromWalletName(wallet.name, 'PROVIDER_');
+      // Incluir wallets con prefijo PROVIDER_ o BOTH_
+      const provider = extractProviderFromWalletNameWithMultiplePrefixes(wallet.name, ['PROVIDER_', 'BOTH_']);
       if (provider) {
         const baseProvider = getUniqueProviderBase(provider);
         providers.add(baseProvider);
@@ -655,7 +662,8 @@ const availableProviders = computed(() => {
   if (formData.value.operationType === 'b2c_funding') {
     const providers = new Set<string>();
     externalWallets.value.forEach((wallet) => {
-      const provider = extractProviderFromWalletName(wallet.name, 'B2C_');
+      // Incluir wallets con prefijo B2C_ o BOTH_
+      const provider = extractProviderFromWalletNameWithMultiplePrefixes(wallet.name, ['B2C_', 'BOTH_']);
       if (provider) {
         const baseProvider = getUniqueProviderBase(provider);
         providers.add(baseProvider);
@@ -1256,11 +1264,14 @@ const updateDestinationWallets = () => {
     const providerValue = formData.value.provider.toLowerCase();
     const tokenUpper = formData.value.token.toUpperCase();
 
-    const prefix = formData.value.operationType === 'prefunding_provider' ? 'PROVIDER_' : 'B2C_';
+    // Para prefunding_provider: incluir PROVIDER_ y BOTH_
+    // Para b2c_funding: incluir B2C_ y BOTH_
+    const prefixes =
+      formData.value.operationType === 'prefunding_provider' ? ['PROVIDER_', 'BOTH_'] : ['B2C_', 'BOTH_'];
 
     destinationWallets.value = externalWallets.value
       .filter((wallet) => {
-        const walletProvider = extractProviderFromWalletName(wallet.name, prefix);
+        const walletProvider = extractProviderFromWalletNameWithMultiplePrefixes(wallet.name, prefixes);
         if (!walletProvider) {
           return false;
         }
@@ -1275,7 +1286,8 @@ const updateDestinationWallets = () => {
             return token.toUpperCase() === tokenUpper;
           })
           .map((asset) => {
-            const nameWithoutPrefix = wallet.name.replace(new RegExp(`^${prefix}`, 'i'), '');
+            // Remover cualquier prefijo (PROVIDER_, B2C_, o BOTH_)
+            const nameWithoutPrefix = wallet.name.replace(/^(PROVIDER_|B2C_|BOTH_)/i, '');
             return {
               id: `${wallet.id}-${asset.id}`,
               name: nameWithoutPrefix.replace(/_/g, ' '),
