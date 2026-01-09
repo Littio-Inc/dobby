@@ -7,16 +7,12 @@ export const getEnvironment = (): 'staging' | 'production' | 'development' => {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     const origin = window.location.origin;
-    
+
     // Development: localhost
-    if (
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      origin.includes('localhost:4321')
-    ) {
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || origin.includes('localhost:4321')) {
       return 'development';
     }
-    
+
     // Staging: dobby-dev.littio-api.co
     if (
       hostname === 'dobby-dev.littio-api.co' ||
@@ -25,25 +21,21 @@ export const getEnvironment = (): 'staging' | 'production' | 'development' => {
     ) {
       return 'staging';
     }
-    
+
     // Production: hub.littio.co
-    if (
-      hostname === 'hub.littio.co' ||
-      hostname.includes('hub.littio.co') ||
-      origin.includes('hub.littio.co')
-    ) {
+    if (hostname === 'hub.littio.co' || hostname.includes('hub.littio.co') || origin.includes('hub.littio.co')) {
       return 'production';
     }
-    
+
     // Fallback: si no coincide con ninguno, intentar detectar por patrones
     if (hostname.includes('staging') || hostname.includes('dev') || hostname.includes('test')) {
       return 'staging';
     }
-    
+
     // Por defecto, asumir production
     return 'production';
   }
-  
+
   // En el servidor (SSR) - usar NODE_ENV como fallback
   if (typeof process !== 'undefined') {
     if (process.env.NODE_ENV === 'development') {
@@ -51,7 +43,7 @@ export const getEnvironment = (): 'staging' | 'production' | 'development' => {
     }
     return 'production';
   }
-  
+
   // Fallback
   return 'production';
 };
@@ -96,4 +88,3 @@ export const getCurrentOrigin = (): string => {
   }
   return '';
 };
-

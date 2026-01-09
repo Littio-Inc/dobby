@@ -607,29 +607,13 @@ const getBlockchainFromNetwork = (networkDisplayName: string): string | null => 
   return networkToBlockchainMap[networkDisplayName] || null;
 };
 
-const extractProviderFromWalletName = (walletName: string, prefix: string): string | null => {
-  if (!walletName.toUpperCase().startsWith(prefix.toUpperCase())) {
-    return null;
-  }
-
-  const providerPart = walletName.substring(prefix.length);
-  if (!providerPart) {
-    return null;
-  }
-
-  return providerPart.toLowerCase();
-};
-
 /**
  * Extrae el provider de una wallet considerando múltiples prefijos posibles
  * Para BOTH_, extrae el provider después del prefijo BOTH_
  */
-const extractProviderFromWalletNameWithMultiplePrefixes = (
-  walletName: string,
-  prefixes: string[],
-): string | null => {
+const extractProviderFromWalletNameWithMultiplePrefixes = (walletName: string, prefixes: string[]): string | null => {
   const walletNameUpper = walletName.toUpperCase();
-  
+
   for (const prefix of prefixes) {
     if (walletNameUpper.startsWith(prefix.toUpperCase())) {
       const providerPart = walletName.substring(prefix.length);
@@ -638,7 +622,7 @@ const extractProviderFromWalletNameWithMultiplePrefixes = (
       }
     }
   }
-  
+
   return null;
 };
 

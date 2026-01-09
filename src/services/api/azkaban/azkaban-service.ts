@@ -1,6 +1,6 @@
 import { azkabanApi } from '../../../stores/common/api-client';
 import { $user } from '../../../stores/auth-store';
-import { getEnvironment, isStaging, isProduction, isDevelopment } from '../../../utils/environment';
+import { getEnvironment, isProduction } from '../../../utils/environment';
 
 const AZKABAN_ENDPOINTS = {
   GET_ACCOUNTS: '/v1/vault/accounts',
