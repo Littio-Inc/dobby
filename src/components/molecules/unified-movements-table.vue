@@ -29,6 +29,9 @@
         <table class="w-full">
           <thead class="bg-neutral-10 border-b border-neutral-20">
             <tr>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
+                Transaction ID
+              </th>
               <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">ST ID</th>
               <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
                 <div class="flex items-center gap-1">
@@ -48,75 +51,19 @@
                   </svg>
                 </div>
               </th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">Tipo</th>
               <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
-                <div class="flex items-center gap-1">
-                  Tipo
-                  <svg
-                    class="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
-                    />
-                  </svg>
-                </div>
+                Proveedor
+              </th>
+              <th class="px-6 py-3 text-right text-xs font-semibold text-neutral-60 uppercase tracking-wider">Monto</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
+                Currency
               </th>
               <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">
-                <div class="flex items-center gap-1">
-                  Proveedor
-                  <svg
-                    class="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
-                    />
-                  </svg>
-                </div>
+                ST Hash
               </th>
               <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">Método</th>
               <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">Status</th>
-              <th class="px-6 py-3 text-right text-xs font-semibold text-neutral-60 uppercase tracking-wider">
-                <div class="flex items-center justify-end gap-1">
-                  Monto
-                  <svg
-                    class="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
-                    />
-                  </svg>
-                </div>
-              </th>
-              <th
-                v-if="showFees"
-                class="px-6 py-3 text-right text-xs font-semibold text-neutral-60 uppercase tracking-wider"
-              >
-                Fees
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider">Rate</th>
-              <th
-                v-if="showHash"
-                class="px-6 py-3 text-left text-xs font-semibold text-neutral-60 uppercase tracking-wider"
-              >
-                Hash
-              </th>
             </tr>
           </thead>
           <tbody class="divide-y divide-neutral-20">
@@ -138,10 +85,36 @@
             >
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="flex items-center gap-2">
-                  <span class="text-sm text-neutral-80">{{ transaction.st_id || transaction.id.substring(0, 8) }}</span>
+                  <span class="text-sm text-neutral-80">{{
+                    transaction.transaction_id || transaction.id.substring(0, 8)
+                  }}</span>
                   <button
                     class="text-neutral-60 hover:text-neutral-80"
-                    @click="copyToClipboard(transaction.st_id || transaction.id)"
+                    @click="copyToClipboard(transaction.transaction_id || transaction.id)"
+                  >
+                    <svg
+                      class="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm text-neutral-80">{{ transaction.st_id || '-' }}</span>
+                  <button
+                    v-if="transaction.st_id"
+                    class="text-neutral-60 hover:text-neutral-80"
+                    @click="copyToClipboard(transaction.st_id)"
                   >
                     <svg
                       class="w-4 h-4"
@@ -175,6 +148,50 @@
               <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-80">
                 {{ transaction.provider.toUpperCase() }}
               </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right">
+                <span class="text-sm font-medium text-neutral-80">{{ formatNumber(transaction.amount) }}</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span
+                  :class="[
+                    'px-2 py-0.5 rounded text-xs font-semibold',
+                    getTokenBadgeColor(transaction.currency) || 'bg-neutral-100 text-neutral-700',
+                  ]"
+                >
+                  {{ transaction.currency }}
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div
+                  v-if="transaction.st_hash"
+                  class="flex items-center gap-2"
+                >
+                  <span class="text-sm text-neutral-80">{{ transaction.st_hash }}</span>
+                  <button
+                    class="text-neutral-60 hover:text-neutral-80"
+                    @click="copyToClipboard(transaction.st_hash)"
+                  >
+                    <svg
+                      class="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                <span
+                  v-else
+                  class="text-sm text-neutral-60"
+                  >-</span
+                >
+              </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <span
                   :class="['px-2 py-1 rounded-full text-xs font-semibold', getMethodBadgeColor(transaction.method)]"
@@ -191,52 +208,6 @@
                 >
                   {{ getTransactionStatusDisplay(transaction) }}
                 </span>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right">
-                <div class="flex items-center justify-end gap-2">
-                  <span class="text-sm font-medium text-neutral-80">{{ formatNumber(transaction.amount) }}</span>
-                  <span
-                    :class="[
-                      'px-2 py-0.5 rounded text-xs font-semibold',
-                      getTokenBadgeColor(transaction.currency) || 'bg-neutral-100 text-neutral-700',
-                    ]"
-                  >
-                    {{ transaction.currency }}
-                  </span>
-                </div>
-              </td>
-              <td
-                v-if="showFees"
-                class="px-6 py-4 whitespace-nowrap text-right"
-              >
-                <div
-                  v-if="transaction.fees && parseFloat(transaction.fees) > 0"
-                  class="flex items-center justify-end gap-2"
-                >
-                  <span class="text-sm text-neutral-80">{{ formatNumber(transaction.fees) }}</span>
-                  <span
-                    :class="[
-                      'px-2 py-0.5 rounded text-xs font-semibold',
-                      getTokenBadgeColor(transaction.currency) || 'bg-neutral-100 text-neutral-700',
-                    ]"
-                  >
-                    {{ transaction.currency }}
-                  </span>
-                </div>
-                <span
-                  v-else
-                  class="text-sm text-neutral-60"
-                  >-</span
-                >
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-neutral-80">
-                {{ formatRate(transaction.rate) }}
-              </td>
-              <td
-                v-if="showHash"
-                class="px-6 py-4 whitespace-nowrap text-sm text-neutral-80"
-              >
-                {{ transaction.st_hash || transaction.transfer_id || '-' }}
               </td>
             </tr>
           </tbody>
@@ -315,8 +286,6 @@ interface Props {
   excludeProvider?: string;
   movementType?: string;
   title?: string;
-  showFees?: boolean;
-  showHash?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -324,12 +293,10 @@ const props = withDefaults(defineProps<Props>(), {
   excludeProvider: undefined,
   movementType: undefined,
   title: 'Movimientos Unificados',
-  showFees: true,
-  showHash: false,
 });
 
 const getTotalColumns = () => {
-  return props.showFees ? (props.showHash ? 10 : 9) : props.showHash ? 9 : 8;
+  return 10; // transaction_id, st_id, created_at, type, provider, amount, currency, st_hash, method, status
 };
 
 // Estados para transacciones de backoffice
@@ -440,18 +407,6 @@ const formatNumber = (amount: string): string => {
   return numAmount.toLocaleString('es-ES', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  });
-};
-
-const formatRate = (rate: string | null | undefined): string => {
-  if (!rate) return '-';
-  const rateValue = parseFloat(rate);
-  if (!Number.isFinite(rateValue) || isNaN(rateValue)) return '-';
-  if (rateValue === 1.0 || rateValue === 1) return '-';
-  if (rateValue <= 0) return '-';
-  return rateValue.toLocaleString('es-ES', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 6,
   });
 };
 
