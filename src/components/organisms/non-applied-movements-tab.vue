@@ -8,7 +8,6 @@
       exclude-provider="fireblocks,kira"
       movement-type="internal"
       title="Transacciones de Proveedores No Apificados"
-      :show-fees="false"
     />
   </div>
 </template>

@@ -622,7 +622,6 @@
         exclude-provider="kira,cobre"
         movement-type="monetization"
         title="Historial de Transacciones"
-        :show-fees="false"
       />
     </div>
   </div>
